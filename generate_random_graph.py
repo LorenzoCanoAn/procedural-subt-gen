@@ -8,8 +8,9 @@ import open3d
 PROB_DIVERGENCE = 0.1
 PROB_STOP = 0.1
 MAX_SEGMENT_INCLINATION = 10/180 * math.pi  # rad
-MIN_DIST_OF_MESH_POINTS = 1  # meters
+MIN_DIST_OF_MESH_POINTS = 0.5  # meters
 TUNNEL_AVG_RADIUS = 3
+MIN_ANGLE_FOR_INTERSECTIONS = np.deg2rad(30)
 
 
 def angles_to_vector(angles):
@@ -28,18 +29,25 @@ def vector_to_angles(vector):
     return th, ph
 
 
-def warp_angle(angle):
+def warp_angle_2pi(angle):
     while angle < 0:
         angle += 2*math.pi
     return angle % (2*math.pi)
 
 
+def warp_angle_pi(angle):
+    new_angle = warp_angle_2pi(angle)
+    if new_angle > np.pi:
+        new_angle -= 2*math.pi
+    return new_angle
+
+
 def add_noise_to_direction(direction, horizontal_tendency, horizontal_noise, vertical_tendency, vertical_noise):
     assert direction.size == 3
     th, ph = vector_to_angles(direction)
-    horizontal_deviation = np.random.normal(horizontal_tendency, horizontal_noise)
-    print(np.rad2deg(horizontal_deviation))
-    th = warp_angle(th + horizontal_deviation)
+    horizontal_deviation = np.random.normal(
+        horizontal_tendency, horizontal_noise)
+    th = warp_angle_2pi(th + horizontal_deviation)
 
     ph = np.random.normal(vertical_tendency, vertical_noise)
     if abs(ph) > MAX_SEGMENT_INCLINATION:
@@ -62,7 +70,34 @@ def correct_inclination(direction):
         return direction
 
 
-def get_mesh_from_graph(graph):
+def correct_direction_of_intersecting_tunnel(direction, intersecting_node, angle_threshold=MIN_ANGLE_FOR_INTERSECTIONS):
+    if len(intersecting_node.connected_nodes) == 0:
+        return direction
+    th0, ph1 = vector_to_angles(direction)
+    closest_neg_angle, closest_pos_angle = np.pi, np.pi
+    min_neg_difference, min_pos_difference = np.pi, np.pi
+    for node in intersecting_node.connected_nodes:
+        th1, ph1 = vector_to_angles(intersecting_node.xyz - node.xyz)
+        difference = warp_angle_pi(th1-th0)
+        if difference < 0 and abs(difference) < abs(min_neg_difference):
+            min_neg_difference = difference
+            closest_neg_angle = th1
+        elif difference > 0 and (difference) < abs(min_pos_difference):
+            min_pos_difference = difference
+            closest_pos_angle = th1
+    if abs(min_pos_difference) < angle_threshold and abs(min_neg_difference) < angle_threshold:
+        return None
+    if abs(min_neg_difference) < angle_threshold:
+        thf = closest_neg_angle + angle_threshold
+        return angles_to_vector((thf, ph1))
+    elif abs(min_pos_difference) < angle_threshold:
+        thf = closest_pos_angle - angle_threshold
+        return angles_to_vector((thf, ph1))
+    else:
+        return direction
+
+
+def get_mesh_vertices_from_graph(graph, smooth_floor=1):
     points = None
     normals = None
     for edge in graph.edges:
@@ -78,18 +113,22 @@ def get_mesh_from_graph(graph):
         u2 = np.cross(u1, dir)
         u1 = np.reshape(u1, [-1, 1])
         u2 = np.reshape(u2, [-1, 1])
-        for i in range(n+1):
+        for i in range(1, n+1):
             central_point = p0 + v*i
             central_point = np.reshape(central_point, [-1, 1])
-            angles = np.random.uniform(0, 2*math.pi, 5)
+            angles = np.random.uniform(0, 2*math.pi, 20)
             normals_ = u1*np.sin(angles) + u2*np.cos(angles)
             normals_ /= np.linalg.norm(normals_, axis=0)
+            points_ = central_point + normals_ * \
+                np.random.normal(TUNNEL_AVG_RADIUS, 0)
+            if not smooth_floor is None:
+                indices_to_correct = (points_ - central_point)[-1,:]<(-smooth_floor)
+                points_[-1,np.where(indices_to_correct)] = central_point[-1]-smooth_floor
             if points is None:
-                points = central_point + normals_*TUNNEL_AVG_RADIUS
+                points = points_
                 normals = -normals_
             else:
-                points = np.hstack(
-                    [points, central_point+normals_*TUNNEL_AVG_RADIUS])
+                points = np.hstack([points, points_])
                 normals = np.hstack([normals, -normals_])
     return points, normals
 
@@ -129,15 +168,17 @@ class Edge:
         n0.add_connection(n1)
         n1.add_connection(n0)
 
-    def __del__(self):
-        n0, n1 = self.nodes
-        n0.remove_connection(n1)
-        n1.remove_connection(n0)
-
     def __getitem__(self, index):
         return self.nodes[index]
 
-    def plot(self, ax):
+    def plot2d(self, ax):
+        x0 = self.nodes[0].x
+        x1 = self.nodes[1].x
+        y0 = self.nodes[0].y
+        y1 = self.nodes[1].y
+        ax.plot([x0, x1], [y0, y1], c="k")
+
+    def plot3d(self, ax):
         x0 = self.nodes[0].x
         x1 = self.nodes[1].x
         y0 = self.nodes[0].y
@@ -151,6 +192,7 @@ class Tunnel:
     def __init__(self, parent):
         assert isinstance(parent, Graph)
         self.parent = parent
+        self.parent.tunnels.append(self)
         # The nodes should be ordered
         self.nodes = list()
 
@@ -199,26 +241,42 @@ class Graph:
 
     def add_node(self, node):
         self.recalculate_control = True
-        self.nodes.append(node)
+        if not node in self.nodes:
+            self.nodes.append(node)
 
     def connect_nodes(self, n1, n2):
         self.recalculate_control = True
         self.edges.append(Edge(n1, n2))
 
     def add_floating_tunnel(self,
-                            distance=None,
-                            starting_point_coords=None,
-                            starting_direction=None,
-                            horizontal_tendency=None,
-                            horizontal_noise=None,
-                            vertical_tendency=None,
-                            vertical_noise=None,
-                            segment_length_avg=None,
-                            segment_length_std=None):
-        tunnel = Tunnel(self)
-        previous_orientation = starting_direction
+                            distance,
+                            starting_point_coords,
+                            starting_direction,
+                            horizontal_tendency,
+                            horizontal_noise,
+                            vertical_tendency,
+                            vertical_noise,
+                            segment_length_avg,
+                            segment_length_std):
         previous_node = Node(starting_point_coords)
-        tunnel.add_node(previous_node)
+        self.add_tunnel(previous_node, distance, starting_direction, horizontal_tendency,
+                        horizontal_noise, vertical_tendency, vertical_noise, segment_length_avg, segment_length_std)
+
+    def add_tunnel(self,
+                   first_node,
+                   distance,
+                   starting_direction,
+                   horizontal_tendency,
+                   horizontal_noise,
+                   vertical_tendency,
+                   vertical_noise,
+                   segment_length_avg,
+                   segment_length_std):
+        tunnel = Tunnel(self)
+        tunnel.add_node(first_node)
+        previous_orientation = correct_direction_of_intersecting_tunnel(
+            starting_direction, first_node)
+        previous_node = first_node
         d = 0
         while d < distance:
             # create the orientation of the segment
@@ -229,7 +287,7 @@ class Graph:
             d += segment_length
             new_node_coords = previous_node.xyz + segment_orientation * segment_length
             new_node = Node(coords=new_node_coords)
-            self.add_node(new_node)
+            tunnel.add_node(new_node)
             self.connect_nodes(previous_node, new_node)
             previous_node = new_node
             previous_orientation = segment_orientation
@@ -261,11 +319,25 @@ class Graph:
     def connect_with_tunnel(self, n1, n2):
         pass
 
-    def plot(self):
+    def plot2d(self):
+        fig = plt.figure(figsize=(5, 5))
+        ax = plt.axes()
+        for edge in self.edges:
+            edge.plot2d(ax)
+        for node in self.nodes:
+            ax.scatter(node.x, node.y, c="b")
+        mincoords = np.array((self.minx, self.miny))
+        maxcoords = np.array((self.maxx, self.maxy))
+        max_diff = max(maxcoords-mincoords)
+        ax.set_xlim(self.minx, self.minx+max_diff)
+        ax.set_ylim(self.miny, self.miny+max_diff)
+        plt.show()
+
+    def plot3d(self):
         fig = plt.figure(figsize=(5, 5))
         ax = plt.axes(projection='3d')
         for edge in self.edges:
-            edge.plot(ax)
+            edge.plot3d(ax)
         for node in self.nodes:
             ax.scatter3D(node.x, node.y, node.z, c="b")
         # for tunnel in self.tunnels:
@@ -279,12 +351,12 @@ class Graph:
         #        z1 = tunnel[i+1].z
         #        ax.plot3D([x0, x1], [y0, y1], [z0, z1], color=color)
 
-        mincoords = np.array((self.minx, self.miny, self.minz))
-        maxcoords = np.array((self.maxx, self.maxy, self.maxz))
-        max_diff = max(maxcoords-mincoords)
-        ax.set_xlim(self.minx, self.minx+max_diff)
-        ax.set_ylim(self.miny, self.miny+max_diff)
-        ax.set_zlim(self.minz, self.minz+max_diff)
+        #mincoords = np.array((self.minx, self.miny, self.minz))
+        #maxcoords = np.array((self.maxx, self.maxy, self.maxz))
+        #max_diff = max(maxcoords-mincoords)
+        #ax.set_xlim(self.minx, self.minx+max_diff)
+        #ax.set_ylim(self.miny, self.miny+max_diff)
+        #ax.set_zlim(self.minz, self.minz+max_diff)
         plt.show()
 
 
@@ -292,22 +364,48 @@ def main():
     graph = Graph()
     graph.add_floating_tunnel(
         distance=100, starting_point_coords=np.array((0, 0, 0)),
-        starting_direction=np.array((1, 0, 0)), 
-        horizontal_tendency=    np.deg2rad(0), 
-        horizontal_noise=np.deg2rad(50), 
+        starting_direction=np.array((1, 0, 0)),
+        horizontal_tendency=np.deg2rad(0),
+        horizontal_noise=np.deg2rad(10),
         vertical_tendency=np.deg2rad(10),
-        vertical_noise = np.deg2rad(5),
+        vertical_noise=np.deg2rad(5),
         segment_length_avg=10,
         segment_length_std=5)
 
-    graph.plot()
-    exit()
+    graph.add_tunnel(
+        distance=100, first_node=graph.nodes[-3],
+        starting_direction=np.array((1, 0, 0)),
+        horizontal_tendency=np.deg2rad(0),
+        horizontal_noise=np.deg2rad(10),
+        vertical_tendency=np.deg2rad(10),
+        vertical_noise=np.deg2rad(5),
+        segment_length_avg=10,
+        segment_length_std=5)
+
+    graph.add_tunnel(
+        distance=100, first_node=graph.tunnels[0].nodes[-4],
+        starting_direction=np.array((0, 1, 0)),
+        horizontal_tendency=np.deg2rad(0),
+        horizontal_noise=np.deg2rad(10),
+        vertical_tendency=np.deg2rad(-5),
+        vertical_noise=np.deg2rad(10),
+        segment_length_avg=10,
+        segment_length_std=5)
+    #graph.plot3d()
+    points, normals = get_mesh_vertices_from_graph(graph)
     ptcl = open3d.geometry.PointCloud()
     ptcl.points = open3d.utility.Vector3dVector(points.T)
     ptcl.normals = open3d.utility.Vector3dVector(normals.T)
-    poisson_mesh = open3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-        ptcl, depth=8, width=0, scale=1.1, linear_fit=False)[0]
-    open3d.io.write_triangle_mesh("bpa_mesh.ply", poisson_mesh)
+    #mesh = open3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+    #    ptcl, depth=10)[0]
+    distances = ptcl.compute_nearest_neighbor_distance()
+    avg_dist = np.mean(distances)
+    radius = 3 * avg_dist
+    mesh = open3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(ptcl,open3d.utility.DoubleVector([radius, radius * 2]))
+    #vertices = np.asarray(mesh.vertices)
+    #poisson_mesh.vertices = open3d.utility.Vector3dVector(
+    #    vertices + np.reshape(np.random.uniform(-1, 1, vertices.size), vertices.shape))
+    open3d.io.write_triangle_mesh("bpa_mesh.ply", mesh)
     open3d.visualization.draw_geometries([ptcl])
 
 
