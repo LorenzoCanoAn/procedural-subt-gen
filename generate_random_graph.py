@@ -14,6 +14,8 @@ MIN_DIST_OF_MESH_POINTS = 0.1  # meters
 TUNNEL_AVG_RADIUS = 3
 MIN_ANGLE_FOR_INTERSECTIONS = np.deg2rad(30)
 N_ANGLES_PER_CIRCLE = 10
+SPLINE_PLOT_PRECISSION = 0.3
+
 
 def angles_to_vector(angles):
     th, ph = angles
@@ -98,6 +100,7 @@ def correct_direction_of_intersecting_tunnel(direction, intersecting_node, angle
     else:
         return direction
 
+
 def get_mesh_vertices_from_graph_perlin_and_spline(graph, smooth_floor=1):
     points = None
     normals = None
@@ -109,21 +112,21 @@ def get_mesh_vertices_from_graph_perlin_and_spline(graph, smooth_floor=1):
         d = spline.distance/N
         for n in range(N):
             p, v = spline(n*d)
-            p = np.reshape(p, [-1,1])
+            p = np.reshape(p, [-1, 1])
             u1 = np.cross(v.T, np.array([0, 1, 0]))
             u2 = np.cross(u1, v.T)
             u1 = np.reshape(u1, [-1, 1])
             u2 = np.reshape(u2, [-1, 1])
-                
+
             angles = np.random.uniform(0, 2*math.pi, N_ANGLES_PER_CIRCLE)
-            radiuses = np.array([noise([a/(2*math.pi),n/N]) for a in angles])
+            radiuses = np.array([noise([a/(2*math.pi), n/N]) for a in angles])
             normals_ = u1*np.sin(angles) + u2*np.cos(angles)
             normals_ /= np.linalg.norm(normals_, axis=0)
-            
+
             points_ = p + normals_ * radiuses
             if not smooth_floor is None:
-                indices_to_correct = (points_ - p)[-1,:]<(-smooth_floor)
-                points_[-1,np.where(indices_to_correct)] = p[-1]-smooth_floor
+                indices_to_correct = (points_ - p)[-1, :] < (-smooth_floor)
+                points_[-1, np.where(indices_to_correct)] = p[-1]-smooth_floor
             if points is None:
                 points = points_
                 normals = -normals_
@@ -132,6 +135,7 @@ def get_mesh_vertices_from_graph_perlin_and_spline(graph, smooth_floor=1):
                 normals = np.hstack([normals, -normals_])
 
         return points, normals
+
 
 def get_mesh_vertices_from_graph_perlin(graph, smooth_floor=1):
     points = None
@@ -159,13 +163,16 @@ def get_mesh_vertices_from_graph_perlin(graph, smooth_floor=1):
                 central_point = p0 + v*i
                 central_point = np.reshape(central_point, [-1, 1])
                 angles = np.random.uniform(0, 2*math.pi, N_ANGLES_PER_CIRCLE)
-                radiuses = np.array([noise([a/(2*math.pi),D]) for a in angles])
+                radiuses = np.array([noise([a/(2*math.pi), D])
+                                    for a in angles])
                 normals_ = u1*np.sin(angles) + u2*np.cos(angles)
                 normals_ /= np.linalg.norm(normals_, axis=0)
                 points_ = central_point + normals_ * radiuses
                 if not smooth_floor is None:
-                    indices_to_correct = (points_ - central_point)[-1,:]<(-smooth_floor)
-                    points_[-1,np.where(indices_to_correct)] = central_point[-1]-smooth_floor
+                    indices_to_correct = (
+                        points_ - central_point)[-1, :] < (-smooth_floor)
+                    points_[-1, np.where(indices_to_correct)
+                            ] = central_point[-1]-smooth_floor
                 if points is None:
                     points = points_
                     normals = -normals_
@@ -173,6 +180,7 @@ def get_mesh_vertices_from_graph_perlin(graph, smooth_floor=1):
                     points = np.hstack([points, points_])
                     normals = np.hstack([normals, -normals_])
         return points, normals
+
 
 def get_mesh_vertices_from_graph(graph, smooth_floor=1):
     points = None
@@ -199,8 +207,10 @@ def get_mesh_vertices_from_graph(graph, smooth_floor=1):
             points_ = central_point + normals_ * \
                 np.random.normal(TUNNEL_AVG_RADIUS, 0)
             if not smooth_floor is None:
-                indices_to_correct = (points_ - central_point)[-1,:]<(-smooth_floor)
-                points_[-1,np.where(indices_to_correct)] = central_point[-1]-smooth_floor
+                indices_to_correct = (
+                    points_ - central_point)[-1, :] < (-smooth_floor)
+                points_[-1, np.where(indices_to_correct)
+                        ] = central_point[-1]-smooth_floor
             if points is None:
                 points = points_
                 normals = -normals_
@@ -209,41 +219,45 @@ def get_mesh_vertices_from_graph(graph, smooth_floor=1):
                 normals = np.hstack([normals, -normals_])
     return points, normals
 
+
 class RadiusNoiseGenerator:
     def __init__(self, radius):
         self.radius = radius
         self.seed = time.time_ns()
-        self.noise1 = PerlinNoise(5,self.seed)
-        self.noise2 = PerlinNoise(2,self.seed)
-        self.noise3 = PerlinNoise(4,self.seed)
-        self.noise4 = PerlinNoise(8,self.seed)
+        self.noise1 = PerlinNoise(5, self.seed)
+        self.noise2 = PerlinNoise(2, self.seed)
+        self.noise3 = PerlinNoise(4, self.seed)
+        self.noise4 = PerlinNoise(8, self.seed)
 
     def __call__(self, coords):
-         #* self.radius/2 + self.noise2(coords) * self.radius/4 + self.noise3(coords) * self.radius/6 + self.noise4(coords) * self.radius/8
+        # * self.radius/2 + self.noise2(coords) * self.radius/4 + self.noise3(coords) * self.radius/6 + self.noise4(coords) * self.radius/8
         output = self.radius + self.noise1(coords) * self.radius
         print(coords, output)
         return output
+
+
 class Spline3D:
     def __init__(self, points):
         self.points = np.array(points)
         self.distances = [0 for _ in range(len(self.points))]
         for i in range(len(points)-1):
-            self.distances[i+1] = self.distances[i] + np.linalg.norm(points[i+1] - points[i])
+            self.distances[i+1] = self.distances[i] + \
+                np.linalg.norm(points[i+1] - points[i])
         self.distance = self.distances[-1]
-        self.xspline = interpolate.splrep(self.distances,self.points[:,0])
-        self.yspline = interpolate.splrep(self.distances,self.points[:,1])
-        self.zspline = interpolate.splrep(self.distances,self.points[:,2])
-    
+        self.xspline = interpolate.splrep(self.distances, self.points[:, 0])
+        self.yspline = interpolate.splrep(self.distances, self.points[:, 1])
+        self.zspline = interpolate.splrep(self.distances, self.points[:, 2])
+
     def __call__(self, d):
         assert d >= 0 and d <= self.distance
-        x = interpolate.splev(d,self.xspline)
-        y = interpolate.splev(d,self.yspline)
-        z = interpolate.splev(d,self.zspline)
-        p = np.array([x,y,z])
-        x1 = interpolate.splev(d+0.001,self.xspline)
-        y1 = interpolate.splev(d+0.001,self.yspline)
-        z1 = interpolate.splev(d+0.001,self.zspline)
-        p1 = np.array([x1,y1,z1])
+        x = interpolate.splev(d, self.xspline)
+        y = interpolate.splev(d, self.yspline)
+        z = interpolate.splev(d, self.zspline)
+        p = np.array([x, y, z])
+        x1 = interpolate.splev(d+0.001, self.xspline)
+        y1 = interpolate.splev(d+0.001, self.yspline)
+        z1 = interpolate.splev(d+0.001, self.zspline)
+        p1 = np.array([x1, y1, z1])
         v = p1 - p
         v /= np.linalg.norm(v)
         return p, v
@@ -311,7 +325,6 @@ class Tunnel:
         self.parent.tunnels.append(self)
         # The nodes should be ordered
         self.nodes = list()
-        self.distance = 0
         self._spline = None
 
     def split(self, node):
@@ -335,7 +348,7 @@ class Tunnel:
         self.nodes.append(node)
         self.parent.add_node(node)
         self._spline = None
-    
+
     @property
     def spline(self):
         if self._spline is None:
@@ -344,6 +357,20 @@ class Tunnel:
 
     def __len__(self):
         return len(self.nodes)
+
+    @property
+    def distance(self):
+        return self.spline.distance
+
+    def plot2d(self, ax):
+        ds = np.arange(0, self.distance, SPLINE_PLOT_PRECISSION)
+        xs, ys = [], []
+        for d in ds:
+            p, d = self.spline(d)
+            x, y, z = p
+            xs.append(x)
+            ys.append(y)
+        ax.plot(xs, ys, c="b")
 
 
 class Intersection:
@@ -408,8 +435,7 @@ class Graph:
             # create the orientation of the segment
             segment_orientation = add_noise_to_direction(
                 previous_orientation, horizontal_tendency, horizontal_noise, vertical_tendency, vertical_noise)
-            segment_length = np.random.normal(
-                segment_length_avg, segment_length_std)
+            segment_length = np.random.uniform(segment_length_avg-segment_length_std, segment_length_avg+segment_length_std)
             d += segment_length
             new_node_coords = previous_node.xyz + segment_orientation * segment_length
             new_node = Node(coords=new_node_coords)
@@ -445,19 +471,24 @@ class Graph:
     def connect_with_tunnel(self, n1, n2):
         pass
 
-    def plot2d(self):
-        fig = plt.figure(figsize=(5, 5))
-        ax = plt.axes()
+    def plot2d(self, ax= None):
+        if ax is None:
+            fig = plt.figure(figsize=(5, 5))
+            ax = plt.axes()
+        
         for edge in self.edges:
             edge.plot2d(ax)
         for node in self.nodes:
             ax.scatter(node.x, node.y, c="b")
+        for tunnel in self.tunnels:
+            tunnel.plot2d(ax)
         mincoords = np.array((self.minx, self.miny))
         maxcoords = np.array((self.maxx, self.maxy))
         max_diff = max(maxcoords-mincoords)
         ax.set_xlim(self.minx, self.minx+max_diff)
         ax.set_ylim(self.miny, self.miny+max_diff)
-        plt.show()
+        if ax is None:
+            plt.show()
 
     def plot3d(self):
         fig = plt.figure(figsize=(5, 5))
@@ -487,34 +518,48 @@ class Graph:
 
 
 def main():
-    graph = Graph()
-    graph.add_floating_tunnel(
-        distance=100, starting_point_coords=np.array((0, 0, 0)),
-        starting_direction=np.array((1, 0, 0)),
-        horizontal_tendency=np.deg2rad(0),
-        horizontal_noise=np.deg2rad(10),
-        vertical_tendency=np.deg2rad(10),
-        vertical_noise=np.deg2rad(5),
-        segment_length_avg=10,
-        segment_length_std=5)
-
-    #graph.plot3d()
+    n_rows = 5
+    n_cols = 5
+    fig = plt.figure(figsize=(10,10))
+    axis = plt.subplot(1,1,1)
+    plt.show(block=False)
+    while True:
+        graph = Graph()
+        graph.add_floating_tunnel(
+                distance=100, starting_point_coords=np.array((0, 0, 0)),
+                starting_direction=np.array((1, 0, 0)),
+                horizontal_tendency=np.deg2rad(0),
+                horizontal_noise=np.deg2rad(10),
+                vertical_tendency=np.deg2rad(10),
+                vertical_noise=np.deg2rad(5),
+                segment_length_avg=10,
+                segment_length_std=5)
+        axis.clear()
+        graph.plot2d(ax=axis)
+        plt.draw()
+        input()
+    plt.show()
+    exit()
+    # graph.plot3d()
     points, normals = get_mesh_vertices_from_graph_perlin_and_spline(graph)
     ptcl = open3d.geometry.PointCloud()
     ptcl.points = open3d.utility.Vector3dVector(points.T)
     ptcl.normals = open3d.utility.Vector3dVector(normals.T)
-    #mesh = open3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+    # mesh = open3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
     #    ptcl, depth=10)[0]
     distances = ptcl.compute_nearest_neighbor_distance()
     avg_dist = np.mean(distances)
     radius = 3 * avg_dist
-    open3d.visualization.draw_geometries([ptcl])
-    mesh = open3d.geometry.TriangleMesh.create_from_point_cloud_poisson(ptcl,depth=8, width=0, scale=1, linear_fit=True)[0]
-    #vertices = np.asarray(mesh.vertices)
-    #poisson_mesh.vertices = open3d.utility.Vector3dVector(
+    mesh = open3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+        ptcl, depth=7, width=0, scale=0.5, linear_fit=True)[0]
+    #mesh = open3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(ptcl,open3d.utility.DoubleVector([radius, radius * 2]))
+    mesh.paint_uniform_color([1, 0.706, 0])
+    mesh.compute_vertex_normals()
+    open3d.visualization.draw_geometries([mesh, ptcl])
+    # poisson_mesh.vertices = open3d.utility.Vector3dVector(
     #    vertices + np.reshape(np.random.uniform(-1, 1, vertices.size), vertices.shape))
-    open3d.io.write_triangle_mesh("bpa_mesh.ply", mesh)
-    
+    #open3d.io.write_triangle_mesh("bpa_mesh.ply", mesh)
+
 
 
 if __name__ == "__main__":
