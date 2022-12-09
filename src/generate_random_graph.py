@@ -103,12 +103,21 @@ class Spline3D:
 
 
 class Node:
-    def __init__(self, graph, coords=np.zeros(3)):
-        assert isinstance(graph, Graph)
-        self.graph = graph
+    __graph = None
+
+    def __init__(self, coords=np.zeros(3), graph=None):
+        if graph is None:
+            assert isinstance(self.__graph, Graph)
+            self.graph = self.__graph
+        else:
+            self.graph = graph
         self.connected_nodes = set()
         self.coords = coords
         self.tunnels = set()
+
+    @classmethod
+    def set_graph(cls, graph):
+        cls.__graph = graph
 
     def add_tunnel(self, new_tunnel):
         """Nodes must keep track of what tunnels they are a part of
@@ -121,13 +130,17 @@ class Node:
             new_tunnel.split(self)
 
     def connect(self, node):
+        """This function does everything to connect two nodes and update the 
+        info in all relevant places"""
         assert isinstance(node, Node)
         self.graph.edges.append(Edge(self, node))
 
     def add_connection(self, node):
+        """This function only inserts a new node in the connected nodes set"""
         self.connected_nodes.add(node)
 
     def remove_connection(self, node):
+        """This function only deletes a node from the connected nodes set"""
         self.connected_nodes.remove(node)
 
     @property
@@ -434,6 +447,7 @@ def main():
                                   "max_seg_length": 30})
     while True:
         graph = Graph()
+        Node.set_graph(graph)
         graph.add_floating_tunnel(np.array((0, 0, 0)), tunnel_params)
         graph.add_tunnel(graph.nodes[-3], tunnel_params)
         axis.clear()
