@@ -126,8 +126,8 @@ class Node:
         if len(self.tunnels) == 0:
             self.tunnels.add(new_tunnel)
         if len(self.tunnels) == 1:
-            assert isinstance(new_tunnel, Tunnel)
-            new_tunnel.split(self)
+            if len(self.connected_nodes) == 2:
+                list(self.tunnels)[0].split(self)
 
     def connect(self, node):
         """This function does everything to connect two nodes and update the 
@@ -269,7 +269,7 @@ class Tunnel:
         split_point = self.nodes.index(node)
         tunnel_1.set_nodes(self.nodes[:split_point+1])
         tunnel_2.set_nodes(self.nodes[split_point:])
-        self.parent.delete_tunnel(self)
+        self.parent.remove_tunnel(self)
 
     def set_nodes(self, nodes):
         self.nodes = nodes
@@ -336,8 +336,11 @@ class Graph:
         previous_node = Node(first_node_coords)
         self.add_tunnel(previous_node, tp)
 
-    def add_tunnel(self, first_node, tp: TunnelParams):
+    def remove_tunnel(self, tunnel):
+        assert tunnel in self.tunnels
+        self.tunnels.remove(tunnel)
 
+    def add_tunnel(self, first_node, tp: TunnelParams):
         tunnel = Tunnel(self)
         tunnel.add_node(first_node)
         previous_orientation = correct_direction_of_intersecting_tunnel(
@@ -354,7 +357,7 @@ class Graph:
             new_node_coords = previous_node.xyz + segment_orientation * segment_length
             new_node = Node(coords=new_node_coords)
             tunnel.add_node(new_node)
-            self.connect_nodes(previous_node, new_node)
+            previous_node.connect(new_node)
             previous_node = new_node
             previous_orientation = segment_orientation
 
