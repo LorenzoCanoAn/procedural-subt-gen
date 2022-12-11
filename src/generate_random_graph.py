@@ -20,11 +20,9 @@ def add_noise_to_direction(direction,
     horizontal_deviation = np.random.normal(
         horizontal_tendency, horizontal_noise)
     th = warp_angle_2pi(th + horizontal_deviation)
-
     ph = np.random.normal(vertical_tendency, vertical_noise)
     if abs(ph) > MAX_SEGMENT_INCLINATION:
         ph = MAX_SEGMENT_INCLINATION * ph/abs(ph)
-
     direction = angles_to_vector((th, ph))
     return direction
 
@@ -47,8 +45,9 @@ def correct_direction_of_intersecting_tunnel(direction,
                                              angle_threshold=MIN_ANGLE_FOR_INTERSECTIONS):
     if len(intersecting_node.connected_nodes) == 0:
         return direction
-    th0, ph1 = vector_to_angles(direction)
-    closest_neg_angle, closest_pos_angle = np.pi, np.pi
+    th0, ph0 = vector_to_angles(direction)
+    print("th0: {} // ph0: {}".format(np.rad2deg(th0), np.rad2deg(ph0)))
+    closest_neg_angle, closest_pos_angle = None, None
     min_neg_difference, min_pos_difference = np.pi, np.pi
     for node in intersecting_node.connected_nodes:
         th1, ph1 = vector_to_angles(intersecting_node.xyz - node.xyz)
@@ -56,20 +55,21 @@ def correct_direction_of_intersecting_tunnel(direction,
         if difference < 0 and abs(difference) < abs(min_neg_difference):
             min_neg_difference = difference
             closest_neg_angle = th1
-        elif difference > 0 and (difference) < abs(min_pos_difference):
+        elif difference > 0 and abs(difference) < abs(min_pos_difference):
             min_pos_difference = difference
             closest_pos_angle = th1
     if abs(min_pos_difference) < angle_threshold and abs(min_neg_difference) < angle_threshold:
         return None
     if abs(min_neg_difference) < angle_threshold:
         thf = closest_neg_angle + angle_threshold
-        return angles_to_vector((thf, ph1))
     elif abs(min_pos_difference) < angle_threshold:
         thf = closest_pos_angle - angle_threshold
-        return angles_to_vector((thf, ph1))
     else:
-        return direction
-
+        thf = th0
+    final_direction = angles_to_vector((thf, ph0))
+    print(f"thf: {np.rad2deg(thf)} // ph {np.rad2deg(ph0)}")
+    print("#################################")
+    return final_direction
 
 class Spline3D:
     def __init__(self, points):
@@ -402,8 +402,9 @@ class Graph:
         mincoords = np.array((self.minx, self.miny))
         maxcoords = np.array((self.maxx, self.maxy))
         max_diff = max(maxcoords-mincoords)
-        ax.set_xlim(self.minx, self.minx+max_diff)
-        ax.set_ylim(self.miny, self.miny+max_diff)
+        ax.set_xlim(min(mincoords), max(maxcoords))
+        ax.set_ylim(min(mincoords), max(maxcoords))
+        print("hola")
         if ax is None:
             plt.show()
 
@@ -437,7 +438,7 @@ class Graph:
 def main():
     n_rows = 5
     n_cols = 5
-    fig = plt.figure(figsize=(10, 10))
+    fig = plt.figure(figsize=(8, 8))
     axis = plt.subplot(1, 1, 1)
     plt.show(block=False)
     tunnel_params = TunnelParams({"distance": 100,
@@ -448,6 +449,7 @@ def main():
                                   "vertical_noise": np.deg2rad(5),
                                   "min_seg_length": 20,
                                   "max_seg_length": 30})
+    
     while True:
         graph = Graph()
         Node.set_graph(graph)
@@ -457,27 +459,7 @@ def main():
         graph.plot2d(ax=axis)
         plt.draw()
         plt.waitforbuttonpress()
-    plt.show()
-    exit()
-    # graph.plot3d()
-    points, normals = get_mesh_vertices_from_graph_perlin_and_spline(graph)
-    ptcl = open3d.geometry.PointCloud()
-    ptcl.points = open3d.utility.Vector3dVector(points.T)
-    ptcl.normals = open3d.utility.Vector3dVector(normals.T)
-    # mesh = open3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-    #    ptcl, depth=10)[0]
-    distances = ptcl.compute_nearest_neighbor_distance()
-    avg_dist = np.mean(distances)
-    radius = 3 * avg_dist
-    mesh = open3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-        ptcl, depth=7, width=0, scale=0.5, linear_fit=True)[0]
-    #mesh = open3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(ptcl,open3d.utility.DoubleVector([radius, radius * 2]))
-    mesh.paint_uniform_color([1, 0.706, 0])
-    mesh.compute_vertex_normals()
-    open3d.visualization.draw_geometries([mesh, ptcl])
-    # poisson_mesh.vertices = open3d.utility.Vector3dVector(
-    #    vertices + np.reshape(np.random.uniform(-1, 1, vertices.size), vertices.shape))
-    #open3d.io.write_triangle_mesh("bpa_mesh.ply", mesh)
+
 
 
 if __name__ == "__main__":
