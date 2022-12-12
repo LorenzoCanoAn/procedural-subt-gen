@@ -71,7 +71,18 @@ def correct_direction_of_intersecting_tunnel(direction,
     print("#################################")
     return final_direction
 
+
+def debug_plot(graph):
+    assert isinstance(graph, Graph)
+    plt.gca().clear()
+    graph.plot2d()
+    plt.draw()
+    plt.waitforbuttonpress()
+
+
 class Spline3D:
+    """Wrapper around the scipy spline to 
+    interpolate a series of 3d points along x,y and z"""
     def __init__(self, points):
         self.points = np.array(points)
         self.distances = [0 for _ in range(len(self.points))]
@@ -347,10 +358,13 @@ class Graph:
             tp["starting_direction"], first_node)
         previous_node = first_node
         d = 0
+        first_iteration = True
         while d < tp["distance"]:
-            # create the orientation of the segment
-            segment_orientation = add_noise_to_direction(
-                previous_orientation, tp["horizontal_tendency"], tp["horizontal_noise"], tp["vertical_tendency"], tp["vertical_noise"])
+            if not first_iteration:
+                segment_orientation = add_noise_to_direction(
+                    previous_orientation, tp["horizontal_tendency"], tp["horizontal_noise"], tp["vertical_tendency"], tp["vertical_noise"])
+            else:
+                segment_orientation = previous_orientation
             segment_length = np.random.uniform(
                 tp["min_seg_length"], tp["max_seg_length"])
             d += segment_length
@@ -360,6 +374,7 @@ class Graph:
             previous_node.connect(new_node)
             previous_node = new_node
             previous_orientation = segment_orientation
+            first_iteration = False
 
     @property
     def minx(self):
@@ -390,8 +405,7 @@ class Graph:
 
     def plot2d(self, ax=None):
         if ax is None:
-            fig = plt.figure(figsize=(5, 5))
-            ax = plt.axes()
+            ax = plt.gca()
 
         for edge in self.edges:
             edge.plot2d(ax)
@@ -404,7 +418,6 @@ class Graph:
         max_diff = max(maxcoords-mincoords)
         ax.set_xlim(min(mincoords), max(maxcoords))
         ax.set_ylim(min(mincoords), max(maxcoords))
-        print("hola")
         if ax is None:
             plt.show()
 
@@ -441,25 +454,25 @@ def main():
     fig = plt.figure(figsize=(8, 8))
     axis = plt.subplot(1, 1, 1)
     plt.show(block=False)
-    tunnel_params = TunnelParams({"distance": 100,
-                                  "starting_direction": np.array((1, 0, 0)),
-                                  "horizontal_tendency": np.deg2rad(0),
-                                  "horizontal_noise": np.deg2rad(20),
-                                  "vertical_tendency": np.deg2rad(10),
-                                  "vertical_noise": np.deg2rad(5),
-                                  "min_seg_length": 20,
-                                  "max_seg_length": 30})
-    
     while True:
+        tunnel_params = TunnelParams({"distance": 100,
+                                      "starting_direction": np.array((1, 0, 0)),
+                                      "horizontal_tendency": np.deg2rad(0),
+                                      "horizontal_noise": np.deg2rad(20),
+                                      "vertical_tendency": np.deg2rad(10),
+                                      "vertical_noise": np.deg2rad(5),
+                                      "min_seg_length": 20,
+                                      "max_seg_length": 30})
         graph = Graph()
-        Node.set_graph(graph)
+        Node.set_graph(graph)  # This is so all nodes share the same graph
         graph.add_floating_tunnel(np.array((0, 0, 0)), tunnel_params)
-        graph.add_tunnel(graph.nodes[-3], tunnel_params)
-        axis.clear()
-        graph.plot2d(ax=axis)
-        plt.draw()
-        plt.waitforbuttonpress()
-
+        debug_plot(graph)
+        node = graph.nodes[-3]
+        graph.add_tunnel(node, tunnel_params)
+        debug_plot(graph)
+        tunnel_params["starting_direction"] = np.array((0, 1, 0))
+        graph.add_tunnel(node, tunnel_params)
+        debug_plot(graph)
 
 
 if __name__ == "__main__":
