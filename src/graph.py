@@ -1,6 +1,4 @@
 """This file contains the graph structure onto which evertything else is built upon"""
-from tunnel import Tunnel, TunnelParams
-from generate_random_graph import correct_direction_of_intersecting_tunnel, add_noise_to_direction
 import numpy as np
 
 
@@ -103,38 +101,10 @@ class Graph:
         if not node in self.nodes:
             self.nodes.append(node)
 
-    def add_floating_tunnel(self, first_node_coords, tp: TunnelParams):
-        previous_node = Node(first_node_coords)
-        self.add_tunnel(previous_node, tp)
-
     def remove_tunnel(self, tunnel):
         assert tunnel in self.tunnels
         self.tunnels.remove(tunnel)
 
-    def add_tunnel(self, first_node, tp: TunnelParams):
-        tunnel = Tunnel(self)
-        tunnel.add_node(first_node)
-        previous_orientation = correct_direction_of_intersecting_tunnel(
-            tp["starting_direction"], first_node)
-        previous_node = first_node
-        d = 0
-        first_iteration = True
-        while d < tp["distance"]:
-            if not first_iteration:
-                segment_orientation = add_noise_to_direction(
-                    previous_orientation, tp["horizontal_tendency"], tp["horizontal_noise"], tp["vertical_tendency"], tp["vertical_noise"])
-            else:
-                segment_orientation = previous_orientation
-            segment_length = np.random.uniform(
-                tp["min_seg_length"], tp["max_seg_length"])
-            d += segment_length
-            new_node_coords = previous_node.xyz + segment_orientation * segment_length
-            new_node = Node(coords=new_node_coords)
-            tunnel.add_node(new_node)
-            previous_node.connect(new_node)
-            previous_node = new_node
-            previous_orientation = segment_orientation
-            first_iteration = False
 
     @property
     def minx(self):
