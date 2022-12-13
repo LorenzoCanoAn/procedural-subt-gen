@@ -1,7 +1,8 @@
 """Functions to display and debug the graph generation process"""
 import matplotlib.pyplot as plt
 import numpy as np
-
+from tunnel import Tunnel, TunnelNetwork
+from PARAMS import *
 
 def plot_graph_2d(graph, ax=None):
     if ax is None:
@@ -11,15 +12,13 @@ def plot_graph_2d(graph, ax=None):
         edge.plot2d(ax)
     for node in graph.nodes:
         ax.scatter(node.x, node.y, c="b")
-    for tunnel in graph.tunnels:
-        tunnel.plot2d(ax)
+    for tunnel in graph._tunnels:
+        plot_tunnel_2d(tunnel)
     mincoords = np.array((graph.minx, graph.miny))
     maxcoords = np.array((graph.maxx, graph.maxy))
     max_diff = max(maxcoords-mincoords)
     ax.set_xlim(min(mincoords), max(maxcoords))
     ax.set_ylim(min(mincoords), max(maxcoords))
-    if ax is None:
-        plt.show()
 
 
 def plot_graph_3d(self, ax = None):
@@ -47,3 +46,22 @@ def plot_graph_3d(self, ax = None):
     #ax.set_ylim(self.miny, self.miny+max_diff)
     #ax.set_zlim(self.minz, self.minz+max_diff)
     plt.show()
+    
+def plot_tunnel_2d(tunnel:Tunnel, ax=None):
+    if ax is None:
+        ax = plt.gca()
+    ds = np.arange(0, tunnel.distance, SPLINE_PLOT_PRECISSION)
+    xs, ys = [], []
+    for d in ds:
+        p, d = tunnel.spline(d)
+        x, y, z = p
+        xs.append(x)
+        ys.append(y)
+    color = np.array(list(np.random.uniform(0.2, 0.75, size=3)))
+    ax.plot(xs, ys, c=color, linewidth=3)
+
+def network_overview(tunnel_network: TunnelNetwork):
+    print(f"Number of Nodes: {len(tunnel_network.nodes)}")
+    print(f"Number of Edges: {len(tunnel_network.edges)}")
+    print(f"Number of Tunnels: {len(tunnel_network._tunnels)}")
+    print(f"Number of Intersections: {len(tunnel_network._intersections)}")

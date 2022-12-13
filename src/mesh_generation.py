@@ -1,19 +1,21 @@
-from generate_random_graph import Spline3D, Tunnel
+from tunnel import Tunnel, Spline3D
 import math
 import numpy as np
 from perlin_noise import PerlinNoise
 import time
-
+import open3d as o3d
 
 from PARAMS import TUNNEL_AVG_RADIUS, MIN_DIST_OF_MESH_POINTS, N_ANGLES_PER_CIRCLE
+
 
 def get_mesh_vertices_from_graph_perlin_and_spline(graph, smooth_floor=1):
     points = None
     normals = None
     noise = RadiusNoiseGenerator(TUNNEL_AVG_RADIUS)
-    for tunnel in graph.tunnels:
+    for tunnel in graph._tunnels:
         spline = tunnel.spline
         assert isinstance(spline, Spline3D)
+        # Number of circles along the spline
         N = math.ceil(spline.distance / MIN_DIST_OF_MESH_POINTS)
         d = spline.distance/N
         for n in range(N):
@@ -30,9 +32,11 @@ def get_mesh_vertices_from_graph_perlin_and_spline(graph, smooth_floor=1):
             normals_ /= np.linalg.norm(normals_, axis=0)
 
             points_ = p + normals_ * radiuses
+            # Correct the floor points so that it is flat
             if not smooth_floor is None:
                 indices_to_correct = (points_ - p)[-1, :] < (-smooth_floor)
                 points_[-1, np.where(indices_to_correct)] = p[-1]-smooth_floor
+        
             if points is None:
                 points = points_
                 normals = -normals_
@@ -40,7 +44,26 @@ def get_mesh_vertices_from_graph_perlin_and_spline(graph, smooth_floor=1):
                 points = np.hstack([points, points_])
                 normals = np.hstack([normals, -normals_])
 
-        return points, normals
+    return points, normals
+
+
+def mesh_from_vertices(points, normals):
+    print('run Poisson surface reconstruction')
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points.T)
+    pcd.normals = o3d.utility.Vector3dVector(normals.T)
+    with o3d.utility.VerbosityContextManager(
+            o3d.utility.VerbosityLevel.Debug) as cm:
+        mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+            pcd, depth=9)
+    return mesh, pcd
+
+def plot_mesh(mesh): 
+    o3d.visualization.draw_geometries([mesh],
+                                  zoom=0.664,
+                                  front=[-0.4761, -0.4698, -0.7434],
+                                  lookat=[1.8900, 3.2596, 0.9284],
+                                  up=[0.2304, -0.8825, 0.4101])
 
 
 def get_mesh_vertices_from_graph_perlin(graph, smooth_floor=1):
@@ -138,5 +161,4 @@ class RadiusNoiseGenerator:
     def __call__(self, coords):
         # * self.radius/2 + self.noise2(coords) * self.radius/4 + self.noise3(coords) * self.radius/6 + self.noise4(coords) * self.radius/8
         output = self.radius + self.noise1(coords) * self.radius
-        print(coords, output)
         return output

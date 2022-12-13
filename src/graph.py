@@ -35,7 +35,8 @@ class Node:
 
     def __init__(self, coords=np.zeros(3), graph=None):
         if graph is None:
-            assert isinstance(self.__graph, Graph)
+            print(self.__graph.__class__)
+            assert issubclass(self.__graph.__class__, Graph), "You need to stablish the global parent for the nodes"
             self.graph = self.__graph
         else:
             self.graph = graph
@@ -53,9 +54,11 @@ class Node:
         is  an intersection"""
         if len(self.tunnels) == 0:
             self.tunnels.add(new_tunnel)
-        if len(self.tunnels) == 1:
+        elif len(self.tunnels) == 1:
             if len(self.connected_nodes) == 2:
                 list(self.tunnels)[0].split(self)
+        else:
+            self.tunnels.add(new_tunnel) 
 
     def connect(self, node):
         """This function does everything to connect two nodes and update the 
@@ -93,18 +96,10 @@ class Graph:
         self.nodes = list()
         self.edges = list()
 
-        self.tunnels = []  
-        self.intersections = []
-
     def add_node(self, node):
         self.recalculate_control = True
         if not node in self.nodes:
             self.nodes.append(node)
-
-    def remove_tunnel(self, tunnel):
-        assert tunnel in self.tunnels
-        self.tunnels.remove(tunnel)
-
 
     @property
     def minx(self):
@@ -130,7 +125,5 @@ class Graph:
     def maxz(self):
         return max([n.z for n in self.nodes])
 
-    def connect_with_tunnel(self, n1, n2):
-        pass
 
     

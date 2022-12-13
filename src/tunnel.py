@@ -7,38 +7,6 @@ from helper_functions import vector_to_angles, warp_angle_2pi, warp_angle_pi, an
 import math
 from scipy import interpolate
 
-class Spline3D:
-    """Wrapper around the scipy spline to 
-    interpolate a series of 3d points along x,y and z"""
-    def __init__(self, points):
-        self.points = np.array(points)
-        self.distances = [0 for _ in range(len(self.points))]
-        for i in range(len(points)-1):
-            self.distances[i+1] = self.distances[i] + \
-                np.linalg.norm(points[i+1] - points[i])
-        self.distance = self.distances[-1]
-        degree = 3 if len(self.distances) > 3 else len(self.distances)-1
-        self.xspline = interpolate.splrep(
-            self.distances, self.points[:, 0], k=degree)
-        self.yspline = interpolate.splrep(
-            self.distances, self.points[:, 1], k=degree)
-        self.zspline = interpolate.splrep(
-            self.distances, self.points[:, 2], k=degree)
-
-    def __call__(self, d):
-        assert d >= 0 and d <= self.distance
-        x = interpolate.splev(d, self.xspline)
-        y = interpolate.splev(d, self.yspline)
-        z = interpolate.splev(d, self.zspline)
-        p = np.array([x, y, z])
-        x1 = interpolate.splev(d+0.001, self.xspline)
-        y1 = interpolate.splev(d+0.001, self.yspline)
-        z1 = interpolate.splev(d+0.001, self.zspline)
-        p1 = np.array([x1, y1, z1])
-        v = p1 - p
-        v /= np.linalg.norm(v)
-        return p, v
-
 
 def add_noise_to_direction(direction,
                            horizontal_tendency,
@@ -102,119 +70,111 @@ def correct_direction_of_intersecting_tunnel(direction,
     return final_direction
 
 
+class Spline3D:
+    """Wrapper around the scipy spline to 
+    interpolate a series of 3d points along x,y and z"""
 
-class TunnelParams:
+    def __init__(self, points):
+        self.points = np.array(points)
+        self.distances = [0 for _ in range(len(self.points))]
+        for i in range(len(points)-1):
+            self.distances[i+1] = self.distances[i] + \
+                np.linalg.norm(points[i+1] - points[i])
+        self.distance = self.distances[-1]
+        degree = 3 if len(self.distances) > 3 else len(self.distances)-1
+        self.xspline = interpolate.splrep(
+            self.distances, self.points[:, 0], k=degree)
+        self.yspline = interpolate.splrep(
+            self.distances, self.points[:, 1], k=degree)
+        self.zspline = interpolate.splrep(
+            self.distances, self.points[:, 2], k=degree)
+
+    def __call__(self, d):
+        assert d >= 0 and d <= self.distance
+        x = interpolate.splev(d, self.xspline)
+        y = interpolate.splev(d, self.yspline)
+        z = interpolate.splev(d, self.zspline)
+        p = np.array([x, y, z])
+        x1 = interpolate.splev(d+0.001, self.xspline)
+        y1 = interpolate.splev(d+0.001, self.yspline)
+        z1 = interpolate.splev(d+0.001, self.zspline)
+        p1 = np.array([x1, y1, z1])
+        v = p1 - p
+        v /= np.linalg.norm(v)
+        return p, v
+
+
+class TunnelParams(dict):
     def __init__(self, params=None):
-        self.__dict__ = {"distance": 100,
-                         "starting_direction": (1, 0, 0),
-                         "horizontal_tendency": 0,
-                         "horizontal_noise": 0,
-                         "vertical_tendency": 0,
-                         "vertical_noise": 0,
-                         "min_seg_length": 10,
-                         "max_seg_length": 15}
+        super().__init__()
+        self["distance"] = 100,
+        self["starting_direction"] = (1, 0, 0),
+        self["horizontal_tendency"] = 0,
+        self["horizontal_noise"] = 0,
+        self["vertical_tendency"] = 0,
+        self["vertical_noise"] = 0,
+        self["min_seg_length"] = 10,
+        self["max_seg_length"] = 15
+
         if not params is None:
             assert isinstance(params, dict)
             for key in params.keys():
-                self.__dict__[key] = params[key]
-
-    def __setitem__(self, key, item):
-        self.__dict__[key] = item
-
-    def __getitem__(self, key):
-        return self.__dict__[key]
-
-    def __repr__(self):
-        return repr(self.__dict__)
-
-    def __len__(self):
-        return len(self.__dict__)
-
-    def __delitem__(self, key):
-        del self.__dict__[key]
-
-    def clear(self):
-        return self.__dict__.clear()
-
-    def copy(self):
-        return self.__dict__.copy()
-
-    def has_key(self, k):
-        return k in self.__dict__
-
-    def update(self, *args, **kwargs):
-        return self.__dict__.update(*args, **kwargs)
-
-    def keys(self):
-        return self.__dict__.keys()
-
-    def values(self):
-        return self.__dict__.values()
-
-    def items(self):
-        return self.__dict__.items()
-
-    def pop(self, *args):
-        return self.__dict__.pop(*args)
-
-    def __cmp__(self, dict_):
-        return self.__cmp__(self.__dict__, dict_)
-
-    def __contains__(self, item):
-        return item in self.__dict__
-
-    def __iter__(self):
-        return iter(self.__dict__)
+                self[key] = params[key]
 
 
 class Tunnel:
-    def __init__(self, parent):
-        assert isinstance(parent, Graph)
+    def __init__(self, parent, seed, params = TunnelParams()):
+        assert isinstance(parent, TunnelNetwork)
         self.parent = parent
-        self.parent.tunnels.append(self)
-        # The nodes should be ordered
-        self.nodes = list()
+        self.params = params
+
+        self.parent.add_tunnel(self)
+
+        # Internal variables that should be accessed from functions
+        self._nodes = list()
         self._spline = None
 
+        if isinstance(seed, Node):
+            self.add_node(seed)
+            self.grow_tunnel()
+        elif isinstance(seed, np.ndarray) and len(seed) == 3:
+            self.add_node(Node(seed))
+            self.grow_tunnel()
+        elif isinstance(seed, list) or isinstance(seed, set):
+            self.set_nodes(seed)
+
     def split(self, node):
-        assert node in self.nodes
-        tunnel_1 = Tunnel(self.parent)
-        tunnel_2 = Tunnel(self.parent)
-        split_point = self.nodes.index(node)
-        tunnel_1.set_nodes(self.nodes[:split_point+1])
-        tunnel_2.set_nodes(self.nodes[split_point:])
+        assert node in self._nodes
+        split_point = self._nodes.index(node)
+        tunnel_1 = Tunnel(self.parent,self._nodes[:split_point+1])
+        tunnel_2 = Tunnel(self.parent,self._nodes[split_point:])
         self.parent.remove_tunnel(self)
 
     def set_nodes(self, nodes):
-        self.nodes = nodes
-        self._spline = Spline3D([n.xyz for n in self.nodes])
+        self._nodes = nodes
+        self._spline = Spline3D([n.xyz for n in self._nodes])
 
     def add_node(self, node: Node):
         if len(self) != 0:
-            self.nodes[-1].connect(node)
+            self._nodes[-1].connect(node)
+        self._nodes.append(node)
         node.add_tunnel(self)
-        self.nodes.append(node)
         self.parent.add_node(node)
         self._spline = None
-    
-    @classmethod
-    def from_initial_coordinates(cls, graph, first_node_coords, tp: TunnelParams):
-        tunnel = Tunnel(graph)
 
-        previous_node = Node(first_node_coords)
-        graph.add_tunnel(previous_node, tp)
+    def __getitem__(self, index):
+        return self._nodes[index]
 
-    @classmethod
-    def from_node(self, first_node, tp: TunnelParams):
-        tunnel = Tunnel(self)
-        tunnel.add_node(first_node)
+    def grow_tunnel(self):
+        """This function is called after setting the first node of the tunnel"""
+        tp = self.params  # for readability
         previous_orientation = correct_direction_of_intersecting_tunnel(
-            tp["starting_direction"], first_node)
-        previous_node = first_node
+            self.params["starting_direction"], self[0])
+
         d = 0
-        first_iteration = True
+        n = 1
         while d < tp["distance"]:
-            if not first_iteration:
+            if not n == 1:
                 segment_orientation = add_noise_to_direction(
                     previous_orientation, tp["horizontal_tendency"], tp["horizontal_noise"], tp["vertical_tendency"], tp["vertical_noise"])
             else:
@@ -222,36 +182,25 @@ class Tunnel:
             segment_length = np.random.uniform(
                 tp["min_seg_length"], tp["max_seg_length"])
             d += segment_length
-            new_node_coords = previous_node.xyz + segment_orientation * segment_length
+            new_node_coords = self[n-1].xyz + \
+                segment_orientation * segment_length
             new_node = Node(coords=new_node_coords)
-            tunnel.add_node(new_node)
-            previous_node.connect(new_node)
-            previous_node = new_node
+            self.add_node(new_node)
             previous_orientation = segment_orientation
-            first_iteration = False
-    @property
-    def spline(self):
-        if self._spline is None:
-            self._spline = Spline3D([n.xyz for n in self.nodes])
-        return self._spline
-
-    def __len__(self):
-        return len(self.nodes)
+            n+=1
 
     @property
     def distance(self):
         return self.spline.distance
 
-    def plot2d(self, ax):
-        ds = np.arange(0, self.distance, SPLINE_PLOT_PRECISSION)
-        xs, ys = [], []
-        for d in ds:
-            p, d = self.spline(d)
-            x, y, z = p
-            xs.append(x)
-            ys.append(y)
-        color = np.array(list(np.random.uniform(0.2, 0.75, size=3)))
-        ax.plot(xs, ys, c=color, linewidth=3)
+    @property
+    def spline(self):
+        if self._spline is None:
+            self._spline = Spline3D([n.xyz for n in self._nodes])
+        return self._spline
+
+    def __len__(self):
+        return len(self._nodes)
 
 
 class Intersection:
@@ -263,3 +212,17 @@ class Intersection:
     @property
     def n_tunnels(self):
         return len(self.connected_tunnels)
+
+
+class TunnelNetwork(Graph):
+    def __init__(self):
+        super().__init__()
+        self._tunnels = set()
+        self._intersections = set()
+
+    def remove_tunnel(self, tunnel):
+        assert tunnel in self._tunnels
+        self._tunnels.remove(tunnel)
+
+    def add_tunnel(self, tunnel: Tunnel):
+        self._tunnels.add(tunnel)
