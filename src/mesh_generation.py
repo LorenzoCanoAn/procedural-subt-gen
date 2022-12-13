@@ -18,6 +18,8 @@ def get_mesh_vertices_from_graph_perlin_and_spline(graph, smooth_floor=1):
         # Number of circles along the spline
         N = math.ceil(spline.distance / MIN_DIST_OF_MESH_POINTS)
         d = spline.distance/N
+        
+        # This for loop advances through the spline circle a circle
         for n in range(N):
             p, v = spline(n*d)
             p = np.reshape(p, [-1, 1])
