@@ -4,8 +4,47 @@ import numpy as np
 from perlin_noise import PerlinNoise
 import time
 import open3d as o3d
+import meshlib.mrmeshpy as mr
 
 from PARAMS import TUNNEL_AVG_RADIUS, MIN_DIST_OF_MESH_POINTS, N_ANGLES_PER_CIRCLE
+
+def get_mesh_vertices_for_tunnels(graph, smooth_floor=1):
+    points = list()
+    normals = list()
+    noise = RadiusNoiseGenerator(TUNNEL_AVG_RADIUS)
+    for tunnel in graph._tunnels:
+        spline = tunnel.spline
+        assert isinstance(spline, Spline3D)
+        # Number of circles along the spline
+        N = math.ceil(spline.distance / MIN_DIST_OF_MESH_POINTS)
+        d = spline.distance/N
+        
+        # This for loop advances through the spline circle a circle
+        for n in range(N):
+            p, v = spline(n*d)
+            p = np.reshape(p, [-1, 1])
+            u1 = np.cross(v.T, np.array([0, 1, 0]))
+            u2 = np.cross(u1, v.T)
+            u1 = np.reshape(u1, [-1, 1])
+            u2 = np.reshape(u2, [-1, 1])
+
+            angles = np.random.uniform(0, 2*math.pi, N_ANGLES_PER_CIRCLE)
+            radiuses = np.array([noise([a/(2*math.pi), n/N]) for a in angles])
+            normals_ = u1*np.sin(angles) + u2*np.cos(angles)
+            normals_ /= np.linalg.norm(normals_, axis=0)
+
+            points_ = p + normals_ * radiuses
+            # Correct the floor points so that it is flat
+            if not smooth_floor is None:
+                indices_to_correct = (points_ - p)[-1, :] < (-smooth_floor)
+                points_[-1, np.where(indices_to_correct)] = p[-1]-smooth_floor
+        
+        
+        points.append(points_)
+        normals.append(-normals_)
+
+    return points, normals
+
 
 
 def get_mesh_vertices_from_graph_perlin_and_spline(graph, smooth_floor=1):
@@ -164,3 +203,7 @@ class RadiusNoiseGenerator:
         # * self.radius/2 + self.noise2(coords) * self.radius/4 + self.noise3(coords) * self.radius/6 + self.noise4(coords) * self.radius/8
         output = self.radius + self.noise1(coords) * self.radius
         return output
+
+def o3d_to_mshlib_mesh(mesh):
+    pass
+

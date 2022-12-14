@@ -35,16 +35,17 @@ def main():
     Tunnel(graph,np.array((0, 0, 0)), tunnel_params)
     node = graph.nodes[-3]
     tunnel_params["starting_direction"] = np.array((0,1,0))
-    Tunnel(graph, node, tunnel_params)
-    tunnel_params["starting_direction"] = np.array((0,-1,0))
-    Tunnel(graph, node, tunnel_params)
-    plot_graph_2d(graph)
+    #Tunnel(graph, node, tunnel_params)
+    #tunnel_params["starting_direction"] = np.array((0,-1,0))
+    #Tunnel(graph, node, tunnel_params)
+    #plot_graph_2d(graph)
     # Generate the vertices of the mesh
     print("Generating mesh")
     points, normals = get_mesh_vertices_from_graph_perlin_and_spline(graph)
     mesh, ptcl = mesh_from_vertices(points, normals)
     plot_mesh(ptcl)
     input()
+
          
 if __name__ == "__main__":
     main()
