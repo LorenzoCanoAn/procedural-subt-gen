@@ -8,11 +8,35 @@ import meshlib.mrmeshpy as mr
 
 from PARAMS import TUNNEL_AVG_RADIUS, MIN_DIST_OF_MESH_POINTS, N_ANGLES_PER_CIRCLE
 
-def get_mesh_vertices_for_tunnels(graph, smooth_floor=1):
-    points = list()
-    normals = list()
+def get_axis_pointcloud(tunnel:Tunnel):
+    spline = tunnel.spline
+    assert isinstance(spline, Spline3D)
+    # Number of circles along the spline
+    N = math.ceil(spline.distance / MIN_DIST_OF_MESH_POINTS)
+    d = spline.distance/N
+    
+    # This for loop advances through the spline circle a circle
+    axis_points = None
+    for n in range(N):
+        p, v = spline(n*d)
+        p = np.reshape(p, (-1,1))
+        if axis_points is None:
+            axis_points = p
+        else:
+            axis_points = np.hstack([axis_points, p])
+    ptcl = o3d.geometry.PointCloud()
+    print(axis_points.shape)
+    ptcl.points = o3d.utility.Vector3dVector(axis_points.T)
+    ptcl.colors = o3d.utility.Vector3dVector(np.ones(np.asarray(ptcl.points).shape)*np.array((0,0,0)))
+    return ptcl
+
+def get_vertices_for_tunnels(graph, smooth_floor=1):
+    tunnels_points = list()
+    tunnels_normals = list()
     noise = RadiusNoiseGenerator(TUNNEL_AVG_RADIUS)
     for tunnel in graph._tunnels:
+        points = None
+        normals = None
         spline = tunnel.spline
         assert isinstance(spline, Spline3D)
         # Number of circles along the spline
@@ -38,12 +62,17 @@ def get_mesh_vertices_for_tunnels(graph, smooth_floor=1):
             if not smooth_floor is None:
                 indices_to_correct = (points_ - p)[-1, :] < (-smooth_floor)
                 points_[-1, np.where(indices_to_correct)] = p[-1]-smooth_floor
-        
-        
-        points.append(points_)
-        normals.append(-normals_)
 
-    return points, normals
+            if points is None:
+                points = points_
+                normals = -normals_
+            else:
+                points = np.hstack([points, points_])
+                normals = np.hstack([normals, -normals_])
+
+        tunnels_points.append(points)
+        tunnels_normals.append(normals)
+    return tunnels_points, tunnels_normals
 
 
 

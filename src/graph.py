@@ -35,7 +35,6 @@ class Node:
 
     def __init__(self, coords=np.zeros(3), graph=None):
         if graph is None:
-            print(self.__graph.__class__)
             assert issubclass(self.__graph.__class__, Graph), "You need to stablish the global parent for the nodes"
             self.graph = self.__graph
         else:

@@ -13,7 +13,7 @@ def plot_graph_2d(graph, ax=None):
     for node in graph.nodes:
         ax.scatter(node.x, node.y, c="b")
     for tunnel in graph._tunnels:
-        plot_tunnel_2d(tunnel)
+        plot_tunnel_2d(tunnel,ax)
     mincoords = np.array((graph.minx, graph.miny))
     maxcoords = np.array((graph.maxx, graph.maxy))
     max_diff = max(maxcoords-mincoords)
