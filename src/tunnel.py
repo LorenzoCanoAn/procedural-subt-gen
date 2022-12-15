@@ -105,22 +105,36 @@ class Spline3D:
 
 
 class TunnelParams(dict):
-    def __init__(self, params=None):
+    def __init__(self, params=None, random=False):
         super().__init__()
-        self["distance"] = 100,
-        self["starting_direction"] = (1, 0, 0),
-        self["horizontal_tendency"] = 0,
-        self["horizontal_noise"] = 0,
-        self["vertical_tendency"] = 0,
-        self["vertical_noise"] = 0,
-        self["min_seg_length"] = 10,
-        self["max_seg_length"] = 15
+        if random:
+            self.random()
+        else:
+            self["distance"] = 100,
+            self["starting_direction"] = (1, 0, 0),
+            self["horizontal_tendency"] = 0,
+            self["horizontal_noise"] = 0,
+            self["vertical_tendency"] = 0,
+            self["vertical_noise"] = 0,
+            self["min_seg_length"] = 10,
+            self["max_seg_length"] = 15
 
         if not params is None:
             assert isinstance(params, dict)
             for key in params.keys():
                 self[key] = params[key]
 
+    def random(self):
+        self["distance"] = np.random.uniform(20,200)
+        th = np.deg2rad(np.random.uniform(-180, 180))
+        ph = np.deg2rad(np.random.uniform(-20, 20))
+        self["starting_direction"] = angles_to_vector((th, ph))
+        self["horizontal_tendency"] = np.deg2rad(np.random.uniform(-20,20))
+        self["horizontal_noise"] = np.deg2rad(np.random.uniform(0,20))
+        self["vertical_tendency"] = np.deg2rad(np.random.uniform(-20,20))
+        self["vertical_noise"] = np.deg2rad(np.random.uniform(0,10))
+        self["min_seg_length"] = self["distance"]*np.random.uniform(0.1,0.2)
+        self["max_seg_length"] = self["distance"]*np.random.uniform(0.25,0.4)
 
 class Tunnel:
     def __init__(self, parent, seed, params = TunnelParams()):
