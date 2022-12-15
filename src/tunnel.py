@@ -146,12 +146,17 @@ class Tunnel:
     def split(self, node):
         assert node in self._nodes
         split_point = self._nodes.index(node)
+        for node in self._nodes:
+            node.tunnels.remove(self)
         tunnel_1 = Tunnel(self.parent,self._nodes[:split_point+1])
         tunnel_2 = Tunnel(self.parent,self._nodes[split_point:])
         self.parent.remove_tunnel(self)
 
     def set_nodes(self, nodes):
         self._nodes = nodes
+        for node in self._nodes:
+            assert isinstance(node, Node)
+            node.tunnels.add(self)
         self._spline = Spline3D([n.xyz for n in self._nodes])
 
     def add_node(self, node: Node):

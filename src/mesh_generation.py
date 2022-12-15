@@ -33,8 +33,8 @@ def get_axis_pointcloud(tunnel:Tunnel):
 def get_vertices_for_tunnels(graph, smooth_floor=1):
     tunnels_points = list()
     tunnels_normals = list()
-    noise = RadiusNoiseGenerator(TUNNEL_AVG_RADIUS)
     for tunnel in graph._tunnels:
+        noise = RadiusNoiseGenerator(TUNNEL_AVG_RADIUS)
         points = None
         normals = None
         spline = tunnel.spline
