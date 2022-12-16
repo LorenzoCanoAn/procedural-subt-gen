@@ -6,6 +6,12 @@ import os
 import shutil
 from tunnel import Tunnel, TunnelNetwork
 MESH_FOLDER = "meshes"
+
+class TunnelWithMesh(Tunnel):
+    def __init__(self, tunnel:Tunnel):
+        self._tunnel = tunnel
+        self.points = np.array()
+
 def tunnel_interesects_with_list(tunnel:Tunnel, list_of_tunnels):
     for tunnel_in_list in list_of_tunnels:
         assert isinstance(tunnel_in_list, Tunnel)
