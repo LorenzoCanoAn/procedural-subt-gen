@@ -166,7 +166,7 @@ class Tunnel:
         tunnel_2 = Tunnel(self.parent,self._nodes[split_point:])
         self.parent.remove_tunnel(self)
 
-    def set_nodes(self, nodes):
+    def set_nodes(self, nodes:list[Node]):
         self._nodes = nodes
         for node in self._nodes:
             assert isinstance(node, Node)
@@ -207,6 +207,9 @@ class Tunnel:
             self.add_node(new_node)
             previous_orientation = segment_orientation
             n+=1
+    @property
+    def nodes(self):
+        return self._nodes
 
     @property
     def distance(self):
@@ -245,3 +248,7 @@ class TunnelNetwork(Graph):
 
     def add_tunnel(self, tunnel: Tunnel):
         self._tunnels.add(tunnel)
+
+    @property
+    def tunnels(self):
+        return self._tunnels
