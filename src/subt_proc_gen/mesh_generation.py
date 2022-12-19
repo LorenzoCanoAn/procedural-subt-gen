@@ -295,7 +295,14 @@ class TunnelWithMesh:
 
     def get_points_close_to_point(self, point, threshold_distance):
         """points should have a 3x1 dimmension"""
-        return np.where(np.linalg.norm(self.points - np.reshape(point, (-1, 1)), axis=0) < threshold_distance)
+        print(self.points)
+        print(point)
+        print(np.reshape(point, (-1, 1)))
+        difference = self.points - np.reshape(point, (-1, 1))
+        print(difference)
+        distance = np.linalg.norm(difference, axis=0)
+        print(distance)
+        return np.where(distance < threshold_distance)
 
     def gen_ptcl(self):
         self._ptcl = o3d.geometry.PointCloud()

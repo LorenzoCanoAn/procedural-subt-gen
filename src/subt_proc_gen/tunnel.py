@@ -207,6 +207,15 @@ class Tunnel:
             self.add_node(new_node)
             previous_orientation = segment_orientation
             n+=1
+
+    def common_nodes(self, tunnel):
+        assert isinstance(tunnel, Tunnel)
+        common_nodes = set()
+        for node in self.nodes:
+            if node in tunnel.nodes:
+                common_nodes.add(node)
+        return common_nodes
+
     @property
     def nodes(self):
         return self._nodes
