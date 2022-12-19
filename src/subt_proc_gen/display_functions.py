@@ -1,8 +1,8 @@
 """Functions to display and debug the graph generation process"""
 import matplotlib.pyplot as plt
 import numpy as np
-from tunnel import Tunnel, TunnelNetwork
-from PARAMS import *
+from subt_proc_gen.tunnel import Tunnel, TunnelNetwork
+from subt_proc_gen.PARAMS import *
 
 def plot_graph_2d(graph, ax=None):
     if ax is None:

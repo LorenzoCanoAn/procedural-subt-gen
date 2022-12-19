@@ -1,9 +1,9 @@
 """This file contains all the data structures that interpret the graph as a set of tunnels
 and build it as such"""
-from graph import Graph, Node
-from PARAMS import *
+from subt_proc_gen.graph import Graph, Node
+from subt_proc_gen.PARAMS import *
 import numpy as np
-from helper_functions import vector_to_angles, warp_angle_2pi, warp_angle_pi, angles_to_vector
+from subt_proc_gen.helper_functions import vector_to_angles, warp_angle_2pi, warp_angle_pi, angles_to_vector
 import math
 from scipy import interpolate
 

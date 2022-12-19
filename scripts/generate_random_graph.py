@@ -1,12 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from helper_functions import *
+from subt_proc_gen.helper_functions import *
 import pickle
-from tunnel import TunnelParams, Tunnel, TunnelNetwork
-from graph import Node
-from display_functions import plot_graph_2d, network_overview
-from mesh_generation import *
+from subt_proc_gen.tunnel import TunnelParams, Tunnel, TunnelNetwork
+from subt_proc_gen.graph import Node
+from subt_proc_gen.display_functions import plot_graph_2d, network_overview
+from subt_proc_gen.mesh_generation import *
 import open3d as o3d
 
 def debug_plot(graph):

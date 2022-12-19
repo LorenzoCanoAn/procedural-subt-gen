@@ -1,4 +1,4 @@
-from tunnel import Tunnel, Spline3D
+from subt_proc_gen.tunnel import Tunnel, Spline3D
 import math
 import numpy as np
 from perlin_noise import PerlinNoise
@@ -6,7 +6,7 @@ import time
 import open3d as o3d
 import meshlib.mrmeshpy as mr
 
-from PARAMS import TUNNEL_AVG_RADIUS, MIN_DIST_OF_MESH_POINTS, N_ANGLES_PER_CIRCLE
+from subt_proc_gen.PARAMS import TUNNEL_AVG_RADIUS, MIN_DIST_OF_MESH_POINTS, N_ANGLES_PER_CIRCLE
 
 
 def get_axis_pointcloud(tunnel: Tunnel):

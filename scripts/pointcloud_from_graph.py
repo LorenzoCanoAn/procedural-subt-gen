@@ -1,12 +1,13 @@
 import pickle
-from mesh_generation import *
+from subt_proc_gen.mesh_generation import *
 import open3d as o3d
-from PARAMS import *
+from subt_proc_gen.PARAMS import *
 import os
 import shutil
-from tunnel import Tunnel, TunnelNetwork
+from subt_proc_gen.display_functions import plot_graph_2d
+from subt_proc_gen.tunnel import Tunnel, TunnelNetwork
 MESH_FOLDER = "meshes"
-
+import matplotlib.pyplot as plt
 class TunnelWithMesh(Tunnel):
     def __init__(self, tunnel:Tunnel):
         self._tunnel = tunnel
@@ -26,6 +27,9 @@ def main():
     with open("graph.pkl", "rb") as f:
         graph = pickle.load(f)
     # Order the tunnels so that the meshes intersect
+    plt.figure(figsize=(10,10))
+    plot_graph_2d(graph)
+    plt.show()
     assert isinstance(graph, TunnelNetwork)
     tunnels_to_assign = list(graph._tunnels.copy())
 
