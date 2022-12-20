@@ -8,6 +8,7 @@ from subt_proc_gen.helper_functions import (
     gen_cylinder_around_point,
     get_indices_of_points_below_cylinder,
 )
+import open3d as o3d
 import shutil
 
 MESH_FOLDER = "meshes"
@@ -36,57 +37,19 @@ def main():
 
     tunnel_network_with_mesh = TunnelNetworkWithMesh(tunnel_network)
     tunnel_network_with_mesh.clean_intersections()
-    plotter = pv.Plotter()
-    for n, tunnel_with_mesh in enumerate(tunnel_network_with_mesh._tunnels_with_mesh):
-        try:
-            plotter.add_mesh(
-                pv.PolyData(tunnel_with_mesh.central_points),
-                color=COLORS[n],
-            )
-        except:
-            pass
-        plotter.add_mesh(
-            pv.PolyData(
-                tunnel_with_mesh.selected_end_points,
-            ),
-            color=COLORS[n],
+    points, normals = tunnel_network_with_mesh.mesh_points_and_normals()
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    pcd.normals = o3d.utility.Vector3dVector(normals)
+    with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
+        mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+            pcd, depth=9
         )
-    plotter.show()
-    exit()
-    for intersection in tunnel_network.intersections:
-        for n_tunnel_i, tunnel in enumerate(intersection.tunnels):
-            # Plot the central points of the tunnel
-            tunnel_with_mesh_i = TunnelWithMesh.tunnel_to_tunnelwithmesh(tunnel)
-
-            for n_tunnel_j, tunnel_j in enumerate(intersection.tunnels):
-                tunnel_with_mesh_j = TunnelWithMesh.tunnel_to_tunnelwithmesh(tunnel_j)
-                if tunnel_with_mesh_i is tunnel_with_mesh_j:
-                    continue
-                # Update the secondary tunnel
-                for point in tunnel_with_mesh_i.selected_points_of_end(intersection):
-                    to_deselect = get_indices_of_points_below_cylinder(
-                        tunnel_with_mesh_j.selected_points_of_end(intersection),
-                        point,
-                        0.3,
-                    )
-                    tunnel_with_mesh_j.deselect_point_of_end(intersection, to_deselect)
-
-    # for n, tunnel_with_mesh in enumerate(tunnels_with_mesh):
-    #     try:
-    #         plotter.add_mesh(
-    #             pv.PolyData(tunnel_with_mesh.central_points),
-    #             color=COLORS[n],
-    #         )
-    #     except:
-    #         pass
-    #     plotter.add_mesh(
-    #         pv.PolyData(
-    #             tunnel_with_mesh.selected_end_points,
-    #         ),
-    #         color=COLORS[n],
-    #     )
-
-    # plotter.show()
+    o3d.visualization.draw_geometries(
+        [mesh],
+    )
+    o3d.io.write_triangle_mesh("copy_of_knot.ply", mesh)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ from subt_proc_gen.PARAMS import (
     MIN_DIST_OF_MESH_POINTS,
     N_ANGLES_PER_CIRCLE,
     INTERSECTION_DISTANCE,
+    HORIZONTAL_EXCLUSION_DISTANCE,
 )
 from subt_proc_gen.helper_functions import get_indices_of_points_below_cylinder
 import math
@@ -354,6 +355,23 @@ class TunnelWithMesh:
     def selected_end_points(self):
         return self._raw_points[self.all_selected_end_indices]
 
+    @property
+    def all_selected_indices(self):
+        if len(self._central_indices) > 0:
+            return np.concatenate(
+                (self._central_indices, self.all_selected_end_indices)
+            )
+        else:
+            return self.all_selected_end_indices
+
+    @property
+    def all_selected_points(self):
+        return self._raw_points[self.all_selected_indices]
+
+    @property
+    def all_selected_normals(self):
+        return self._raw_normals[self.all_selected_indices]
+
     def raw_points_in_end(self, end_node):
         assert isinstance(end_node, CaveNode)
         assert end_node in self._tunnel.end_nodes
@@ -431,8 +449,25 @@ class TunnelNetworkWithMesh:
                         to_deselect = get_indices_of_points_below_cylinder(
                             tunnel_with_mesh_j.selected_points_of_end(intersection),
                             point,
-                            0.3,
+                            HORIZONTAL_EXCLUSION_DISTANCE,
                         )
                         tunnel_with_mesh_j.deselect_point_of_end(
                             intersection, to_deselect
                         )
+
+    def mesh_points_and_normals(self):
+        mesh_points = None
+        mesh_normals = None
+        for n, tunnel_with_mesh in enumerate(self._tunnels_with_mesh):
+            assert isinstance(tunnel_with_mesh, TunnelWithMesh)
+            if mesh_points is None:
+                mesh_points = tunnel_with_mesh.all_selected_points
+                mesh_normals = tunnel_with_mesh.all_selected_normals
+            else:
+                mesh_points = np.vstack(
+                    (mesh_points, tunnel_with_mesh.all_selected_points)
+                )
+                mesh_normals = np.vstack(
+                    (mesh_normals, tunnel_with_mesh.all_selected_normals)
+                )
+        return mesh_points, mesh_normals
