@@ -1,4 +1,5 @@
 from subt_proc_gen.tunnel import Tunnel, Spline3D
+from subt_proc_gen.graph import Node
 import math
 import numpy as np
 from perlin_noise import PerlinNoise
@@ -267,19 +268,14 @@ class TunnelWithMesh:
 
         self._indices_of_excluded_vertices = np.array([], dtype=np.int32)
         self._ptcl = None
-        self._indices_in_ends = {
-            self.tunnel.nodes[0]: self.get_indices_close_to_point(
-                self.tunnel.nodes[0].xyz, threshold_for_points_in_ends
-            ),
-            self.tunnel.nodes[-1]: self.get_indices_close_to_point(
-                self.tunnel.nodes[-1].xyz, threshold_for_points_in_ends
-            ),
-        }
-
-        self._filtered_indices_in_ends = {
-            self.tunnel.nodes[0]: np.array(()),
-            self.tunnel.nodes[-1]: np.array(()),
-        }
+        # Init the indexers
+        self._indices_in_ends = {}
+        self._filtered_indices_in_ends = {}
+        for node in self._tunnel.end_nodes:
+            self._indices_in_ends[node] = self.get_indices_close_to_point(
+                node.xyz, threshold_for_points_in_ends
+            )
+            self._filtered_indices_in_ends[node] = np.ndarray([])
 
     @property
     def tunnel(self):
@@ -315,6 +311,11 @@ class TunnelWithMesh:
     def n_points(self):
         assert len(self._raw_normals) == len(self._raw_points)
         return len(self._raw_normals)
+
+    def points_in_ends(self, end_node):
+        assert isinstance(end_node, Node) 
+        assert end_node in self._tunnel.end_nodes
+        return self._raw_points[self._indices_in_ends[end_node]]
 
     def get_indices_close_to_point(
         self, point: np.ndarray, threshold_distance, horizontal_distance=True

@@ -30,37 +30,27 @@ class Edge:
         z1 = nodes[1].z
         ax.plot3D([x0, x1], [y0, y1], [z0, z1], c="k")
 
+
 class Node:
     __graph = None
 
     def __init__(self, coords=np.zeros(3), graph=None):
         if graph is None:
-            assert issubclass(self.__graph.__class__, Graph), "You need to stablish the global parent for the nodes"
+            assert issubclass(
+                self.__graph.__class__, Graph
+            ), "You need to stablish the global parent for the nodes"
             self.graph = self.__graph
         else:
             self.graph = graph
         self.connected_nodes = set()
         self.coords = coords
-        self.tunnels = set()
 
     @classmethod
     def set_graph(cls, graph):
         cls.__graph = graph
 
-    def add_tunnel(self, new_tunnel):
-        """Nodes must keep track of what tunnels they are a part of
-        this way, if a node is part of more than one tunnel, it means it
-        is  an intersection"""
-        if len(self.tunnels) == 0:
-            self.tunnels.add(new_tunnel)
-        elif len(self.tunnels) == 1:
-            if len(self.connected_nodes) == 2:
-                list(self.tunnels)[0].split(self)
-        else:
-            self.tunnels.add(new_tunnel) 
-
     def connect(self, node):
-        """This function does everything to connect two nodes and update the 
+        """This function does everything to connect two nodes and update the
         info in all relevant places"""
         assert isinstance(node, Node)
         self.graph.edges.append(Edge(self, node))
@@ -89,40 +79,46 @@ class Node:
     def z(self):
         return self.coords[2]
 
+
 class Graph:
     def __init__(self):
         self.recalculate_control = True
-        self.nodes = list()
-        self.edges = list()
+        self._nodes = list()
+        self._edges = list()
 
     def add_node(self, node):
         self.recalculate_control = True
-        if not node in self.nodes:
-            self.nodes.append(node)
+        if not node in self._nodes:
+            self._nodes.append(node)
+
+    @property
+    def nodes(self):
+        return self._nodes
+
+    @property
+    def edges(self):
+        return self._edges
 
     @property
     def minx(self):
-        return min([n.x for n in self.nodes])
+        return min([n.x for n in self._nodes])
 
     @property
     def miny(self):
-        return min([n.y for n in self.nodes])
+        return min([n.y for n in self._nodes])
 
     @property
     def minz(self):
-        return min([n.z for n in self.nodes])
+        return min([n.z for n in self._nodes])
 
     @property
     def maxx(self):
-        return max([n.x for n in self.nodes])
+        return max([n.x for n in self._nodes])
 
     @property
     def maxy(self):
-        return max([n.y for n in self.nodes])
+        return max([n.y for n in self._nodes])
 
     @property
     def maxz(self):
-        return max([n.z for n in self.nodes])
-
-
-    
+        return max([n.z for n in self._nodes])

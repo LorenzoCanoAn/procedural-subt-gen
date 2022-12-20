@@ -62,7 +62,7 @@ def plot_tunnel_2d(tunnel:Tunnel, ax=None):
     ax.plot(xs, ys, c=color, linewidth=3)
 
 def network_overview(tunnel_network: TunnelNetwork):
-    print(f"Number of Nodes: {len(tunnel_network.nodes)}")
-    print(f"Number of Edges: {len(tunnel_network.edges)}")
+    print(f"Number of Nodes: {len(tunnel_network._nodes)}")
+    print(f"Number of Edges: {len(tunnel_network._nodes)}")
     print(f"Number of Tunnels: {len(tunnel_network._tunnels)}")
     print(f"Number of Intersections: {len(tunnel_network._intersections)}")

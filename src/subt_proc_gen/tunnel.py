@@ -3,24 +3,26 @@ and build it as such"""
 from subt_proc_gen.graph import Graph, Node
 from subt_proc_gen.PARAMS import *
 import numpy as np
-from subt_proc_gen.helper_functions import vector_to_angles, warp_angle_2pi, warp_angle_pi, angles_to_vector
+from subt_proc_gen.helper_functions import (
+    vector_to_angles,
+    warp_angle_2pi,
+    warp_angle_pi,
+    angles_to_vector,
+)
 import math
 from scipy import interpolate
 
 
-def add_noise_to_direction(direction,
-                           horizontal_tendency,
-                           horizontal_noise,
-                           vertical_tendency,
-                           vertical_noise):
+def add_noise_to_direction(
+    direction, horizontal_tendency, horizontal_noise, vertical_tendency, vertical_noise
+):
     assert direction.size == 3
     th, ph = vector_to_angles(direction)
-    horizontal_deviation = np.random.normal(
-        horizontal_tendency, horizontal_noise)
+    horizontal_deviation = np.random.normal(horizontal_tendency, horizontal_noise)
     th = warp_angle_2pi(th + horizontal_deviation)
     ph = np.random.normal(vertical_tendency, vertical_noise)
     if abs(ph) > MAX_SEGMENT_INCLINATION:
-        ph = MAX_SEGMENT_INCLINATION * ph/abs(ph)
+        ph = MAX_SEGMENT_INCLINATION * ph / abs(ph)
     direction = angles_to_vector((th, ph))
     return direction
 
@@ -30,7 +32,7 @@ def correct_inclination(direction):
     inclination = math.asin(direction[2])
     orientation = math.atan2(direction[1], direction[0])
     if abs(inclination) > MAX_SEGMENT_INCLINATION:
-        z = math.sin(MAX_SEGMENT_INCLINATION) * inclination/abs(inclination)
+        z = math.sin(MAX_SEGMENT_INCLINATION) * inclination / abs(inclination)
         x = math.cos(MAX_SEGMENT_INCLINATION) * math.cos(orientation)
         y = math.cos(MAX_SEGMENT_INCLINATION) * math.sin(orientation)
         return np.array([x, y, z])
@@ -38,9 +40,9 @@ def correct_inclination(direction):
         return direction
 
 
-def correct_direction_of_intersecting_tunnel(direction,
-                                             intersecting_node,
-                                             angle_threshold=MIN_ANGLE_FOR_INTERSECTIONS):
+def correct_direction_of_intersecting_tunnel(
+    direction, intersecting_node, angle_threshold=MIN_ANGLE_FOR_INTERSECTIONS
+):
     if len(intersecting_node.connected_nodes) == 0:
         return direction
     th0, ph0 = vector_to_angles(direction)
@@ -49,14 +51,17 @@ def correct_direction_of_intersecting_tunnel(direction,
     min_neg_difference, min_pos_difference = np.pi, np.pi
     for node in intersecting_node.connected_nodes:
         th1, ph1 = vector_to_angles(intersecting_node.xyz - node.xyz)
-        difference = warp_angle_pi(th1-th0)
+        difference = warp_angle_pi(th1 - th0)
         if difference < 0 and abs(difference) < abs(min_neg_difference):
             min_neg_difference = difference
             closest_neg_angle = th1
         elif difference > 0 and abs(difference) < abs(min_pos_difference):
             min_pos_difference = difference
             closest_pos_angle = th1
-    if abs(min_pos_difference) < angle_threshold and abs(min_neg_difference) < angle_threshold:
+    if (
+        abs(min_pos_difference) < angle_threshold
+        and abs(min_neg_difference) < angle_threshold
+    ):
         return None
     if abs(min_neg_difference) < angle_threshold:
         thf = closest_neg_angle + angle_threshold
@@ -71,23 +76,21 @@ def correct_direction_of_intersecting_tunnel(direction,
 
 
 class Spline3D:
-    """Wrapper around the scipy spline to 
+    """Wrapper around the scipy spline to
     interpolate a series of 3d points along x,y and z"""
 
     def __init__(self, points):
         self.points = np.array(points)
         self.distances = [0 for _ in range(len(self.points))]
-        for i in range(len(points)-1):
-            self.distances[i+1] = self.distances[i] + \
-                np.linalg.norm(points[i+1] - points[i])
+        for i in range(len(points) - 1):
+            self.distances[i + 1] = self.distances[i] + np.linalg.norm(
+                points[i + 1] - points[i]
+            )
         self.distance = self.distances[-1]
-        degree = 3 if len(self.distances) > 3 else len(self.distances)-1
-        self.xspline = interpolate.splrep(
-            self.distances, self.points[:, 0], k=degree)
-        self.yspline = interpolate.splrep(
-            self.distances, self.points[:, 1], k=degree)
-        self.zspline = interpolate.splrep(
-            self.distances, self.points[:, 2], k=degree)
+        degree = 3 if len(self.distances) > 3 else len(self.distances) - 1
+        self.xspline = interpolate.splrep(self.distances, self.points[:, 0], k=degree)
+        self.yspline = interpolate.splrep(self.distances, self.points[:, 1], k=degree)
+        self.zspline = interpolate.splrep(self.distances, self.points[:, 2], k=degree)
 
     def __call__(self, d):
         assert d >= 0 and d <= self.distance
@@ -95,9 +98,9 @@ class Spline3D:
         y = interpolate.splev(d, self.yspline)
         z = interpolate.splev(d, self.zspline)
         p = np.array([x, y, z])
-        x1 = interpolate.splev(d+0.001, self.xspline)
-        y1 = interpolate.splev(d+0.001, self.yspline)
-        z1 = interpolate.splev(d+0.001, self.zspline)
+        x1 = interpolate.splev(d + 0.001, self.xspline)
+        y1 = interpolate.splev(d + 0.001, self.yspline)
+        z1 = interpolate.splev(d + 0.001, self.zspline)
         p1 = np.array([x1, y1, z1])
         v = p1 - p
         v /= np.linalg.norm(v)
@@ -110,13 +113,13 @@ class TunnelParams(dict):
         if random:
             self.random()
         else:
-            self["distance"] = 100,
-            self["starting_direction"] = (1, 0, 0),
-            self["horizontal_tendency"] = 0,
-            self["horizontal_noise"] = 0,
-            self["vertical_tendency"] = 0,
-            self["vertical_noise"] = 0,
-            self["min_seg_length"] = 10,
+            self["distance"] = (100,)
+            self["starting_direction"] = ((1, 0, 0),)
+            self["horizontal_tendency"] = (0,)
+            self["horizontal_noise"] = (0,)
+            self["vertical_tendency"] = (0,)
+            self["vertical_noise"] = (0,)
+            self["min_seg_length"] = (10,)
             self["max_seg_length"] = 15
 
         if not params is None:
@@ -125,19 +128,20 @@ class TunnelParams(dict):
                 self[key] = params[key]
 
     def random(self):
-        self["distance"] = np.random.uniform(20,200)
+        self["distance"] = np.random.uniform(20, 200)
         th = np.deg2rad(np.random.uniform(-180, 180))
         ph = np.deg2rad(np.random.uniform(-20, 20))
         self["starting_direction"] = angles_to_vector((th, ph))
-        self["horizontal_tendency"] = np.deg2rad(np.random.uniform(-20,20))
-        self["horizontal_noise"] = np.deg2rad(np.random.uniform(0,20))
-        self["vertical_tendency"] = np.deg2rad(np.random.uniform(-20,20))
-        self["vertical_noise"] = np.deg2rad(np.random.uniform(0,10))
-        self["min_seg_length"] = self["distance"]*np.random.uniform(0.1,0.2)
-        self["max_seg_length"] = self["distance"]*np.random.uniform(0.25,0.4)
+        self["horizontal_tendency"] = np.deg2rad(np.random.uniform(-20, 20))
+        self["horizontal_noise"] = np.deg2rad(np.random.uniform(0, 20))
+        self["vertical_tendency"] = np.deg2rad(np.random.uniform(-20, 20))
+        self["vertical_noise"] = np.deg2rad(np.random.uniform(0, 10))
+        self["min_seg_length"] = self["distance"] * np.random.uniform(0.1, 0.2)
+        self["max_seg_length"] = self["distance"] * np.random.uniform(0.25, 0.4)
+
 
 class Tunnel:
-    def __init__(self, parent, seed, params = TunnelParams()):
+    def __init__(self, parent, seed, params=TunnelParams()):
         assert isinstance(parent, TunnelNetwork)
         self.parent = parent
         self.params = params
@@ -148,11 +152,11 @@ class Tunnel:
         self._nodes = list()
         self._spline = None
 
-        if isinstance(seed, Node):
+        if isinstance(seed, CaveNode):
             self.add_node(seed)
             self.grow_tunnel()
         elif isinstance(seed, np.ndarray) and len(seed) == 3:
-            self.add_node(Node(seed))
+            self.add_node(CaveNode(seed))
             self.grow_tunnel()
         elif isinstance(seed, list) or isinstance(seed, set):
             self.set_nodes(seed)
@@ -162,18 +166,20 @@ class Tunnel:
         split_point = self._nodes.index(node)
         for node in self._nodes:
             node.tunnels.remove(self)
-        tunnel_1 = Tunnel(self.parent,self._nodes[:split_point+1])
-        tunnel_2 = Tunnel(self.parent,self._nodes[split_point:])
+        tunnel_1 = Tunnel(self.parent, self._nodes[: split_point + 1])
+        tunnel_2 = Tunnel(self.parent, self._nodes[split_point:])
         self.parent.remove_tunnel(self)
 
-    def set_nodes(self, nodes:list[Node]):
+    def set_nodes(self, nodes):
+        assert isinstance(nodes, list)
         self._nodes = nodes
         for node in self._nodes:
-            assert isinstance(node, Node)
+            assert isinstance(node, CaveNode)
             node.tunnels.add(self)
         self._spline = Spline3D([n.xyz for n in self._nodes])
 
-    def add_node(self, node: Node):
+    def add_node(self, node):
+        assert isinstance(node, CaveNode)
         if len(self) != 0:
             self._nodes[-1].connect(node)
         self._nodes.append(node)
@@ -188,25 +194,31 @@ class Tunnel:
         """This function is called after setting the first node of the tunnel"""
         tp = self.params  # for readability
         previous_orientation = correct_direction_of_intersecting_tunnel(
-            self.params["starting_direction"], self[0])
+            self.params["starting_direction"], self[0]
+        )
 
         d = 0
         n = 1
         while d < tp["distance"]:
             if not n == 1:
                 segment_orientation = add_noise_to_direction(
-                    previous_orientation, tp["horizontal_tendency"], tp["horizontal_noise"], tp["vertical_tendency"], tp["vertical_noise"])
+                    previous_orientation,
+                    tp["horizontal_tendency"],
+                    tp["horizontal_noise"],
+                    tp["vertical_tendency"],
+                    tp["vertical_noise"],
+                )
             else:
                 segment_orientation = previous_orientation
             segment_length = np.random.uniform(
-                tp["min_seg_length"], tp["max_seg_length"])
+                tp["min_seg_length"], tp["max_seg_length"]
+            )
             d += segment_length
-            new_node_coords = self[n-1].xyz + \
-                segment_orientation * segment_length
-            new_node = Node(coords=new_node_coords)
+            new_node_coords = self[n - 1].xyz + segment_orientation * segment_length
+            new_node = CaveNode(coords=new_node_coords)
             self.add_node(new_node)
             previous_orientation = segment_orientation
-            n+=1
+            n += 1
 
     def common_nodes(self, tunnel):
         assert isinstance(tunnel, Tunnel)
@@ -232,7 +244,7 @@ class Tunnel:
 
     @property
     def end_nodes(self):
-        return self._nodes[0], self._nodes[-1]
+        return (self._nodes[0], self._nodes[-1])
 
     def __len__(self):
         return len(self._nodes)
@@ -247,6 +259,28 @@ class Intersection:
     @property
     def n_tunnels(self):
         return len(self.connected_tunnels)
+
+
+class CaveNode(Node):
+    def __init__(self, coords=..., graph=None):
+        super().__init__(coords, graph)
+        self._tunnels = set()
+
+    @property
+    def tunnels(self):
+        return self._tunnels
+
+    def add_tunnel(self, new_tunnel):
+        """Nodes must keep track of what tunnels they are a part of
+        this way, if a node is part of more than one tunnel, it means it
+        is  an intersection"""
+        if len(self.tunnels) == 0:
+            self.tunnels.add(new_tunnel)
+        elif len(self.tunnels) == 1:
+            if len(self.connected_nodes) == 2:
+                list(self.tunnels)[0].split(self)
+        else:
+            self.tunnels.add(new_tunnel)
 
 
 class TunnelNetwork(Graph):
@@ -265,3 +299,15 @@ class TunnelNetwork(Graph):
     @property
     def tunnels(self):
         return self._tunnels
+
+    @property
+    def intersections(self):
+        # Return all nodes that have more than one tunnel assigned
+        self._intersections.clear()
+        for node in self._nodes:
+            assert isinstance(node, CaveNode), TypeError(
+                f"node is of type: {type(node)}"
+            )
+            if len(node.tunnels) > 2:
+                self._intersections.add(node)
+        return self._intersections
