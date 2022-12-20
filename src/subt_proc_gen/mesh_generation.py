@@ -245,6 +245,8 @@ class RadiusNoiseGenerator:
 
 
 class TunnelWithMesh:
+    Tunnel_to_TunnelWithMesh = dict()
+
     def __init__(
         self,
         tunnel: Tunnel,
@@ -253,6 +255,9 @@ class TunnelWithMesh:
         threshold_for_points_in_ends=5,
     ):
         self._tunnel = tunnel
+        self.Tunnel_to_TunnelWithMesh[
+            self._tunnel
+        ] = self  # This is a way to go from a tunnel to its corresponding TunnelWithMesh
         if vertices is None or normals is None:
             self._raw_points, self._raw_normals = get_vertices_and_normals_for_tunnel(
                 tunnel
@@ -269,6 +274,11 @@ class TunnelWithMesh:
             self.tunnel.nodes[-1]: self.get_indices_close_to_point(
                 self.tunnel.nodes[-1].xyz, threshold_for_points_in_ends
             ),
+        }
+
+        self._filtered_indices_in_ends = {
+            self.tunnel.nodes[0]: np.array(()),
+            self.tunnel.nodes[-1]: np.array(()),
         }
 
     @property
@@ -306,10 +316,15 @@ class TunnelWithMesh:
         assert len(self._raw_normals) == len(self._raw_points)
         return len(self._raw_normals)
 
-    def get_indices_close_to_point(self, point: np.ndarray, threshold_distance):
+    def get_indices_close_to_point(
+        self, point: np.ndarray, threshold_distance, horizontal_distance=True
+    ):
         """points should have a 3x1 dimmension"""
-        points_xy = self.raw_points[:, :2]
-        differences = points_xy - np.reshape(point.flatten()[:2], [1, -1])
+        if horizontal_distance:
+            points_xy = self.raw_points[:, :2]
+            differences = points_xy - np.reshape(point.flatten()[:2], [1, -1])
+        else:
+            differences = self.raw_points - np.reshape(point.flatten(), [1, -1])
         distances = np.linalg.norm(differences, axis=1)
         return np.where(distances < threshold_distance)
 
