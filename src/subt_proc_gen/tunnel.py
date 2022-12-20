@@ -230,6 +230,10 @@ class Tunnel:
             self._spline = Spline3D([n.xyz for n in self._nodes])
         return self._spline
 
+    @property
+    def end_nodes(self):
+        return self._nodes[0], self._nodes[-1]
+
     def __len__(self):
         return len(self._nodes)
 

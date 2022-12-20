@@ -23,14 +23,14 @@ def get_axis_pointcloud(tunnel: Tunnel):
     axis_points = None
     for n in range(N):
         p, v = spline(n * d)
-        p = np.reshape(p, (-1, 1))
+        p = np.reshape(p, (1, -1))
         if axis_points is None:
             axis_points = p
         else:
-            axis_points = np.hstack([axis_points, p])
+            axis_points = np.vstack([axis_points, p])
     ptcl = o3d.geometry.PointCloud()
     print(axis_points.shape)
-    ptcl.points = o3d.utility.Vector3dVector(axis_points.T)
+    ptcl.points = o3d.utility.Vector3dVector(axis_points)
     ptcl.colors = o3d.utility.Vector3dVector(
         np.ones(np.asarray(ptcl.points).shape) * np.array((0, 0, 0))
     )
@@ -70,7 +70,7 @@ def get_vertices_and_normals_for_tunnel(tunnel, smooth_floor=1):
         else:
             points = np.hstack([points, points_])
             normals = np.hstack([normals, -normals_])
-    return points, normals
+    return points.T, normals.T  # so the shape is Nx3
 
 
 def get_vertices_for_tunnels(graph, smooth_floor=1):
@@ -128,8 +128,8 @@ def get_mesh_vertices_from_graph_perlin_and_spline(graph, smooth_floor=1):
 def mesh_from_vertices(points, normals):
     print("run Poisson surface reconstruction")
     pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points.T)
-    pcd.normals = o3d.utility.Vector3dVector(normals.T)
+    pcd.points = o3d.utility.Vector3dVector(points)
+    pcd.normals = o3d.utility.Vector3dVector(normals)
     mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
         pcd, depth=7
     )
@@ -245,17 +245,31 @@ class RadiusNoiseGenerator:
 
 
 class TunnelWithMesh:
-    def __init__(self, tunnel: Tunnel, vertices=None, normals=None, threshold_for_points_in_ends = 5):
+    def __init__(
+        self,
+        tunnel: Tunnel,
+        vertices=None,
+        normals=None,
+        threshold_for_points_in_ends=5,
+    ):
         self._tunnel = tunnel
         if vertices is None or normals is None:
-            self._points, self._normals = get_vertices_and_normals_for_tunnel(tunnel)
+            self._raw_points, self._raw_normals = get_vertices_and_normals_for_tunnel(
+                tunnel
+            )
         else:
-            self._points, self._normals = vertices, normals
+            self._raw_points, self._raw_normals = vertices, normals
 
         self._indices_of_excluded_vertices = np.array([], dtype=np.int32)
         self._ptcl = None
-        self._points_in_ends = {self.tunnel.nodes[0]: self.get_points_close_to_point(self.tunnel.nodes[0].xyz,threshold_for_points_in_ends),
-                                self.tunnel.nodes[-1]: self.get_points_close_to_point(self.tunnel.nodes[-1].xyz,threshold_for_points_in_ends)}
+        self._indices_in_ends = {
+            self.tunnel.nodes[0]: self.get_indices_close_to_point(
+                self.tunnel.nodes[0].xyz, threshold_for_points_in_ends
+            ),
+            self.tunnel.nodes[-1]: self.get_indices_close_to_point(
+                self.tunnel.nodes[-1].xyz, threshold_for_points_in_ends
+            ),
+        }
 
     @property
     def tunnel(self):
@@ -268,48 +282,41 @@ class TunnelWithMesh:
         return self._ptcl
 
     @property
-    def points(self):
-        return self._points
+    def raw_points(self):
+        return self._raw_points
+
+    @property
+    def raw_normals(self):
+        return self._raw_normals
 
     @property
     def filtered_points(self):
-        return np.delete(self._points, self._indices_of_excluded_vertices)
+        raise NotImplementedError()
 
     @property
     def filtered_normals(self):
-        return np.delete(self._normals, self._indices_of_excluded_vertices)
+        raise NotImplementedError()
 
     @property
-    def normals(self):
-        return self._normals
+    def filtered_points_and_normals(self):
+        return self.filtered_points, self.filtered_normals
 
     @property
     def n_points(self):
-        assert len(self._normals.T) == len(self._points.T)
-        return len(self._normals.T)
+        assert len(self._raw_normals) == len(self._raw_points)
+        return len(self._raw_normals)
 
-    @property
-    def n_filtered_points(self):
-        n_filtered_normals = len(self.filtered_normals.T)
-        n_filtered_points = len(self.filtered_points.T)
-        assert n_filtered_points == n_filtered_normals
-        return n_filtered_normals
-
-    def get_points_close_to_point(self, point, threshold_distance):
+    def get_indices_close_to_point(self, point: np.ndarray, threshold_distance):
         """points should have a 3x1 dimmension"""
-        print(self.points)
-        print(point)
-        print(np.reshape(point, (-1, 1)))
-        difference = self.points - np.reshape(point, (-1, 1))
-        print(difference)
-        distance = np.linalg.norm(difference, axis=0)
-        print(distance)
-        return np.where(distance < threshold_distance)
+        points_xy = self.raw_points[:, :2]
+        differences = points_xy - np.reshape(point.flatten()[:2], [1, -1])
+        distances = np.linalg.norm(differences, axis=1)
+        return np.where(distances < threshold_distance)
 
     def gen_ptcl(self):
         self._ptcl = o3d.geometry.PointCloud()
-        self._ptcl.points = o3d.utility.Vector3dVector(self._points.T)
-        self._ptcl.normals = o3d.utility.Vector3dVector(self._normals.T)
+        self._ptcl.points = o3d.utility.Vector3dVector(self._raw_points)
+        self._ptcl.normals = o3d.utility.Vector3dVector(self._raw_normals)
 
     def add_points_to_delete(self, indices):
         if not isinstance(indices, np.ndarray):
@@ -317,6 +324,7 @@ class TunnelWithMesh:
         self._indices_of_excluded_vertices = np.vstack(
             self._indices_of_excluded_vertices, indices
         )
+
 
 def o3d_to_mshlib_mesh(mesh):
     pass
