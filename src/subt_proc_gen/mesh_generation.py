@@ -245,7 +245,7 @@ class RadiusNoiseGenerator:
 
 
 class TunnelWithMesh:
-    def __init__(self, tunnel: Tunnel, vertices=None, normals=None):
+    def __init__(self, tunnel: Tunnel, vertices=None, normals=None, threshold_for_points_in_ends = 5):
         self._tunnel = tunnel
         if vertices is None or normals is None:
             self._points, self._normals = get_vertices_and_normals_for_tunnel(tunnel)
@@ -254,6 +254,8 @@ class TunnelWithMesh:
 
         self._indices_of_excluded_vertices = np.array([], dtype=np.int32)
         self._ptcl = None
+        self._points_in_ends = {self.tunnel.nodes[0]: self.get_points_close_to_point(self.tunnel.nodes[0].xyz,threshold_for_points_in_ends),
+                                self.tunnel.nodes[-1]: self.get_points_close_to_point(self.tunnel.nodes[-1].xyz,threshold_for_points_in_ends)}
 
     @property
     def tunnel(self):
@@ -316,17 +318,5 @@ class TunnelWithMesh:
             self._indices_of_excluded_vertices, indices
         )
 
-    def get_points_to_delete_from_other_tunnel(self, other_tunnel, threshold_distance = 4):
-        assert isinstance(other_tunnel, TunnelWithMesh)
-        nodes_to_check = set()  # Nodes where the two tunnels coincide
-        for node in other_tunnel.tunnel.nodes:
-            if node in self.tunnel._nodes:
-                nodes_to_check.add(node)
-
-        for node_to_check in nodes_to_check:
-            print(f"{self} will check with {other_tunnel} in node {node_to_check}")
-            own_points_indices = self.get_points_close_to_point(node.xyz,threshold_distance=threshold_distance)
-            return own_points_indices, node_to_check
-        return None, None
 def o3d_to_mshlib_mesh(mesh):
     pass

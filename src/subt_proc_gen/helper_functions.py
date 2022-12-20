@@ -28,3 +28,6 @@ def warp_angle_pi(angle):
     if new_angle > np.pi:
         new_angle -= 2*math.pi
     return new_angle
+
+def horizontally_close(array_of_points, points, threshold):
+    """Retu"""
