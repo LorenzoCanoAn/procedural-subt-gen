@@ -34,31 +34,26 @@ def main():
     dist_threshold = 7
     tunnels_with_mesh = list()
 
-    for n, tunnel in enumerate(tunnel_network.tunnels):
-        print(
-            f"Generating ptcl {n+1:>3} out of {len(tunnel_network.tunnels)}", end=" // "
-        )
-        start = ns()
-        tunnel_with_mesh = TunnelWithMesh(
-            tunnel, threshold_for_points_in_ends=dist_threshold
-        )
-        print(f"Time: {(ns()-start)*1e-9:<5.2f} s", end=" // ")
-        print(f"{tunnel_with_mesh.n_points:<5} points")
-        tunnels_with_mesh.append(tunnel_with_mesh)
-    try:
-        shutil.rmtree("screenshots")
-    except:
-        pass
-    os.mkdir("screenshots")
-
+    tunnel_network_with_mesh = TunnelNetworkWithMesh(tunnel_network)
+    tunnel_network_with_mesh.clean_intersections()
     plotter = pv.Plotter()
-    for intersection in tunnel_network.intersections:
+    for n, tunnel_with_mesh in enumerate(tunnel_network_with_mesh._tunnels_with_mesh):
+        try:
+            plotter.add_mesh(
+                pv.PolyData(tunnel_with_mesh.central_points),
+                color=COLORS[n],
+            )
+        except:
+            pass
         plotter.add_mesh(
             pv.PolyData(
-                gen_cylinder_around_point(intersection.xyz, 20, dist_threshold),
+                tunnel_with_mesh.selected_end_points,
             ),
-            color="green",
+            color=COLORS[n],
         )
+    plotter.show()
+    exit()
+    for intersection in tunnel_network.intersections:
         for n_tunnel_i, tunnel in enumerate(intersection.tunnels):
             # Plot the central points of the tunnel
             tunnel_with_mesh_i = TunnelWithMesh.tunnel_to_tunnelwithmesh(tunnel)
@@ -76,23 +71,22 @@ def main():
                     )
                     tunnel_with_mesh_j.deselect_point_of_end(intersection, to_deselect)
 
-    for n, tunnel_with_mesh in enumerate(tunnels_with_mesh):
-        try:
-            plotter.add_mesh(
-                pv.PolyData(tunnel_with_mesh.central_points),
-                color=COLORS[n],
-            )
-        except:
-            pass
+    # for n, tunnel_with_mesh in enumerate(tunnels_with_mesh):
+    #     try:
+    #         plotter.add_mesh(
+    #             pv.PolyData(tunnel_with_mesh.central_points),
+    #             color=COLORS[n],
+    #         )
+    #     except:
+    #         pass
+    #     plotter.add_mesh(
+    #         pv.PolyData(
+    #             tunnel_with_mesh.selected_end_points,
+    #         ),
+    #         color=COLORS[n],
+    #     )
 
-        plotter.add_mesh(
-            pv.PolyData(
-                tunnel_with_mesh.selected_end_points,
-            ),
-            color=COLORS[n],
-        )
-
-    plotter.show()
+    # plotter.show()
 
 
 if __name__ == "__main__":

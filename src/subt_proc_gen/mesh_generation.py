@@ -1,16 +1,17 @@
 from subt_proc_gen.tunnel import Tunnel, Spline3D, CaveNode, TunnelNetwork
-import math
-import numpy as np
-from perlin_noise import PerlinNoise
-import time
-import open3d as o3d
-
 from subt_proc_gen.PARAMS import (
     TUNNEL_AVG_RADIUS,
     MIN_DIST_OF_MESH_POINTS,
     N_ANGLES_PER_CIRCLE,
     INTERSECTION_DISTANCE,
 )
+from subt_proc_gen.helper_functions import get_indices_of_points_below_cylinder
+import math
+import numpy as np
+from perlin_noise import PerlinNoise
+import time
+import open3d as o3d
+from time import time_ns as ns
 
 
 def get_axis_pointcloud(tunnel: Tunnel):
@@ -392,10 +393,46 @@ class TunnelNetworkWithMesh:
     def __init__(self, tunnel_network):
         assert isinstance(tunnel_network, TunnelNetwork)
         self._tunnel_network = tunnel_network
-        self.tunnels_with_mesh = list()
-        for tunnel in self._tunnel_network.tunnels:
-            self.tunnels_with_mesh.append(
+        self._tunnels_with_mesh = list()
+        for n, tunnel in enumerate(self._tunnel_network.tunnels):
+            print(
+                f"Generating ptcl {n+1:>3} out of {len(tunnel_network.tunnels)}",
+                end=" // ",
+            )
+            start = ns()
+            self._tunnels_with_mesh.append(
                 TunnelWithMesh(
                     tunnel, threshold_for_points_in_ends=INTERSECTION_DISTANCE
                 )
             )
+            print(f"Time: {(ns()-start)*1e-9:<5.2f} s", end=" // ")
+            print(f"{self._tunnels_with_mesh[-1].n_points:<5} points")
+
+    def clean_intersections(self):
+        n_intersections = len(self._tunnel_network.intersections)
+        for n_intersection, intersection in enumerate(
+            self._tunnel_network.intersections
+        ):
+            print(f"Cleaning intersection {n_intersection} out of {n_intersections}")
+            for tunnel in intersection.tunnels:
+                # Plot the central points of the tunnel
+                tunnel_with_mesh_i = TunnelWithMesh.tunnel_to_tunnelwithmesh(tunnel)
+
+                for tunnel_j in intersection.tunnels:
+                    tunnel_with_mesh_j = TunnelWithMesh.tunnel_to_tunnelwithmesh(
+                        tunnel_j
+                    )
+                    if tunnel_with_mesh_i is tunnel_with_mesh_j:
+                        continue
+                    # Update the secondary tunnel
+                    for point in tunnel_with_mesh_i.selected_points_of_end(
+                        intersection
+                    ):
+                        to_deselect = get_indices_of_points_below_cylinder(
+                            tunnel_with_mesh_j.selected_points_of_end(intersection),
+                            point,
+                            0.3,
+                        )
+                        tunnel_with_mesh_j.deselect_point_of_end(
+                            intersection, to_deselect
+                        )
