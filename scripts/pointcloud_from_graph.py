@@ -4,11 +4,16 @@ import pyvista as pv
 from subt_proc_gen.PARAMS import *
 from time import time_ns as ns
 from subt_proc_gen.tunnel import Tunnel, TunnelNetwork
-from subt_proc_gen.helper_functions import gen_cylinder_around_point
+from subt_proc_gen.helper_functions import (
+    gen_cylinder_around_point,
+    get_indices_of_points_below_cylinder,
+)
 import shutil
+
 MESH_FOLDER = "meshes"
 import matplotlib.pyplot as plt
 import os
+
 
 def tunnel_interesects_with_list(tunnel: Tunnel, list_of_tunnels):
     for tunnel_in_list in list_of_tunnels:
@@ -23,16 +28,20 @@ def tunnel_interesects_with_list(tunnel: Tunnel, list_of_tunnels):
 def main():
     # Generate the vertices of the mesh
     with open("graph.pkl", "rb") as f:
-        graph = pickle.load(f)
+        tunnel_network = pickle.load(f)
     # Order the tunnels so that the meshes intersect
-    assert isinstance(graph, TunnelNetwork)
-
+    assert isinstance(tunnel_network, TunnelNetwork)
+    dist_threshold = 7
     tunnels_with_mesh = list()
 
-    for n, tunnel in enumerate(graph.tunnels):
-        print(f"Generating ptcl {n+1:>3} out of {len(graph.tunnels)}", end=" // ")
+    for n, tunnel in enumerate(tunnel_network.tunnels):
+        print(
+            f"Generating ptcl {n+1:>3} out of {len(tunnel_network.tunnels)}", end=" // "
+        )
         start = ns()
-        tunnel_with_mesh = TunnelWithMesh(tunnel)
+        tunnel_with_mesh = TunnelWithMesh(
+            tunnel, threshold_for_points_in_ends=dist_threshold
+        )
         print(f"Time: {(ns()-start)*1e-9:<5.2f} s", end=" // ")
         print(f"{tunnel_with_mesh.n_points:<5} points")
         tunnels_with_mesh.append(tunnel_with_mesh)
@@ -42,25 +51,48 @@ def main():
         pass
     os.mkdir("screenshots")
 
-    plotter = pv.Plotter(off_screen=True)
-    for intersection in graph.intersections:
-        threshold_distance = 5
-        common_nodes = tunnel_i.tunnel.common_nodes(tunnel_j.tunnel)
-        for common_node in common_nodes:
-            plotter.add_mesh(pv.PolyData(tunnel_i.raw_points), color="red")
-            plotter.add_mesh(pv.PolyData(tunnel_j.raw_points), color="blue")
-            plotter.add_mesh(pv.PolyData(tunnel_i.points_in_ends(common_node)))
-            plotter.add_mesh(pv.PolyData(tunnel_j.points_in_ends(common_node)))
+    plotter = pv.Plotter()
+    for intersection in tunnel_network.intersections:
+        plotter.add_mesh(
+            pv.PolyData(
+                gen_cylinder_around_point(intersection.xyz, 20, dist_threshold),
+            ),
+            color="green",
+        )
+        for n_tunnel_i, tunnel in enumerate(intersection.tunnels):
+            # Plot the central points of the tunnel
+            tunnel_with_mesh_i = TunnelWithMesh.tunnel_to_tunnelwithmesh(tunnel)
+
+            for n_tunnel_j, tunnel_j in enumerate(intersection.tunnels):
+                tunnel_with_mesh_j = TunnelWithMesh.tunnel_to_tunnelwithmesh(tunnel_j)
+                if tunnel_with_mesh_i is tunnel_with_mesh_j:
+                    continue
+                # Update the secondary tunnel
+                for point in tunnel_with_mesh_i.selected_points_of_end(intersection):
+                    to_deselect = get_indices_of_points_below_cylinder(
+                        tunnel_with_mesh_j.selected_points_of_end(intersection),
+                        point,
+                        0.3,
+                    )
+                    tunnel_with_mesh_j.deselect_point_of_end(intersection, to_deselect)
+
+    for n, tunnel_with_mesh in enumerate(tunnels_with_mesh):
+        try:
             plotter.add_mesh(
-                pv.PolyData(
-                    gen_cylinder_around_point(
-                        common_node.xyz, 20, threshold_distance
-                    ),
-                ),
-                color="green",
+                pv.PolyData(tunnel_with_mesh.central_points),
+                color=COLORS[n],
             )
-            plotter.camera_position = 'xy'
-    plotter.show(screenshot=f"screenshots/i{i}_j{j}.png")
+        except:
+            pass
+
+        plotter.add_mesh(
+            pv.PolyData(
+                tunnel_with_mesh.selected_end_points,
+            ),
+            color=COLORS[n],
+        )
+
+    plotter.show()
 
 
 if __name__ == "__main__":

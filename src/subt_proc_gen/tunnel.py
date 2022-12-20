@@ -171,7 +171,6 @@ class Tunnel:
         self.parent.remove_tunnel(self)
 
     def set_nodes(self, nodes):
-        assert isinstance(nodes, list)
         self._nodes = nodes
         for node in self._nodes:
             assert isinstance(node, CaveNode)
@@ -180,8 +179,6 @@ class Tunnel:
 
     def add_node(self, node):
         assert isinstance(node, CaveNode)
-        if len(self) != 0:
-            self._nodes[-1].connect(node)
         self._nodes.append(node)
         node.add_tunnel(self)
         self.parent.add_node(node)
@@ -199,6 +196,8 @@ class Tunnel:
 
         d = 0
         n = 1
+        assert len(self) == 1
+        previous_node = self[0]
         while d < tp["distance"]:
             if not n == 1:
                 segment_orientation = add_noise_to_direction(
@@ -217,7 +216,9 @@ class Tunnel:
             new_node_coords = self[n - 1].xyz + segment_orientation * segment_length
             new_node = CaveNode(coords=new_node_coords)
             self.add_node(new_node)
+            new_node.connect(previous_node)
             previous_orientation = segment_orientation
+            previous_node = new_node
             n += 1
 
     def common_nodes(self, tunnel):
@@ -250,17 +251,6 @@ class Tunnel:
         return len(self._nodes)
 
 
-class Intersection:
-    def __init__(self, parent, node):
-        self.parent = parent
-        self.node = node
-        self.connected_tunnels = list()
-
-    @property
-    def n_tunnels(self):
-        return len(self.connected_tunnels)
-
-
 class CaveNode(Node):
     def __init__(self, coords=..., graph=None):
         super().__init__(coords, graph)
@@ -274,13 +264,9 @@ class CaveNode(Node):
         """Nodes must keep track of what tunnels they are a part of
         this way, if a node is part of more than one tunnel, it means it
         is  an intersection"""
-        if len(self.tunnels) == 0:
-            self.tunnels.add(new_tunnel)
-        elif len(self.tunnels) == 1:
-            if len(self.connected_nodes) == 2:
-                list(self.tunnels)[0].split(self)
-        else:
-            self.tunnels.add(new_tunnel)
+        if len(self.tunnels) == 1 and len(self.connected_nodes) == 2:
+            list(self.tunnels)[0].split(self)
+        self.tunnels.add(new_tunnel)
 
 
 class TunnelNetwork(Graph):

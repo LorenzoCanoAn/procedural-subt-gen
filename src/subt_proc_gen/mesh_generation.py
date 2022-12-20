@@ -1,5 +1,4 @@
-from subt_proc_gen.tunnel import Tunnel, Spline3D
-from subt_proc_gen.graph import Node
+from subt_proc_gen.tunnel import Tunnel, Spline3D, CaveNode, TunnelNetwork
 import math
 import numpy as np
 from perlin_noise import PerlinNoise
@@ -10,6 +9,7 @@ from subt_proc_gen.PARAMS import (
     TUNNEL_AVG_RADIUS,
     MIN_DIST_OF_MESH_POINTS,
     N_ANGLES_PER_CIRCLE,
+    INTERSECTION_DISTANCE,
 )
 
 
@@ -246,7 +246,7 @@ class RadiusNoiseGenerator:
 
 
 class TunnelWithMesh:
-    Tunnel_to_TunnelWithMesh = dict()
+    __Tunnel_to_TunnelWithMesh = dict()
 
     def __init__(
         self,
@@ -256,26 +256,42 @@ class TunnelWithMesh:
         threshold_for_points_in_ends=5,
     ):
         self._tunnel = tunnel
-        self.Tunnel_to_TunnelWithMesh[
+        self.__Tunnel_to_TunnelWithMesh[
             self._tunnel
         ] = self  # This is a way to go from a tunnel to its corresponding TunnelWithMesh
         if vertices is None or normals is None:
             self._raw_points, self._raw_normals = get_vertices_and_normals_for_tunnel(
-                tunnel
+                self._tunnel
             )
         else:
             self._raw_points, self._raw_normals = vertices, normals
 
-        self._indices_of_excluded_vertices = np.array([], dtype=np.int32)
         self._ptcl = None
         # Init the indexers
-        self._indices_in_ends = {}
-        self._filtered_indices_in_ends = {}
-        for node in self._tunnel.end_nodes:
-            self._indices_in_ends[node] = self.get_indices_close_to_point(
+        self._indices_of_end = dict()
+        self._selected_indices_of_end = dict()
+        self._central_indices = np.arange(len(self._raw_points))
+        self._end_indices = None
+        for n, node in enumerate(self._tunnel.end_nodes):
+            indices_for_this_end_node = self.get_indices_close_to_point(
                 node.xyz, threshold_for_points_in_ends
             )
-            self._filtered_indices_in_ends[node] = np.ndarray([])
+            if self._end_indices is None:
+                self._end_indices = indices_for_this_end_node
+            else:
+                self._end_indices = np.concatenate(
+                    (self._end_indices, indices_for_this_end_node)
+                )
+            self._indices_of_end[node] = np.copy(indices_for_this_end_node)
+            self._selected_indices_of_end[node] = np.copy(indices_for_this_end_node)
+
+        self._central_indices = np.delete(self._central_indices, self._end_indices)
+
+    @classmethod
+    def tunnel_to_tunnelwithmesh(cls, tunnel: Tunnel):
+        tunnel_with_mesh = cls.__Tunnel_to_TunnelWithMesh[tunnel]
+        assert isinstance(tunnel_with_mesh, TunnelWithMesh)
+        return tunnel_with_mesh
 
     @property
     def tunnel(self):
@@ -288,46 +304,76 @@ class TunnelWithMesh:
         return self._ptcl
 
     @property
-    def raw_points(self):
-        return self._raw_points
-
-    @property
-    def raw_normals(self):
-        return self._raw_normals
-
-    @property
-    def filtered_points(self):
-        raise NotImplementedError()
-
-    @property
-    def filtered_normals(self):
-        raise NotImplementedError()
-
-    @property
-    def filtered_points_and_normals(self):
-        return self.filtered_points, self.filtered_normals
-
-    @property
     def n_points(self):
         assert len(self._raw_normals) == len(self._raw_points)
         return len(self._raw_normals)
 
-    def points_in_ends(self, end_node):
-        assert isinstance(end_node, Node) 
+    # FUNCTIONS TO ACCESS THE RAW VERTICES
+    @property
+    def all_raw_points(self):
+        return self._raw_points
+
+    @property
+    def all_raw_normals(self):
+        return self._raw_normals
+
+    @property
+    def central_points(self):
+        return self._raw_points[self._central_indices]
+
+    @property
+    def central_normals(self):
+        return self._raw_normals[self._central_indices]
+
+    @property
+    def end_points(self):
+        return self._raw_points[self._end_indices]
+
+    @property
+    def end_normals(self):
+        return self._raw_normals[self._end_indices]
+
+    @property
+    def all_selected_end_indices(self):
+        selected_indices = None
+        for end in self._tunnel.end_nodes:
+            if selected_indices is None:
+                selected_indices = self._selected_indices_of_end[end]
+            else:
+                selected_indices = np.concatenate(
+                    [selected_indices, self._selected_indices_of_end[end]]
+                )
+        return selected_indices
+
+    # FUNCTIONS TO ACCESS VERTICES EXCEPT THE EXCLUDED ONES
+    def selected_points_of_end(self, end_node):
+        return self._raw_points[self._selected_indices_of_end[end_node]]
+
+    @property
+    def selected_end_points(self):
+        return self._raw_points[self.all_selected_end_indices]
+
+    def raw_points_in_end(self, end_node):
+        assert isinstance(end_node, CaveNode)
         assert end_node in self._tunnel.end_nodes
-        return self._raw_points[self._indices_in_ends[end_node]]
+        return self._raw_points[self._indices_of_end[end_node]]
+
+    def deselect_point_of_end(self, end_node, to_deselect):
+        self._selected_indices_of_end[end_node] = np.delete(
+            self._selected_indices_of_end[end_node], to_deselect
+        )
 
     def get_indices_close_to_point(
         self, point: np.ndarray, threshold_distance, horizontal_distance=True
     ):
         """points should have a 3x1 dimmension"""
         if horizontal_distance:
-            points_xy = self.raw_points[:, :2]
-            differences = points_xy - np.reshape(point.flatten()[:2], [1, -1])
+            points_xy = self.all_raw_points[:, :2]
+            differences = points_xy - np.reshape(point.flatten()[:2], [1, 2])
         else:
-            differences = self.raw_points - np.reshape(point.flatten(), [1, -1])
+            differences = self.all_raw_points - np.reshape(point.flatten(), [1, 3])
         distances = np.linalg.norm(differences, axis=1)
-        return np.where(distances < threshold_distance)
+        return np.array(np.where(distances < threshold_distance)).flatten()
 
     def gen_ptcl(self):
         self._ptcl = o3d.geometry.PointCloud()
@@ -342,5 +388,14 @@ class TunnelWithMesh:
         )
 
 
-def o3d_to_mshlib_mesh(mesh):
-    pass
+class TunnelNetworkWithMesh:
+    def __init__(self, tunnel_network):
+        assert isinstance(tunnel_network, TunnelNetwork)
+        self._tunnel_network = tunnel_network
+        self.tunnels_with_mesh = list()
+        for tunnel in self._tunnel_network.tunnels:
+            self.tunnels_with_mesh.append(
+                TunnelWithMesh(
+                    tunnel, threshold_for_points_in_ends=INTERSECTION_DISTANCE
+                )
+            )

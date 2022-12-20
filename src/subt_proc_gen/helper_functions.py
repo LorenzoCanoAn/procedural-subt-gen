@@ -41,3 +41,10 @@ def gen_cylinder_around_point(
     z = np.random.uniform(-height / 2, height / 2, n_points)
     vector = np.array((x, y, z)).T
     return center_coordinates + vector
+
+
+def get_indices_of_points_below_cylinder(points, center, radius):
+    points_xy = points[:, :2]
+    differences = points_xy - center[:2]
+    distances = np.linalg.norm(differences, axis=1)
+    return np.array(np.where(distances < radius)).flatten()

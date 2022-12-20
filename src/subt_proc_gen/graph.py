@@ -87,7 +87,6 @@ class Graph:
         self._edges = list()
 
     def add_node(self, node):
-        self.recalculate_control = True
         if not node in self._nodes:
             self._nodes.append(node)
 
