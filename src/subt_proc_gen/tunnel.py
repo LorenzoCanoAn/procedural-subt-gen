@@ -41,16 +41,16 @@ def correct_inclination(direction):
 
 
 def correct_direction_of_intersecting_tunnel(
-    direction, intersecting_node, angle_threshold=MIN_ANGLE_FOR_INTERSECTIONS
+    i_dir_vect, intersection_node, angle_threshold=MIN_ANGLE_FOR_INTERSECTIONS
 ):
-    if len(intersecting_node.connected_nodes) == 0:
-        return direction
-    th0, ph0 = vector_to_angles(direction)
-    print("th0: {} // ph0: {}".format(np.rad2deg(th0), np.rad2deg(ph0)))
+    if len(intersection_node.connected_nodes) == 0:
+        return i_dir_vect
+    th0, ph0 = vector_to_angles(i_dir_vect)
     closest_neg_angle, closest_pos_angle = None, None
     min_neg_difference, min_pos_difference = np.pi, np.pi
-    for node in intersecting_node.connected_nodes:
-        th1, ph1 = vector_to_angles(intersecting_node.xyz - node.xyz)
+
+    for n_node, node in enumerate(intersection_node.connected_nodes):
+        th1, ph1 = vector_to_angles(node.xyz - intersection_node.xyz)
         difference = warp_angle_pi(th1 - th0)
         if difference < 0 and abs(difference) < abs(min_neg_difference):
             min_neg_difference = difference
@@ -70,8 +70,6 @@ def correct_direction_of_intersecting_tunnel(
     else:
         thf = th0
     final_direction = angles_to_vector((thf, ph0))
-    print(f"thf: {np.rad2deg(thf)} // ph {np.rad2deg(ph0)}")
-    print("#################################")
     return final_direction
 
 
@@ -113,13 +111,13 @@ class TunnelParams(dict):
         if random:
             self.random()
         else:
-            self["distance"] = (100,)
-            self["starting_direction"] = ((1, 0, 0),)
-            self["horizontal_tendency"] = (0,)
-            self["horizontal_noise"] = (0,)
-            self["vertical_tendency"] = (0,)
-            self["vertical_noise"] = (0,)
-            self["min_seg_length"] = (10,)
+            self["distance"] = 100
+            self["starting_direction"] = (1, 0, 0)
+            self["horizontal_tendency"] = 0
+            self["horizontal_noise"] = 0
+            self["vertical_tendency"] = 0
+            self["vertical_noise"] = 0
+            self["min_seg_length"] = 10
             self["max_seg_length"] = 15
 
         if not params is None:
@@ -142,6 +140,11 @@ class TunnelParams(dict):
 
 class Tunnel:
     def __init__(self, parent, seed, params=TunnelParams()):
+        """A tunnel can be started from three different seeds:
+        - If the seed is a CaveNode: The tunnel grows from said node according to its parameters
+        - If the seed is an np.ndarray representing a point, a CaveNode is created in that position, and a tunnel is grown from it
+        - If teh seed is a list of CaveNodes, they are set as the Tunnel nodes
+        """
         assert isinstance(parent, TunnelNetwork)
         self.parent = parent
         self.params = params
@@ -190,6 +193,7 @@ class Tunnel:
     def grow_tunnel(self):
         """This function is called after setting the first node of the tunnel"""
         tp = self.params  # for readability
+
         previous_orientation = correct_direction_of_intersecting_tunnel(
             self.params["starting_direction"], self[0]
         )

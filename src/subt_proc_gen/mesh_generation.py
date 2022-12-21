@@ -277,8 +277,9 @@ class TunnelNetworkWithMesh:
     """Wrapper around a TunnelNetwork that creates a TunnelWithMesh from each Tunnels
     and implements the intersection-cleaning functions (to remove the interior points in each of the"""
 
-    def __init__(self, tunnel_network):
+    def __init__(self, tunnel_network, meshing_params):
         assert isinstance(tunnel_network, TunnelNetwork)
+        assert isinstance(meshing_params, TunnelMeshingParams)
         self._tunnel_network = tunnel_network
         self._tunnels_with_mesh = list()
         for n, tunnel in enumerate(self._tunnel_network.tunnels):
@@ -288,7 +289,7 @@ class TunnelNetworkWithMesh:
             )
             start = ns()
             self._tunnels_with_mesh.append(
-                TunnelWithMesh(tunnel, meshing_params=TunnelMeshingParams())
+                TunnelWithMesh(tunnel, meshing_params=meshing_params)
             )
             print(f"Time: {(ns()-start)*1e-9:<5.2f} s", end=" // ")
             print(f"{self._tunnels_with_mesh[-1].n_points:<5} points")

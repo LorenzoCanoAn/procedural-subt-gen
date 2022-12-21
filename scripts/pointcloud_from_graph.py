@@ -28,23 +28,26 @@ def tunnel_interesects_with_list(tunnel: Tunnel, list_of_tunnels):
 
 def main():
     # Generate the vertices of the mesh
-    with open("graph.pkl", "rb") as f:
+    with open("datafiles/graph.pkl", "rb") as f:
         tunnel_network = pickle.load(f)
     # Order the tunnels so that the meshes intersect
     assert isinstance(tunnel_network, TunnelNetwork)
     dist_threshold = 7
     tunnels_with_mesh = list()
 
-    tunnel_network_with_mesh = TunnelNetworkWithMesh(tunnel_network)
+    tunnel_network_with_mesh = TunnelNetworkWithMesh(
+        tunnel_network, meshing_params=TunnelMeshingParams({"roughness": 0.5})
+    )
     tunnel_network_with_mesh.clean_intersections()
     points, normals = tunnel_network_with_mesh.mesh_points_and_normals()
 
     mesh, ptcl = mesh_from_vertices(points, normals)
 
-    o3d.visualization.draw_geometries(
-        [mesh],
-    )
-    o3d.io.write_triangle_mesh("copy_of_knot.ply", mesh)
+    simplified_mesh = mesh.simplify_quadric_decimation(int(len(mesh.triangles) * 0.3))
+    print(f"Original mesh has {len(mesh.triangles)}")
+    print(f"Simplified mesh has {len(simplified_mesh.triangles)}")
+    o3d.io.write_triangle_mesh("datafiles/originial.ply", mesh)
+    o3d.io.write_triangle_mesh("datafiles/simplified.ply", simplified_mesh)
 
 
 if __name__ == "__main__":

@@ -23,10 +23,10 @@ def main():
         {
             "distance": 400,
             "starting_direction": np.array((1, 0, 0)),
-            "horizontal_tendency": np.deg2rad(00),
-            "horizontal_noise": np.deg2rad(00),
-            "vertical_tendency": np.deg2rad(5),
-            "vertical_noise": np.deg2rad(5),
+            "horizontal_tendency": np.deg2rad(10),
+            "horizontal_noise": np.deg2rad(30),
+            "vertical_tendency": np.deg2rad(00),
+            "vertical_noise": np.deg2rad(2),
             "min_seg_length": 40,
             "max_seg_length": 50,
         }
@@ -35,17 +35,14 @@ def main():
     graph = TunnelNetwork()
     Node.set_graph(graph)
     Tunnel(graph, np.array((0, 0, 0)), tunnel_params)
-    first_tunnel_nodes = list(list(graph._tunnels)[0]._nodes)
-    Tunnel(graph, first_tunnel_nodes[1], params=TunnelParams(random=True))
-    Tunnel(graph, first_tunnel_nodes[2], params=TunnelParams(random=True))
-    Tunnel(graph, first_tunnel_nodes[3], params=TunnelParams(random=True))
-    Tunnel(graph, first_tunnel_nodes[4], params=TunnelParams(random=True))
-    Tunnel(graph, first_tunnel_nodes[5], params=TunnelParams(random=True))
-    Tunnel(graph, first_tunnel_nodes[6], params=TunnelParams(random=True))
     debug_plot(graph)
-
-    with open("graph.pkl", "wb") as f:
-        pickle.dump(graph, f)
+    node = list(list(graph._tunnels)[0]._nodes)[2]
+    for th in np.linspace(0, 2 * np.pi, 5)[:-1]:
+        starting_direction = angles_to_vector((th, 0))
+        print(starting_direction)
+        params = TunnelParams({"starting_direction": starting_direction})
+        Tunnel(graph, node, params=params)
+        debug_plot(graph)
 
 
 if __name__ == "__main__":
