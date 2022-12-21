@@ -27,19 +27,6 @@ def add_noise_to_direction(
     return direction
 
 
-def correct_inclination(direction):
-    assert direction.size == 3
-    inclination = math.asin(direction[2])
-    orientation = math.atan2(direction[1], direction[0])
-    if abs(inclination) > MAX_SEGMENT_INCLINATION:
-        z = math.sin(MAX_SEGMENT_INCLINATION) * inclination / abs(inclination)
-        x = math.cos(MAX_SEGMENT_INCLINATION) * math.cos(orientation)
-        y = math.cos(MAX_SEGMENT_INCLINATION) * math.sin(orientation)
-        return np.array([x, y, z])
-    else:
-        return direction
-
-
 def correct_direction_of_intersecting_tunnel(
     i_dir_vect, intersection_node, angle_threshold=MIN_ANGLE_FOR_INTERSECTIONS
 ):
@@ -146,32 +133,42 @@ class Tunnel:
         - If teh seed is a list of CaveNodes, they are set as the Tunnel nodes
         """
         assert isinstance(parent, TunnelNetwork)
-        self.parent = parent
-        self.params = params
+        self._parent = parent
+        self._params = params
 
-        self.parent.add_tunnel(self)
+        self._parent.add_tunnel(self)
 
         # Internal variables that should be accessed from functions
         self._nodes = list()
         self._spline = None
-
+        successful_growth = True
         if isinstance(seed, CaveNode):
             self.add_node(seed)
-            self.grow_tunnel()
+            successful_growth = self.grow_tunnel()
         elif isinstance(seed, np.ndarray) and len(seed) == 3:
             self.add_node(CaveNode(seed))
-            self.grow_tunnel()
+            successful_growth = self.grow_tunnel()
         elif isinstance(seed, list) or isinstance(seed, set):
             self.set_nodes(seed)
 
-    def split(self, node):
-        assert node in self._nodes
-        split_point = self._nodes.index(node)
-        for node in self._nodes:
-            node.tunnels.remove(self)
-        tunnel_1 = Tunnel(self.parent, self._nodes[: split_point + 1])
-        tunnel_2 = Tunnel(self.parent, self._nodes[split_point:])
-        self.parent.remove_tunnel(self)
+        if not successful_growth:
+            print("Failed to grow the tunnel")
+            self.delete()
+
+    def delete(self):
+        """
+        When a tunnel is deleted, all it's exclusive nodes should be deleted, and it should
+        delete itself fromm all the other nodes and from it's parent
+        """
+        try:
+            for node in self._nodes:
+                assert isinstance(node, CaveNode)
+                node.remove_tunnel(self)
+                if len(node.tunnels) == 0:
+                    node.delete()
+            self._parent.remove_tunnel(self)
+        except:
+            exit()
 
     def set_nodes(self, nodes):
         self._nodes = nodes
@@ -184,7 +181,6 @@ class Tunnel:
         assert isinstance(node, CaveNode)
         self._nodes.append(node)
         node.add_tunnel(self)
-        self.parent.add_node(node)
         self._spline = None
 
     def __getitem__(self, index):
@@ -192,11 +188,13 @@ class Tunnel:
 
     def grow_tunnel(self):
         """This function is called after setting the first node of the tunnel"""
-        tp = self.params  # for readability
+        tp = self._params  # for readability
 
         previous_orientation = correct_direction_of_intersecting_tunnel(
-            self.params["starting_direction"], self[0]
+            self._params["starting_direction"], self[0]
         )
+        if previous_orientation is None:
+            return False
 
         d = 0
         n = 1
@@ -224,6 +222,7 @@ class Tunnel:
             previous_orientation = segment_orientation
             previous_node = new_node
             n += 1
+        return True
 
     def common_nodes(self, tunnel):
         assert isinstance(tunnel, Tunnel)
@@ -264,13 +263,24 @@ class CaveNode(Node):
     def tunnels(self):
         return self._tunnels
 
+    def delete(self):
+        """To delete a node, it it necessary to remove it from its graph and connections"""
+        self._graph.delete_node(self)
+
     def add_tunnel(self, new_tunnel):
         """Nodes must keep track of what tunnels they are a part of
         this way, if a node is part of more than one tunnel, it means it
         is  an intersection"""
-        if len(self.tunnels) == 1 and len(self.connected_nodes) == 2:
-            list(self.tunnels)[0].split(self)
         self.tunnels.add(new_tunnel)
+
+    def remove_tunnel(self, tunnel):
+        assert isinstance(tunnel, Tunnel)
+        if tunnel not in self._tunnels:
+            raise Exception(
+                "Trying to remove a tunnel from this node that this node is not a part of"
+            )
+        else:
+            self._tunnels.remove(tunnel)
 
 
 class TunnelNetwork(Graph):
@@ -280,7 +290,9 @@ class TunnelNetwork(Graph):
         self._intersections = set()
 
     def remove_tunnel(self, tunnel):
-        assert tunnel in self._tunnels
+        assert tunnel in self._tunnels, Exception(
+            "Trying to remove a tunnel that is not in the tunnel network"
+        )
         self._tunnels.remove(tunnel)
 
     def add_tunnel(self, tunnel: Tunnel):

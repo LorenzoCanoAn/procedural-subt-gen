@@ -4,13 +4,16 @@ import numpy as np
 
 class Edge:
     def __init__(self, n0, n1):
-        self.nodes = {n0, n1}
-        self.subnodes = set()
-        n0.add_connection(n1)
-        n1.add_connection(n0)
+        assert issubclass(type(n0), Node)
+        assert issubclass(type(n1), Node)
+
+        self.nodes = frozenset((n0, n1))
 
     def __getitem__(self, index):
-        return self.nodes[index]
+        return list(self.nodes[index])
+
+    def __hash__(self):
+        return hash(self.nodes)
 
     def plot2d(self, ax):
         nodes = list(self.nodes)
@@ -42,6 +45,7 @@ class Node:
             self.graph = self.__graph
         else:
             self.graph = graph
+        self.graph.add_node(self)
         self.connected_nodes = set()
         self.coords = coords
 
@@ -53,7 +57,8 @@ class Node:
         """This function does everything to connect two nodes and update the
         info in all relevant places"""
         assert isinstance(node, Node)
-        self.graph.edges.append(Edge(self, node))
+        self.add_connection(node)
+        node.add_connection(self)
 
     def add_connection(self, node):
         """This function only inserts a new node in the connected nodes set"""
@@ -82,13 +87,20 @@ class Node:
 
 class Graph:
     def __init__(self):
-        self.recalculate_control = True
-        self._nodes = list()
-        self._edges = list()
+        self.recalculate_edges = True
+        self._nodes = set()
+        self._edges = set()
 
     def add_node(self, node):
         if not node in self._nodes:
-            self._nodes.append(node)
+            self._nodes.add(node)
+
+    def remove_node(self, node):
+        assert node in self._nodes, Exception(
+            "Trying to remove a node that is not part of the graph"
+        )
+        self._nodes.remove(node)
+        self.recalculate_edges = True
 
     @property
     def nodes(self):
@@ -96,6 +108,13 @@ class Graph:
 
     @property
     def edges(self):
+        if self.recalculate_edges:
+            self._edges.clear()
+            for node_i in self._nodes:
+                assert isinstance(node_i, Node)
+                for connected_node in node_i.connected_nodes:
+                    self._edges.add(Edge(node_i, connected_node))
+
         return self._edges
 
     @property

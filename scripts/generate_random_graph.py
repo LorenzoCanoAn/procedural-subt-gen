@@ -19,29 +19,30 @@ def debug_plot(graph):
 
 
 def main():
-    tunnel_params = TunnelParams(
-        {
-            "distance": 400,
-            "starting_direction": np.array((1, 0, 0)),
-            "horizontal_tendency": np.deg2rad(10),
-            "horizontal_noise": np.deg2rad(30),
-            "vertical_tendency": np.deg2rad(00),
-            "vertical_noise": np.deg2rad(2),
-            "min_seg_length": 40,
-            "max_seg_length": 50,
-        }
-    )
-    # Generate the graph
-    graph = TunnelNetwork()
-    Node.set_graph(graph)
-    Tunnel(graph, np.array((0, 0, 0)), tunnel_params)
-    debug_plot(graph)
-    node = list(list(graph._tunnels)[0]._nodes)[2]
-    for th in np.linspace(0, 2 * np.pi, 5)[:-1]:
-        starting_direction = angles_to_vector((th, 0))
-        print(starting_direction)
-        params = TunnelParams({"starting_direction": starting_direction})
-        Tunnel(graph, node, params=params)
+    for i in range(10000):
+        print(f"Generating tree nº {i}")
+        tunnel_params = TunnelParams(
+            {
+                "distance": 400,
+                "starting_direction": np.array((1, 0, 0)),
+                "horizontal_tendency": np.deg2rad(10),
+                "horizontal_noise": np.deg2rad(30),
+                "vertical_tendency": np.deg2rad(00),
+                "vertical_noise": np.deg2rad(2),
+                "min_seg_length": 40,
+                "max_seg_length": 50,
+            }
+        )
+        # Generate the graph
+        graph = TunnelNetwork()
+        Node.set_graph(graph)
+        Tunnel(graph, np.array((0, 0, 0)), tunnel_params)
+        node = list(list(graph._tunnels)[0]._nodes)[2]
+        for th in np.linspace(0, 2 * np.pi, 7)[:-1]:
+            starting_direction = angles_to_vector((th, 0))
+            params = TunnelParams({"starting_direction": starting_direction})
+            Tunnel(graph, node, params=params)
+        print(f"  n_tunnels: {len(graph.tunnels)}")
         debug_plot(graph)
 
 
