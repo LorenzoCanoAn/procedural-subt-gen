@@ -39,13 +39,8 @@ def main():
     tunnel_network_with_mesh.clean_intersections()
     points, normals = tunnel_network_with_mesh.mesh_points_and_normals()
 
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points)
-    pcd.normals = o3d.utility.Vector3dVector(normals)
-    with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
-        mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-            pcd, depth=9
-        )
+    mesh, ptcl = mesh_from_vertices(points, normals)
+
     o3d.visualization.draw_geometries(
         [mesh],
     )

@@ -13,6 +13,7 @@ from perlin_noise import PerlinNoise
 import time
 import open3d as o3d
 from time import time_ns as ns
+import random
 
 
 def get_axis_pointcloud(tunnel: Tunnel):
@@ -40,8 +41,9 @@ def get_axis_pointcloud(tunnel: Tunnel):
     return ptcl
 
 
-def get_vertices_and_normals_for_tunnel(tunnel, smooth_floor=1):
-    noise = RadiusNoiseGenerator(TUNNEL_AVG_RADIUS)
+def get_vertices_and_normals_for_tunnel(tunnel, meshing_params):
+    assert isinstance(meshing_params, TunnelMeshingParams)
+    noise = RadiusNoiseGenerator(meshing_params)
     points = None
     normals = None
     spline = tunnel.spline
@@ -49,7 +51,6 @@ def get_vertices_and_normals_for_tunnel(tunnel, smooth_floor=1):
     # Number of circles along the spline
     N = math.ceil(spline.distance / MIN_DIST_OF_MESH_POINTS)
     d = spline.distance / N
-
     # This for loop advances through the spline circle a circle
     for n in range(N):
         p, v = spline(n * d)
@@ -64,9 +65,13 @@ def get_vertices_and_normals_for_tunnel(tunnel, smooth_floor=1):
         normals_ /= np.linalg.norm(normals_, axis=0)
         points_ = p + normals_ * radiuses
         # Correct the floor points so that it is flat
-        if not smooth_floor is None:
-            indices_to_correct = (points_ - p)[-1, :] < (-smooth_floor)
-            points_[-1, np.where(indices_to_correct)] = p[-1] - smooth_floor
+        if meshing_params["flatten_floor"]:
+            indices_to_correct = (points_ - p)[-1, :] < (
+                -meshing_params["floor_to_axis_distance"]
+            )
+            points_[-1, np.where(indices_to_correct)] = (
+                p[-1] - meshing_params["floor_to_axis_distance"]
+            )
         if points is None:
             points = points_
             normals = -normals_
@@ -133,9 +138,11 @@ def mesh_from_vertices(points, normals):
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
     pcd.normals = o3d.utility.Vector3dVector(normals)
-    mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-        pcd, depth=7
-    )
+    with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
+        mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+            pcd, depth=9
+        )
+
     return mesh, pcd
 
 
@@ -149,92 +156,11 @@ def plot_mesh(mesh):
     )
 
 
-def get_mesh_vertices_from_graph_perlin(graph, smooth_floor=1):
-    points = None
-    normals = None
-    noise = RadiusNoiseGenerator(TUNNEL_AVG_RADIUS)
-    for tunnel in graph.tunnels:
-        assert isinstance(tunnel, Tunnel)
-        tunnel.spline
-        D = 0
-        for i in range(len(tunnel.nodes) - 1):
-            p0 = tunnel.nodes[i].xyz
-            p1 = tunnel.nodes[i + 1].xyz
-            seg = p1 - p0
-            seg_d = np.linalg.norm(seg)
-            dir = seg / seg_d
-            n = math.ceil(seg_d / MIN_DIST_OF_MESH_POINTS)
-            d = seg_d / n
-            D += d
-            v = dir * d
-            u1 = np.cross(dir, np.array([0, 1, 0]))
-            u2 = np.cross(u1, dir)
-            u1 = np.reshape(u1, [-1, 1])
-            u2 = np.reshape(u2, [-1, 1])
-            for i in range(1, n + 1):
-                central_point = p0 + v * i
-                central_point = np.reshape(central_point, [-1, 1])
-                angles = np.random.uniform(0, 2 * math.pi, N_ANGLES_PER_CIRCLE)
-                radiuses = np.array([noise([a / (2 * math.pi), D]) for a in angles])
-                normals_ = u1 * np.sin(angles) + u2 * np.cos(angles)
-                normals_ /= np.linalg.norm(normals_, axis=0)
-                points_ = central_point + normals_ * radiuses
-                if not smooth_floor is None:
-                    indices_to_correct = (points_ - central_point)[-1, :] < (
-                        -smooth_floor
-                    )
-                    points_[-1, np.where(indices_to_correct)] = (
-                        central_point[-1] - smooth_floor
-                    )
-                if points is None:
-                    points = points_
-                    normals = -normals_
-                else:
-                    points = np.hstack([points, points_])
-                    normals = np.hstack([normals, -normals_])
-        return points, normals
-
-
-def get_mesh_vertices_from_graph(graph, smooth_floor=1):
-    points = None
-    normals = None
-    for edge in graph.edges:
-        p0 = edge[0].xyz
-        p1 = edge[1].xyz
-        seg = p1 - p0
-        seg_d = np.linalg.norm(seg)
-        dir = seg / seg_d
-        n = math.ceil(seg_d / MIN_DIST_OF_MESH_POINTS)
-        d = seg_d / n
-        v = dir * d
-        u1 = np.cross(dir, np.array([0, 1, 0]))
-        u2 = np.cross(u1, dir)
-        u1 = np.reshape(u1, [-1, 1])
-        u2 = np.reshape(u2, [-1, 1])
-        for i in range(1, n + 1):
-            central_point = p0 + v * i
-            central_point = np.reshape(central_point, [-1, 1])
-            angles = np.random.uniform(0, 2 * math.pi, 20)
-            normals_ = u1 * np.sin(angles) + u2 * np.cos(angles)
-            normals_ /= np.linalg.norm(normals_, axis=0)
-            points_ = central_point + normals_ * np.random.normal(TUNNEL_AVG_RADIUS, 0)
-            if not smooth_floor is None:
-                indices_to_correct = (points_ - central_point)[-1, :] < (-smooth_floor)
-                points_[-1, np.where(indices_to_correct)] = (
-                    central_point[-1] - smooth_floor
-                )
-            if points is None:
-                points = points_
-                normals = -normals_
-            else:
-                points = np.hstack([points, points_])
-                normals = np.hstack([normals, -normals_])
-    return points, normals
-
-
 class RadiusNoiseGenerator:
-    def __init__(self, radius):
-        self.radius = radius
+    def __init__(self, meshing_params):
+        assert isinstance(meshing_params, TunnelMeshingParams)
+        self.radius = meshing_params["radius"]
+        self.reoughness = meshing_params["roughness"]
         self.seed = time.time_ns()
         self.noise1 = PerlinNoise(5, self.seed)
         self.noise2 = PerlinNoise(2, self.seed)
@@ -247,6 +173,29 @@ class RadiusNoiseGenerator:
         return output
 
 
+class TunnelMeshingParams(dict):
+    def __init__(self, params=None, random=False):
+        super().__init__()
+        if random:
+            self.random()
+        else:
+            self["roughness"] = 0.15
+            self["flatten_floor"] = True
+            self["floor_to_axis_distance"] = 1
+            self["radius"] = 3
+
+        if not params is None:
+            assert isinstance(params, dict)
+            for key in params.keys():
+                self[key] = params[key]
+
+    def random(self):
+        self["roughness"] = np.random.uniform(0.1, 0.2)
+        self["fltatten_floor"] = random.uniform(0, 1) < 0.8
+        self["floor_to_axis_distance"] = random.uniform(1, 1.5)
+        self["radius"] = random.uniform(3, 3.5)
+
+
 class TunnelWithMesh:
     __Tunnel_to_TunnelWithMesh = dict()
 
@@ -256,6 +205,7 @@ class TunnelWithMesh:
         vertices=None,
         normals=None,
         threshold_for_points_in_ends=5,
+        meshing_params=TunnelMeshingParams(),
     ):
         self._tunnel = tunnel
         self.__Tunnel_to_TunnelWithMesh[
@@ -267,8 +217,6 @@ class TunnelWithMesh:
             )
         else:
             self._raw_points, self._raw_normals = vertices, normals
-
-        self._ptcl = None
         # Init the indexers
         self._indices_of_end = dict()
         self._selected_indices_of_end = dict()
@@ -298,12 +246,6 @@ class TunnelWithMesh:
     @property
     def tunnel(self):
         return self._tunnel
-
-    @property
-    def ptcl(self):
-        if self._ptcl is None:
-            self.gen_ptcl()
-        return self._ptcl
 
     @property
     def n_points(self):
@@ -394,11 +336,6 @@ class TunnelWithMesh:
         distances = np.linalg.norm(differences, axis=1)
         return np.array(np.where(distances < threshold_distance)).flatten()
 
-    def gen_ptcl(self):
-        self._ptcl = o3d.geometry.PointCloud()
-        self._ptcl.points = o3d.utility.Vector3dVector(self._raw_points)
-        self._ptcl.normals = o3d.utility.Vector3dVector(self._raw_normals)
-
     def add_points_to_delete(self, indices):
         if not isinstance(indices, np.ndarray):
             indices = np.array(indices)
@@ -408,6 +345,9 @@ class TunnelWithMesh:
 
 
 class TunnelNetworkWithMesh:
+    """Wrapper around a TunnelNetwork that creates a TunnelWithMesh from each Tunnels
+    and implements the intersection-cleaning functions (to remove the interior points in each of the"""
+
     def __init__(self, tunnel_network):
         assert isinstance(tunnel_network, TunnelNetwork)
         self._tunnel_network = tunnel_network
@@ -419,9 +359,7 @@ class TunnelNetworkWithMesh:
             )
             start = ns()
             self._tunnels_with_mesh.append(
-                TunnelWithMesh(
-                    tunnel, threshold_for_points_in_ends=INTERSECTION_DISTANCE
-                )
+                TunnelWithMesh(tunnel, meshing_params=TunnelMeshingParams())
             )
             print(f"Time: {(ns()-start)*1e-9:<5.2f} s", end=" // ")
             print(f"{self._tunnels_with_mesh[-1].n_points:<5} points")
