@@ -28,7 +28,7 @@ def tunnel_interesects_with_list(tunnel: Tunnel, list_of_tunnels):
 
 def main():
     # Generate the vertices of the mesh
-    with open("datafiles/graph.pkl", "rb") as f:
+    with open("datafiles/graph_.pkl", "rb") as f:
         tunnel_network = pickle.load(f)
     # Order the tunnels so that the meshes intersect
     assert isinstance(tunnel_network, TunnelNetwork)

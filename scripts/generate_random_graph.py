@@ -19,31 +19,30 @@ def debug_plot(graph):
 
 
 def main():
-    for i in range(10000):
-        print(f"Generating tree nº {i}")
+    for i in range(1):
         tunnel_params = TunnelParams(
             {
-                "distance": 400,
+                "distance": 800,
                 "starting_direction": np.array((1, 0, 0)),
                 "horizontal_tendency": np.deg2rad(10),
                 "horizontal_noise": np.deg2rad(30),
                 "vertical_tendency": np.deg2rad(00),
-                "vertical_noise": np.deg2rad(2),
+                "vertical_noise": np.deg2rad(20),
                 "min_seg_length": 40,
                 "max_seg_length": 50,
             }
         )
         # Generate the graph
         graph = TunnelNetwork()
-        Node.set_graph(graph)
-        Tunnel(graph, np.array((0, 0, 0)), tunnel_params)
-        node = list(list(graph._tunnels)[0]._nodes)[2]
-        for th in np.linspace(0, 2 * np.pi, 7)[:-1]:
-            starting_direction = angles_to_vector((th, 0))
+        central_node = CaveNode()
+        for th in np.random.uniform(0, 2 * np.pi, 100):
+            ph = np.random.uniform(-20, 20)
+            ph = np.deg2rad(ph)
+            starting_direction = angles_to_vector((th, ph))
             params = TunnelParams({"starting_direction": starting_direction})
-            Tunnel(graph, node, params=params)
-        print(f"  n_tunnels: {len(graph.tunnels)}")
-        debug_plot(graph)
+            Tunnel(graph, central_node, params=params)
+        with open("datafiles/graph_.pkl", "wb") as f:
+            pickle.dump(graph, f)
 
 
 if __name__ == "__main__":

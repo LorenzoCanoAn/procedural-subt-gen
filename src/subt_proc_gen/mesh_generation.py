@@ -40,6 +40,7 @@ def get_vertices_and_normals_for_tunnel(tunnel, meshing_params):
     assert isinstance(tunnel, Tunnel)
     points = None
     normals = None
+    centers = None
     spline = tunnel.spline
     assert isinstance(spline, Spline3D)
     noise = RadiusNoiseGenerator(spline.length, meshing_params)
@@ -70,9 +71,11 @@ def get_vertices_and_normals_for_tunnel(tunnel, meshing_params):
         if points is None:
             points = points_
             normals = -normals_
+            centers = np.hstack(p.T, v)
         else:
             points = np.hstack([points, points_])
             normals = np.hstack([normals, -normals_])
+            centers = np.vstack([centers, p])
     return points.T, normals.T  # so the shape is Nx3
 
 
@@ -141,9 +144,11 @@ class TunnelWithMesh:
             self._tunnel
         ] = self  # This is a way to go from a tunnel to its corresponding TunnelWithMesh
         if vertices is None or normals is None:
-            self._raw_points, self._raw_normals = get_vertices_and_normals_for_tunnel(
-                self._tunnel, meshing_params
-            )
+            (
+                self._raw_points,
+                self._raw_normals,
+                self._axis_points,
+            ) = get_vertices_and_normals_for_tunnel(self._tunnel, meshing_params)
         else:
             self._raw_points, self._raw_normals = vertices, normals
         # Init the indexers

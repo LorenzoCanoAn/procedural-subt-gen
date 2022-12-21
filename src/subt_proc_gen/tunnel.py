@@ -8,6 +8,7 @@ from subt_proc_gen.helper_functions import (
     warp_angle_2pi,
     warp_angle_pi,
     angles_to_vector,
+    angle_between_angles,
 )
 import math
 from scipy import interpolate
@@ -32,23 +33,24 @@ def correct_direction_of_intersecting_tunnel(
 ):
     if len(intersection_node.connected_nodes) == 0:
         return i_dir_vect
+
     th0, ph0 = vector_to_angles(i_dir_vect)
     closest_neg_angle, closest_pos_angle = None, None
     min_neg_difference, min_pos_difference = np.pi, np.pi
 
     for n_node, node in enumerate(intersection_node.connected_nodes):
         th1, ph1 = vector_to_angles(node.xyz - intersection_node.xyz)
+        if angle_between_angles(th1, th0) < np.deg2rad(3):
+            return None
         difference = warp_angle_pi(th1 - th0)
+
         if difference < 0 and abs(difference) < abs(min_neg_difference):
             min_neg_difference = difference
             closest_neg_angle = th1
         elif difference > 0 and abs(difference) < abs(min_pos_difference):
             min_pos_difference = difference
             closest_pos_angle = th1
-    if (
-        abs(min_pos_difference) < angle_threshold
-        and abs(min_neg_difference) < angle_threshold
-    ):
+    if angle_between_angles(closest_neg_angle, closest_pos_angle) < angle_threshold * 2:
         return None
     if abs(min_neg_difference) < angle_threshold:
         thf = closest_neg_angle + angle_threshold
@@ -56,6 +58,7 @@ def correct_direction_of_intersecting_tunnel(
         thf = closest_pos_angle - angle_threshold
     else:
         thf = th0
+
     final_direction = angles_to_vector((thf, ph0))
     return final_direction
 
@@ -152,7 +155,6 @@ class Tunnel:
             self.set_nodes(seed)
 
         if not successful_growth:
-            print("Failed to grow the tunnel")
             self.delete()
 
     def delete(self):
@@ -255,8 +257,8 @@ class Tunnel:
 
 
 class CaveNode(Node):
-    def __init__(self, coords=..., graph=None):
-        super().__init__(coords, graph)
+    def __init__(self, coords=np.array((0, 0, 0))):
+        super().__init__(coords)
         self._tunnels = set()
 
     @property
@@ -271,7 +273,7 @@ class CaveNode(Node):
         """Nodes must keep track of what tunnels they are a part of
         this way, if a node is part of more than one tunnel, it means it
         is  an intersection"""
-        self.tunnels.add(new_tunnel)
+        self._tunnels.add(new_tunnel)
 
     def remove_tunnel(self, tunnel):
         assert isinstance(tunnel, Tunnel)

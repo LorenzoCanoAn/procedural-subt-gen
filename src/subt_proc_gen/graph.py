@@ -35,16 +35,9 @@ class Edge:
 
 
 class Node:
-    __graph = None
+    graph = None
 
-    def __init__(self, coords=np.zeros(3), graph=None):
-        if graph is None:
-            assert issubclass(
-                self.__graph.__class__, Graph
-            ), "You need to stablish the global parent for the nodes"
-            self.graph = self.__graph
-        else:
-            self.graph = graph
+    def __init__(self, coords=np.zeros(3)):
         self.graph.add_node(self)
         self.connected_nodes = set()
         self.coords = coords
@@ -87,6 +80,7 @@ class Node:
 
 class Graph:
     def __init__(self):
+        Node.graph = self
         self.recalculate_edges = True
         self._nodes = set()
         self._edges = set()

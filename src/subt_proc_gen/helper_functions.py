@@ -50,3 +50,9 @@ def get_indices_of_points_below_cylinder(points, center, radius):
     distances = np.linalg.norm(differences, axis=1)
     horizontaly_close = distances < radius
     return np.array(np.where(horizontaly_close & below_z)).flatten()
+
+
+def angle_between_angles(a1, a2):
+    if a1 is None or a2 is None:
+        return np.pi
+    return abs(warp_angle_pi(a2 - a1))
