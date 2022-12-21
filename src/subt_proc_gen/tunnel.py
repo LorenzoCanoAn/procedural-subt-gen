@@ -86,14 +86,14 @@ class Spline3D:
             self.distances[i + 1] = self.distances[i] + np.linalg.norm(
                 points[i + 1] - points[i]
             )
-        self.distance = self.distances[-1]
+        self.length = self.distances[-1]
         degree = 3 if len(self.distances) > 3 else len(self.distances) - 1
         self.xspline = interpolate.splrep(self.distances, self.points[:, 0], k=degree)
         self.yspline = interpolate.splrep(self.distances, self.points[:, 1], k=degree)
         self.zspline = interpolate.splrep(self.distances, self.points[:, 2], k=degree)
 
     def __call__(self, d):
-        assert d >= 0 and d <= self.distance
+        assert d >= 0 and d <= self.length
         x = interpolate.splev(d, self.xspline)
         y = interpolate.splev(d, self.yspline)
         z = interpolate.splev(d, self.zspline)
@@ -235,7 +235,7 @@ class Tunnel:
 
     @property
     def distance(self):
-        return self.spline.distance
+        return self.spline.length
 
     @property
     def spline(self):
