@@ -35,12 +35,15 @@ def main():
         # Generate the graph
         graph = TunnelNetwork()
         central_node = CaveNode()
-        for th in np.random.uniform(0, 2 * np.pi, 100):
+        graph.add_node(central_node)
+        for th in np.random.uniform(0, 2 * np.pi, 6):
             ph = np.random.uniform(-20, 20)
             ph = np.deg2rad(ph)
             starting_direction = angles_to_vector((th, ph))
-            params = TunnelParams({"starting_direction": starting_direction})
-            Tunnel(graph, central_node, params=params)
+            tunnel_params["starting_direction"] = starting_direction
+            node = random.choice(graph.nodes)
+            Tunnel(graph, node, params=tunnel_params)
+        debug_plot(graph)
         with open("datafiles/graph_.pkl", "wb") as f:
             pickle.dump(graph, f)
 

@@ -8,8 +8,8 @@ SPLINE_PLOT_PRECISSION = 0.3
 
 # MESH GENERATION PARAMETERS
 MIN_DIST_OF_MESH_POINTS = 0.1  # meters
-N_ANGLES_PER_CIRCLE = 100
-TUNNEL_AVG_RADIUS = 3  # meters
+N_ANGLES_PER_CIRCLE = 50
+TUNNEL_AVG_RADIUS = 4  # meters
 
 # Distance at which points are considered part of an intersection
 INTERSECTION_DISTANCE = 20

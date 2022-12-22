@@ -14,6 +14,8 @@ import time
 import open3d as o3d
 from time import time_ns as ns
 import random
+import pyvista as pv
+import matplotlib.pyplot as plt
 
 
 def get_points_along_axis(tunnel: Tunnel):
@@ -35,7 +37,7 @@ def get_points_along_axis(tunnel: Tunnel):
     return axis_points
 
 
-def get_vertices_and_normals_for_tunnel(tunnel, meshing_params):
+def tunnel_to_tunnel_with_mesh(tunnel, meshing_params):
     assert isinstance(meshing_params, TunnelMeshingParams)
     assert isinstance(tunnel, Tunnel)
     points = None
@@ -43,39 +45,38 @@ def get_vertices_and_normals_for_tunnel(tunnel, meshing_params):
     centers = None
     spline = tunnel.spline
     assert isinstance(spline, Spline3D)
-    noise = RadiusNoiseGenerator(spline.length, meshing_params)
+    noise = TunnelNoiseGenerator(spline.length, meshing_params)
     # Number of circles along the spline
     N = math.ceil(spline.length / MIN_DIST_OF_MESH_POINTS)
     d = spline.length / N
     # This for loop advances through the spline circle a circle
     for n in range(N):
         p, v = spline(n * d)
-        p = np.reshape(p, [-1, 1])
-        u1 = np.cross(v.T, np.array([0, 1, 0]))
-        u2 = np.cross(u1, v.T)
-        u1 = np.reshape(u1, [-1, 1])
-        u2 = np.reshape(u2, [-1, 1])
-        angles = np.random.uniform(0, 2 * math.pi, N_ANGLES_PER_CIRCLE)
-        radiuses = np.array([noise([a / (2 * math.pi), n / N]) for a in angles])
+        u1 = np.cross(v, np.array([0, 1, 0], ndmin=2))
+        u2 = np.cross(u1, v)
+        angles = np.linspace(0, 2 * math.pi, N_ANGLES_PER_CIRCLE).reshape([-1, 1])
+        radiuses = np.array([noise(n / N, a) for a in angles]).reshape([-1, 1])
         normals_ = u1 * np.sin(angles) + u2 * np.cos(angles)
-        normals_ /= np.linalg.norm(normals_, axis=0)
+        normals_ /= np.linalg.norm(normals_, axis=1).reshape([-1, 1])
         points_ = p + normals_ * radiuses
         # Correct the floor points so that it is flat
         if meshing_params["flatten_floor"]:
-            indices_to_correct = (points_ - p)[-1, :] < (
+            indices_to_correct = (points_ - p)[:, -1] < (
                 -meshing_params["floor_to_axis_distance"]
             )
-            points_[-1, np.where(indices_to_correct)] = (
+            print(indices_to_correct)
+            points_[np.where(indices_to_correct), -1] = (
                 p[-1] - meshing_params["floor_to_axis_distance"]
             )
         if points is None:
             points = points_
             normals = -normals_
-            centers = np.hstack(p.T, v)
+            centers = np.hstack([p, v])
         else:
             points = np.hstack([points, points_])
             normals = np.hstack([normals, -normals_])
-            centers = np.vstack([centers, p])
+            centers = np.vstack([centers, np.hstack([p, v])])
+
     return points.T, normals.T  # so the shape is Nx3
 
 
@@ -92,16 +93,18 @@ def mesh_from_vertices(points, normals):
     return mesh, pcd
 
 
-class RadiusNoiseGenerator:
+class TunnelNoiseGenerator:
     def __init__(self, length, meshing_params):
         assert isinstance(meshing_params, TunnelMeshingParams)
+        self.lenght = length
         self.radius = meshing_params["radius"]
         self.roughness = meshing_params["roughness"]
         self.seed = time.time_ns()
         self.noise1 = PerlinNoise(octaves=length * self.roughness, seed=self.seed)
 
-    def __call__(self, coords):
-        output = self.radius + self.noise1(coords) * self.radius
+    def __call__(self, d, angle):
+        l = angle * self.radius / self.lenght
+        output = self.radius + self.noise1((d, l)) * self.radius / 2
         return output
 
 
@@ -114,7 +117,7 @@ class TunnelMeshingParams(dict):
             self["roughness"] = 0.15
             self["flatten_floor"] = True
             self["floor_to_axis_distance"] = 1
-            self["radius"] = 3
+            self["radius"] = TUNNEL_AVG_RADIUS
 
         if not params is None:
             assert isinstance(params, dict)
@@ -148,7 +151,7 @@ class TunnelWithMesh:
                 self._raw_points,
                 self._raw_normals,
                 self._axis_points,
-            ) = get_vertices_and_normals_for_tunnel(self._tunnel, meshing_params)
+            ) = tunnel_to_tunnel_with_mesh(self._tunnel, meshing_params)
         else:
             self._raw_points, self._raw_normals = vertices, normals
         # Init the indexers

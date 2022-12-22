@@ -85,11 +85,11 @@ class Spline3D:
         x = interpolate.splev(d, self.xspline)
         y = interpolate.splev(d, self.yspline)
         z = interpolate.splev(d, self.zspline)
-        p = np.array([x, y, z])
+        p = np.array([x, y, z], ndmin=2)
         x1 = interpolate.splev(d + 0.001, self.xspline)
         y1 = interpolate.splev(d + 0.001, self.yspline)
         z1 = interpolate.splev(d + 0.001, self.zspline)
-        p1 = np.array([x1, y1, z1])
+        p1 = np.array([x1, y1, z1], ndmin=2)
         v = p1 - p
         v /= np.linalg.norm(v)
         return p, v

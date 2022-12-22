@@ -98,7 +98,7 @@ class Graph:
 
     @property
     def nodes(self):
-        return self._nodes
+        return list(self._nodes)
 
     @property
     def edges(self):
