@@ -1,3 +1,4 @@
+import sys
 from subt_proc_gen.tunnel import Tunnel, Spline3D, CaveNode, TunnelNetwork
 from subt_proc_gen.PARAMS import (
     TUNNEL_AVG_RADIUS,
@@ -6,7 +7,10 @@ from subt_proc_gen.PARAMS import (
     INTERSECTION_DISTANCE,
     HORIZONTAL_EXCLUSION_DISTANCE,
 )
-from subt_proc_gen.helper_functions import get_indices_of_points_below_cylinder
+from subt_proc_gen.helper_functions import (
+    get_indices_of_points_below_cylinder,
+    get_indices_close_to_point,
+)
 import math
 import numpy as np
 from perlin_noise import PerlinNoise
@@ -19,12 +23,13 @@ import matplotlib.pyplot as plt
 
 
 def get_points_along_axis(tunnel: Tunnel):
+    """This function is mainly for display purposes. It samples
+    the points along the spline of a tunnel."""
     spline = tunnel.spline
     assert isinstance(spline, Spline3D)
     # Number of circles along the spline
     N = math.ceil(spline.lenght / MIN_DIST_OF_MESH_POINTS)
     d = spline.lenght / N
-
     # This for loop advances through the spline circle a circle
     axis_points = None
     for n in range(N):
@@ -37,59 +42,68 @@ def get_points_along_axis(tunnel: Tunnel):
     return axis_points
 
 
-def tunnel_to_tunnel_with_mesh(tunnel, meshing_params):
+def get_mesh_points_of_tunnel(tunnel, meshing_params):
     assert isinstance(meshing_params, TunnelMeshingParams)
     assert isinstance(tunnel, Tunnel)
-    points = None
-    normals = None
-    centers = None
+    assert isinstance(tunnel.spline, Spline3D)
     spline = tunnel.spline
-    assert isinstance(spline, Spline3D)
     noise = TunnelNoiseGenerator(spline.length, meshing_params)
     # Number of circles along the spline
     N = math.ceil(spline.length / MIN_DIST_OF_MESH_POINTS)
     d = spline.length / N
+    n_a = N_ANGLES_PER_CIRCLE
+    points = np.zeros([N * n_a, 3])
+    normals = np.zeros([N * n_a, 3])
+    # axis points and vectors
+    ads, aps, avs = tunnel.spline.discretized
     # This for loop advances through the spline circle a circle
     for n in range(N):
-        p, v = spline(n * d)
-        u1 = np.cross(v, np.array([0, 1, 0], ndmin=2))
-        u2 = np.cross(u1, v)
-        angles = np.linspace(0, 2 * math.pi, N_ANGLES_PER_CIRCLE).reshape([-1, 1])
+        ap, av = aps[n], avs[n]  # axis point and vector
+        u1 = np.cross(av, np.array([0, 1, 0], ndmin=2))
+        u2 = np.cross(u1, av)
+        angles = np.linspace(0, 2 * math.pi, n_a).reshape([-1, 1])
         radiuses = np.array([noise(n / N, a) for a in angles]).reshape([-1, 1])
         normals_ = u1 * np.sin(angles) + u2 * np.cos(angles)
         normals_ /= np.linalg.norm(normals_, axis=1).reshape([-1, 1])
-        points_ = p + normals_ * radiuses
-        # Correct the floor points so that it is flat
-        if meshing_params["flatten_floor"]:
-            indices_to_correct = (points_ - p)[:, -1] < (
-                -meshing_params["floor_to_axis_distance"]
-            )
-            print(indices_to_correct)
-            points_[np.where(indices_to_correct), -1] = (
-                p[-1] - meshing_params["floor_to_axis_distance"]
-            )
-        if points is None:
-            points = points_
-            normals = -normals_
-            centers = np.hstack([p, v])
-        else:
-            points = np.hstack([points, points_])
-            normals = np.hstack([normals, -normals_])
-            centers = np.vstack([centers, np.hstack([p, v])])
+        points_ = ap + normals_ * radiuses
+        start = n * n_a
+        stop = n * n_a + n_a
+        points[start:stop] = points_
+        normals[start:stop] = -normals_
+    extended_centers = (np.ones((N, n_a, 3)) * aps.reshape([-1, 1, 3])).reshape(
+        n_a * N, 3
+    )
+    if meshing_params["flatten_floor"]:
+        indices_to_correct = np.where(
+            (points - extended_centers)[:, -1]
+            < (-meshing_params["floor_to_axis_distance"])
+        )
+        floor_points = points[indices_to_correct, :][0]
+        floor_normals = normals[indices_to_correct, :][0]
+        points = np.delete(points, indices_to_correct, 0)
+        normals = np.delete(normals, indices_to_correct, 0)
+        floor_points[:, -1] = (
+            extended_centers[indices_to_correct, -1]
+            - meshing_params["floor_to_axis_distance"]
+        )
+        floor_normals[:, :] = np.array([0, 0, 1]).reshape(1, 3)
+    return points, normals, floor_points, floor_normals, noise  # so the shape is Nx3
 
-    return points.T, normals.T  # so the shape is Nx3
 
-
-def mesh_from_vertices(points, normals):
-    print("run Poisson surface reconstruction")
+def mesh_from_vertices(points, normals, method, poisson_depth=11):
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
     pcd.normals = o3d.utility.Vector3dVector(normals)
-    with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
+    if method == "poisson":
+        pcd.normals = o3d.utility.Vector3dVector(-normals)
         mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-            pcd, depth=9
+            pcd, depth=poisson_depth
         )
-
+    elif method == "ball":
+        radii = [0.6, 0.5, 0.4, 0.3]
+        mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(
+            pcd, o3d.utility.DoubleVector(radii)
+        )
     return mesh, pcd
 
 
@@ -101,10 +115,17 @@ class TunnelNoiseGenerator:
         self.roughness = meshing_params["roughness"]
         self.seed = time.time_ns()
         self.noise1 = PerlinNoise(octaves=length * self.roughness, seed=self.seed)
+        self.noise2 = PerlinNoise(octaves=length * self.roughness * 2, seed=self.seed)
+        self.noise3 = PerlinNoise(octaves=length * self.roughness * 4, seed=self.seed)
 
     def __call__(self, d, angle):
         l = angle * self.radius / self.lenght
-        output = self.radius + self.noise1((d, l)) * self.radius / 2
+        n1 = self.noise1((d, l))
+        n2 = self.noise2((d, l))
+        n3 = self.noise3((d, l))
+        output = (
+            self.radius + n1 * self.radius + n2 * self.radius / 2 + n3 * self.radius / 4
+        )
         return output
 
 
@@ -137,42 +158,52 @@ class TunnelWithMesh:
     def __init__(
         self,
         tunnel: Tunnel,
-        vertices=None,
-        normals=None,
-        threshold_for_points_in_ends=5,
+        p2i_dist=INTERSECTION_DISTANCE,
         meshing_params=TunnelMeshingParams(),
     ):
+        self.p2i_dist = p2i_dist
         self._tunnel = tunnel
         self.__Tunnel_to_TunnelWithMesh[
             self._tunnel
         ] = self  # This is a way to go from a tunnel to its corresponding TunnelWithMesh
-        if vertices is None or normals is None:
-            (
-                self._raw_points,
-                self._raw_normals,
-                self._axis_points,
-            ) = tunnel_to_tunnel_with_mesh(self._tunnel, meshing_params)
-        else:
-            self._raw_points, self._raw_normals = vertices, normals
+        (
+            self._raw_points,
+            self._raw_normals,
+            self._floor_points,
+            self._floor_normals,
+            self._noise,
+        ) = get_mesh_points_of_tunnel(self._tunnel, meshing_params)
+        self.n_points = self._raw_points.shape[0]
         # Init the indexers
-        self._indices_of_end = dict()
-        self._selected_indices_of_end = dict()
-        self._central_indices = np.arange(len(self._raw_points))
-        self._end_indices = None
-        for n, node in enumerate(self._tunnel.end_nodes):
-            indices_for_this_end_node = self.get_indices_close_to_point(
-                node.xyz, threshold_for_points_in_ends
-            )
-            if self._end_indices is None:
-                self._end_indices = indices_for_this_end_node
-            else:
-                self._end_indices = np.concatenate(
-                    (self._end_indices, indices_for_this_end_node)
-                )
-            self._indices_of_end[node] = np.copy(indices_for_this_end_node)
-            self._selected_indices_of_end[node] = np.copy(indices_for_this_end_node)
+        self.points_at_intersection = dict()
+        self.normals_at_intersection = dict()
+        self.central_points = np.copy(self._raw_points)
+        self.central_normals = np.copy(self._raw_normals)
 
-        self._central_indices = np.delete(self._central_indices, self._end_indices)
+    def add_intersection(self, node):
+        indices_for_this_end_node = get_indices_close_to_point(
+            self.central_points, node.xyz, self.p2i_dist
+        )
+        self.points_at_intersection[node] = self.central_points[
+            indices_for_this_end_node, :
+        ]
+        self.normals_at_intersection[node] = self.central_normals[
+            indices_for_this_end_node, :
+        ]
+        self.central_points = np.delete(
+            self.central_points, indices_for_this_end_node, axis=0
+        )
+        self.central_normals = np.delete(
+            self.central_normals, indices_for_this_end_node, axis=0
+        )
+
+    def delete_points_in_end(self, end_node, indices):
+        self.points_at_intersection[end_node] = np.delete(
+            self.points_at_intersection[end_node], indices, axis=0
+        )
+        self.normals_at_intersection[end_node] = np.delete(
+            self.normals_at_intersection[end_node], indices, axis=0
+        )
 
     @classmethod
     def tunnel_to_tunnelwithmesh(cls, tunnel: Tunnel):
@@ -180,105 +211,49 @@ class TunnelWithMesh:
         assert isinstance(tunnel_with_mesh, TunnelWithMesh)
         return tunnel_with_mesh
 
-    @property
-    def tunnel(self):
-        return self._tunnel
-
-    @property
-    def n_points(self):
-        assert len(self._raw_normals) == len(self._raw_points)
-        return len(self._raw_normals)
-
-    # FUNCTIONS TO ACCESS THE RAW VERTICES
-    @property
-    def all_raw_points(self):
-        return self._raw_points
-
-    @property
-    def all_raw_normals(self):
-        return self._raw_normals
-
-    @property
-    def central_points(self):
-        return self._raw_points[self._central_indices]
-
-    @property
-    def central_normals(self):
-        return self._raw_normals[self._central_indices]
-
-    @property
-    def end_points(self):
-        return self._raw_points[self._end_indices]
-
-    @property
-    def end_normals(self):
-        return self._raw_normals[self._end_indices]
-
-    @property
-    def all_selected_end_indices(self):
-        selected_indices = None
-        for end in self._tunnel.end_nodes:
-            if selected_indices is None:
-                selected_indices = self._selected_indices_of_end[end]
-            else:
-                selected_indices = np.concatenate(
-                    [selected_indices, self._selected_indices_of_end[end]]
-                )
-        return selected_indices
-
-    # FUNCTIONS TO ACCESS VERTICES EXCEPT THE EXCLUDED ONES
-    def selected_points_of_end(self, end_node):
-        return self._raw_points[self._selected_indices_of_end[end_node]]
-
-    @property
-    def selected_end_points(self):
-        return self._raw_points[self.all_selected_end_indices]
-
-    @property
-    def all_selected_indices(self):
-        if len(self._central_indices) > 0:
-            return np.concatenate(
-                (self._central_indices, self.all_selected_end_indices)
-            )
+    def is_point_inside(self, point):
+        spline = self._tunnel.spline
+        d_ap_av = spline.get_most_perpendicular_point_in_spline(point, 5)
+        if d_ap_av is None:
+            return False
         else:
-            return self.all_selected_end_indices
+            d, ap, av = d_ap_av
+            ap = np.reshape(ap, [1, -1])
+            av = np.reshape(av, [1, -1])
+        vap_p = point - ap  # vector form ap to p
+        r = np.linalg.norm(vap_p)
+        n = vap_p / r  # normal of p
+        u1 = np.cross(av, np.array([0, 1, 0], ndmin=2))
+        u2 = np.cross(u1, av)
+        nx = n[0, 0]
+        ny = n[0, 1]
+        u1x = u1[0, 0]
+        u1y = u1[0, 1]
+        u2x = u2[0, 0]
+        u2y = u2[0, 1]
+        a = np.arctan2(ny * u2y - nx * u2x, nx * u1x - ny * u1y)
+        radius = self._noise(d, a)
+        return radius > r
 
     @property
     def all_selected_points(self):
-        return self._raw_points[self.all_selected_indices]
+        selected_points = self.central_points
+        for node in self.points_at_intersection.keys():
+            selected_points = np.concatenate(
+                [selected_points, self.points_at_intersection[node]]
+            )
+        selected_points = np.concatenate([selected_points, self._floor_points])
+        return selected_points
 
     @property
     def all_selected_normals(self):
-        return self._raw_normals[self.all_selected_indices]
-
-    def raw_points_in_end(self, end_node):
-        assert isinstance(end_node, CaveNode)
-        assert end_node in self._tunnel.end_nodes
-        return self._raw_points[self._indices_of_end[end_node]]
-
-    def deselect_point_of_end(self, end_node, to_deselect):
-        self._selected_indices_of_end[end_node] = np.delete(
-            self._selected_indices_of_end[end_node], to_deselect
-        )
-
-    def get_indices_close_to_point(
-        self, point: np.ndarray, threshold_distance, horizontal_distance=True
-    ):
-        """points should have a 3x1 dimmension"""
-        if horizontal_distance:
-            points_xy = self.all_raw_points[:, :2]
-            differences = points_xy - np.reshape(point.flatten()[:2], [1, 2])
-        else:
-            differences = self.all_raw_points - np.reshape(point.flatten(), [1, 3])
-        distances = np.linalg.norm(differences, axis=1)
-        return np.array(np.where(distances < threshold_distance)).flatten()
-
-    def add_points_to_delete(self, indices):
-        if not isinstance(indices, np.ndarray):
-            indices = np.array(indices)
-        self._indices_of_excluded_vertices = np.vstack(
-            self._indices_of_excluded_vertices, indices
-        )
+        selected_normals = self.central_normals
+        for node in self.normals_at_intersection.keys():
+            selected_normals = np.concatenate(
+                [selected_normals, self.normals_at_intersection[node]]
+            )
+        selected_normals = np.concatenate([selected_normals, self._floor_normals])
+        return selected_normals
 
 
 class TunnelNetworkWithMesh:
@@ -301,6 +276,11 @@ class TunnelNetworkWithMesh:
             )
             print(f"Time: {(ns()-start)*1e-9:<5.2f} s", end=" // ")
             print(f"{self._tunnels_with_mesh[-1].n_points:<5} points")
+        for intersection in self._tunnel_network.intersections:
+            for tunnel in intersection.tunnels:
+                ti = TunnelWithMesh.tunnel_to_tunnelwithmesh(tunnel).add_intersection(
+                    intersection
+                )
 
     def clean_intersections(self):
         n_intersections = len(self._tunnel_network.intersections)
@@ -308,28 +288,20 @@ class TunnelNetworkWithMesh:
             self._tunnel_network.intersections
         ):
             print(f"Cleaning intersection {n_intersection} out of {n_intersections}")
-            for tunnel in intersection.tunnels:
-                # Plot the central points of the tunnel
-                tunnel_with_mesh_i = TunnelWithMesh.tunnel_to_tunnelwithmesh(tunnel)
-
-                for tunnel_j in intersection.tunnels:
-                    tunnel_with_mesh_j = TunnelWithMesh.tunnel_to_tunnelwithmesh(
-                        tunnel_j
-                    )
-                    if tunnel_with_mesh_i is tunnel_with_mesh_j:
+            for tnmi in intersection.tunnels:
+                for tnmj in intersection.tunnels:
+                    ti = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmi)
+                    tj = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmj)
+                    if ti is tj:
                         continue
-                    # Update the secondary tunnel
-                    for point in tunnel_with_mesh_i.selected_points_of_end(
-                        intersection
-                    ):
-                        to_deselect = get_indices_of_points_below_cylinder(
-                            tunnel_with_mesh_j.selected_points_of_end(intersection),
-                            point,
-                            HORIZONTAL_EXCLUSION_DISTANCE,
-                        )
-                        tunnel_with_mesh_j.deselect_point_of_end(
-                            intersection, to_deselect
-                        )
+                    assert isinstance(ti, TunnelWithMesh)
+                    assert isinstance(tj, TunnelWithMesh)
+                    indices_to_delete = []
+                    pis = ti.points_at_intersection[intersection]
+                    for npi, pi in enumerate(pis):
+                        if tj.is_point_inside(pi):
+                            indices_to_delete.append(npi)
+                    ti.delete_points_in_end(intersection, indices_to_delete)
 
     def mesh_points_and_normals(self):
         mesh_points = None

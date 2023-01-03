@@ -2,6 +2,7 @@
 and build it as such"""
 from subt_proc_gen.graph import Graph, Node
 from subt_proc_gen.PARAMS import *
+from subt_proc_gen.spline import Spline3D
 import numpy as np
 from subt_proc_gen.helper_functions import (
     vector_to_angles,
@@ -11,7 +12,6 @@ from subt_proc_gen.helper_functions import (
     angle_between_angles,
 )
 import math
-from scipy import interpolate
 
 
 def add_noise_to_direction(
@@ -61,38 +61,6 @@ def correct_direction_of_intersecting_tunnel(
 
     final_direction = angles_to_vector((thf, ph0))
     return final_direction
-
-
-class Spline3D:
-    """Wrapper around the scipy spline to
-    interpolate a series of 3d points along x,y and z"""
-
-    def __init__(self, points):
-        self.points = np.array(points)
-        self.distances = [0 for _ in range(len(self.points))]
-        for i in range(len(points) - 1):
-            self.distances[i + 1] = self.distances[i] + np.linalg.norm(
-                points[i + 1] - points[i]
-            )
-        self.length = self.distances[-1]
-        degree = 3 if len(self.distances) > 3 else len(self.distances) - 1
-        self.xspline = interpolate.splrep(self.distances, self.points[:, 0], k=degree)
-        self.yspline = interpolate.splrep(self.distances, self.points[:, 1], k=degree)
-        self.zspline = interpolate.splrep(self.distances, self.points[:, 2], k=degree)
-
-    def __call__(self, d):
-        assert d >= 0 and d <= self.length
-        x = interpolate.splev(d, self.xspline)
-        y = interpolate.splev(d, self.yspline)
-        z = interpolate.splev(d, self.zspline)
-        p = np.array([x, y, z], ndmin=2)
-        x1 = interpolate.splev(d + 0.001, self.xspline)
-        y1 = interpolate.splev(d + 0.001, self.yspline)
-        z1 = interpolate.splev(d + 0.001, self.zspline)
-        p1 = np.array([x1, y1, z1], ndmin=2)
-        v = p1 - p
-        v /= np.linalg.norm(v)
-        return p, v
 
 
 class TunnelParams(dict):
@@ -312,6 +280,6 @@ class TunnelNetwork(Graph):
             assert isinstance(node, CaveNode), TypeError(
                 f"node is of type: {type(node)}"
             )
-            if len(node.tunnels) > 2:
+            if len(node.tunnels) >= 2:
                 self._intersections.add(node)
         return self._intersections

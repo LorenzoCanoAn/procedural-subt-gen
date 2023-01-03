@@ -7,8 +7,8 @@ MIN_ANGLE_FOR_INTERSECTIONS = deg2rad(45)
 SPLINE_PLOT_PRECISSION = 0.3
 
 # MESH GENERATION PARAMETERS
-MIN_DIST_OF_MESH_POINTS = 0.1  # meters
-N_ANGLES_PER_CIRCLE = 50
+MIN_DIST_OF_MESH_POINTS = 0.5  # meters
+N_ANGLES_PER_CIRCLE = 30
 TUNNEL_AVG_RADIUS = 4  # meters
 
 # Distance at which points are considered part of an intersection

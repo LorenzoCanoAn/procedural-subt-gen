@@ -56,3 +56,20 @@ def angle_between_angles(a1, a2):
     if a1 is None or a2 is None:
         return np.pi
     return abs(warp_angle_pi(a2 - a1))
+
+
+def get_indices_close_to_point(
+    points: np.ndarray, point: np.ndarray, threshold_distance, horizontal_distance=True
+):
+    """points should have a 3x1 dimmension.
+    - points: Nx3 array
+    - point: 1x3 array
+    - threshold distance: if a point of points is closer to point than this distance, it will be selected
+    - horizontal distance: if this parameter is set to true, the distance between points and the point will only be measured in the xy plane"""
+    if horizontal_distance:
+        points_xy = points[:, :2]
+        differences = points_xy - np.reshape(point.flatten()[:2], [1, 2])
+    else:
+        differences = points - np.reshape(point.flatten(), [1, 3])
+    distances = np.linalg.norm(differences, axis=1)
+    return np.array(np.where(distances < threshold_distance)).flatten()

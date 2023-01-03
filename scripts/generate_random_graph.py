@@ -22,22 +22,22 @@ def main():
     for i in range(1):
         tunnel_params = TunnelParams(
             {
-                "distance": 800,
+                "distance": 150,
                 "starting_direction": np.array((1, 0, 0)),
                 "horizontal_tendency": np.deg2rad(10),
                 "horizontal_noise": np.deg2rad(30),
                 "vertical_tendency": np.deg2rad(00),
-                "vertical_noise": np.deg2rad(20),
-                "min_seg_length": 40,
-                "max_seg_length": 50,
+                "vertical_noise": np.deg2rad(00),
+                "min_seg_length": 20,
+                "max_seg_length": 30,
             }
         )
         # Generate the graph
         graph = TunnelNetwork()
         central_node = CaveNode()
         graph.add_node(central_node)
-        for th in np.random.uniform(0, 2 * np.pi, 6):
-            ph = np.random.uniform(-20, 20)
+        for th in np.random.uniform(0, 2 * np.pi, 3):
+            ph = np.random.uniform(0, 1)
             ph = np.deg2rad(ph)
             starting_direction = angles_to_vector((th, ph))
             tunnel_params["starting_direction"] = starting_direction

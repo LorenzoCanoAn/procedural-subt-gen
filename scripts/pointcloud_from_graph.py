@@ -13,7 +13,7 @@ import shutil
 
 MESH_FOLDER = "meshes"
 import matplotlib.pyplot as plt
-import os
+import pyvista as pv
 
 
 def tunnel_interesects_with_list(tunnel: Tunnel, list_of_tunnels):
@@ -35,19 +35,42 @@ def main():
     dist_threshold = 7
     tunnels_with_mesh = list()
 
-    tunnel_network_with_mesh = TunnelNetworkWithMesh(
-        tunnel_network, meshing_params=TunnelMeshingParams({"roughness": 0.5})
-    )
-    tunnel_network_with_mesh.clean_intersections()
-    points, normals = tunnel_network_with_mesh.mesh_points_and_normals()
-
-    mesh, ptcl = mesh_from_vertices(points, normals)
-
-    simplified_mesh = mesh.simplify_quadric_decimation(int(len(mesh.triangles) * 0.3))
-    print(f"Original mesh has {len(mesh.triangles)}")
-    print(f"Simplified mesh has {len(simplified_mesh.triangles)}")
-    o3d.io.write_triangle_mesh("datafiles/originial.ply", mesh)
-    o3d.io.write_triangle_mesh("datafiles/simplified.ply", simplified_mesh)
+    if True:
+        tunnel_network_with_mesh = TunnelNetworkWithMesh(
+            tunnel_network, meshing_params=TunnelMeshingParams({"roughness": 0.1})
+        )
+        tunnel_network_with_mesh.clean_intersections()
+        points, normals = tunnel_network_with_mesh.mesh_points_and_normals()
+        plotter = pv.Plotter()
+        for i, mesh in enumerate(tunnel_network_with_mesh._tunnels_with_mesh):
+            plotter.add_mesh(pv.PolyData(mesh.all_selected_points), color=COLORS[i])
+        plotter.show()
+        np.save("points", points)
+        np.save("normals", normals)
+    else:
+        points = np.load("points.npy")
+        normals = np.load("normals.npy")
+    methods = [
+        "poisson",
+    ]
+    for method in methods:
+        for poisson_depth in [11]:
+            mesh, ptcl = mesh_from_vertices(
+                points, normals, method=method, poisson_depth=poisson_depth
+            )
+            o3d.visualization.draw_geometries([ptcl])
+            simplified_mesh = mesh.simplify_quadric_decimation(
+                int(len(mesh.triangles) * 0.3)
+            )
+            print(f"Original mesh has {len(mesh.triangles)}")
+            print(f"Simplified mesh has {len(simplified_mesh.triangles)}")
+            o3d.io.write_triangle_mesh(
+                f"datafiles/{method}_depth_{poisson_depth}_originial.ply", mesh
+            )
+            o3d.io.write_triangle_mesh(
+                f"datafiles/{method}_depth_{poisson_depth}_simplified.ply",
+                simplified_mesh,
+            )
 
 
 if __name__ == "__main__":
