@@ -95,10 +95,11 @@ def mesh_from_vertices(points, normals, method, poisson_depth=11):
     pcd.points = o3d.utility.Vector3dVector(points)
     pcd.normals = o3d.utility.Vector3dVector(normals)
     if method == "poisson":
-        pcd.normals = o3d.utility.Vector3dVector(-normals)
+        pcd.normals = o3d.utility.Vector3dVector(normals)
         mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
             pcd, depth=poisson_depth
         )
+        print("hola")
     elif method == "ball":
         radii = [0.6, 0.5, 0.4, 0.3]
         mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(
