@@ -6,8 +6,8 @@ import pickle
 from subt_proc_gen.tunnel import TunnelParams, Tunnel, TunnelNetwork
 from subt_proc_gen.graph import Node
 from subt_proc_gen.display_functions import plot_graph_2d, network_overview
-from subt_proc_gen.mesh_generation import *
-import open3d as o3d
+from subt_proc_gen.tunnel import *
+import random
 
 
 def debug_plot(graph):
@@ -36,7 +36,7 @@ def main():
         graph = TunnelNetwork()
         central_node = CaveNode()
         graph.add_node(central_node)
-        for th in np.random.uniform(0, 2 * np.pi, 3):
+        for th in np.random.uniform(0, 2 * np.pi, 1):
             ph = np.random.uniform(0, 1)
             ph = np.deg2rad(ph)
             starting_direction = angles_to_vector((th, ph))

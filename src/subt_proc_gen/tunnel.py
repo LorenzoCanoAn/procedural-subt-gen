@@ -192,7 +192,7 @@ class Tunnel:
             previous_orientation = segment_orientation
             previous_node = new_node
             n += 1
-        return True
+        return self.check_collissions()
 
     def common_nodes(self, tunnel):
         assert isinstance(tunnel, Tunnel)
@@ -201,6 +201,26 @@ class Tunnel:
             if node in tunnel.nodes:
                 common_nodes.add(node)
         return common_nodes
+
+    def check_collissions(self):
+        return self.check_self_collissions()
+
+    def check_self_collissions(self, res=1, min_dist=6):
+        spline = self.spline
+        length = spline.length
+        N = np.ceil(length / res)
+        points = np.zeros((N, 3))
+        ds = np.linspace(0, length, N)
+        for n, d in enumerate(ds):
+            points[n, :] = spline(d)
+
+        for n, p in enumerate(points):
+            diffs = points - np.reshape(p, (1, 3))
+            norms = np.linalg.norm(diffs, axis=1)
+            indices = np.where(norms < min_dist)
+            if np.max(np.abs(indices - n)) > min_dist / res + 1:
+                return False
+        return True
 
     @property
     def nodes(self):

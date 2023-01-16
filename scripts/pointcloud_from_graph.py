@@ -41,10 +41,10 @@ def main():
         )
         tunnel_network_with_mesh.clean_intersections()
         points, normals = tunnel_network_with_mesh.mesh_points_and_normals()
-        plotter = pv.Plotter()
-        for i, mesh in enumerate(tunnel_network_with_mesh._tunnels_with_mesh):
-            plotter.add_mesh(pv.PolyData(mesh.all_selected_points), color=COLORS[i])
-        plotter.show()
+        # plotter = pv.Plotter()
+        # for i, mesh in enumerate(tunnel_network_with_mesh._tunnels_with_mesh):
+        #    plotter.add_mesh(pv.PolyData(mesh.all_selected_points), color=COLORS[i])
+        # plotter.show()
         np.save("points", points)
         np.save("normals", normals)
     else:
