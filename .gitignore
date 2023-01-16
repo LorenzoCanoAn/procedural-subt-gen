@@ -1,5 +1,6 @@
 # Visualization files
 screenshots/**
+datafiles/**
 *.png
 
 
@@ -132,3 +133,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+procedural-subt-gen.code-workspace
