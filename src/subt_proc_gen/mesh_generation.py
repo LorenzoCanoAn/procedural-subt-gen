@@ -1,14 +1,12 @@
-import sys
+import os
 from subt_proc_gen.tunnel import Tunnel, Spline3D, CaveNode, TunnelNetwork
 from subt_proc_gen.PARAMS import (
     TUNNEL_AVG_RADIUS,
     MIN_DIST_OF_MESH_POINTS,
     N_ANGLES_PER_CIRCLE,
     INTERSECTION_DISTANCE,
-    HORIZONTAL_EXCLUSION_DISTANCE,
 )
 from subt_proc_gen.helper_functions import (
-    get_indices_of_points_below_cylinder,
     get_indices_close_to_point,
 )
 import math
@@ -320,3 +318,24 @@ class TunnelNetworkWithMesh:
                     (mesh_normals, tunnel_with_mesh.all_selected_normals)
                 )
         return mesh_points, mesh_normals
+
+
+def generate_mesh_from_tunnel_network(tunnel_network: TunnelNetwork, path_to_mesh):
+    # Order the tunnels so that the meshes intersect
+    tunnel_network_with_mesh = TunnelNetworkWithMesh(
+        tunnel_network, meshing_params=TunnelMeshingParams({"roughness": 0.1})
+    )
+    tunnel_network_with_mesh.clean_intersections()
+    points, normals = tunnel_network_with_mesh.mesh_points_and_normals()
+    save_folder, filename = os.path.split(path_to_mesh)
+    np.save(os.path.join(save_folder, "points.np"), points)
+    np.save(os.path.join(save_folder, "normals.np"), normals)
+
+    mesh, ptcl = mesh_from_vertices(points, normals, method="poisson", poisson_depth=11)
+    simplified_mesh = mesh.simplify_quadric_decimation(int(len(mesh.triangles) * 0.3))
+    print(f"Original mesh has {len(mesh.triangles)}")
+    print(f"Simplified mesh has {len(simplified_mesh.triangles)}")
+    o3d.io.write_triangle_mesh(
+        path_to_mesh,
+        simplified_mesh,
+    )

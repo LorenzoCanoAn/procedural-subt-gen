@@ -65,10 +65,7 @@ def main():
             print(f"Original mesh has {len(mesh.triangles)}")
             print(f"Simplified mesh has {len(simplified_mesh.triangles)}")
             o3d.io.write_triangle_mesh(
-                f"datafiles/{method}_depth_{poisson_depth}_originial.ply", mesh
-            )
-            o3d.io.write_triangle_mesh(
-                f"datafiles/{method}_depth_{poisson_depth}_simplified.ply",
+                f"datafiles/{method}_depth_{poisson_depth}_simplified.obj",
                 simplified_mesh,
             )
 
