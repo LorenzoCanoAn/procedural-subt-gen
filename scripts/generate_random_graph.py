@@ -5,47 +5,79 @@ from subt_proc_gen.helper_functions import *
 import pickle
 from subt_proc_gen.tunnel import TunnelParams, Tunnel, TunnelNetwork
 from subt_proc_gen.graph import Node
-from subt_proc_gen.display_functions import plot_graph_2d, network_overview
+from subt_proc_gen.display_functions import debug_plot
 from subt_proc_gen.tunnel import *
 import random
 
 
-def debug_plot(graph):
-    assert isinstance(graph, TunnelNetwork)
-    plt.gca().clear()
-    plot_graph_2d(graph)
-    plt.draw()
-    plt.waitforbuttonpress()
-
-
 def main():
     for i in range(1):
-        tunnel_params = TunnelParams(
-            {
-                "distance": 150,
-                "starting_direction": np.array((1, 0, 0)),
-                "horizontal_tendency": np.deg2rad(10),
-                "horizontal_noise": np.deg2rad(30),
-                "vertical_tendency": np.deg2rad(00),
-                "vertical_noise": np.deg2rad(00),
-                "min_seg_length": 20,
-                "max_seg_length": 30,
-            }
-        )
         # Generate the graph
+        fig = plt.figure(figsize=(10, 10))
         graph = TunnelNetwork()
         central_node = CaveNode()
-        graph.add_node(central_node)
-        for th in np.random.uniform(0, 2 * np.pi, 1):
-            ph = np.random.uniform(0, 1)
-            ph = np.deg2rad(ph)
-            starting_direction = angles_to_vector((th, ph))
-            tunnel_params["starting_direction"] = starting_direction
-            node = random.choice(graph.nodes)
-            Tunnel(graph, node, params=tunnel_params)
-        debug_plot(graph)
-        with open("datafiles/graph_.pkl", "wb") as f:
-            pickle.dump(graph, f)
+        for i in range(10):
+            tunnel_params = TunnelParams(
+                {
+                    "distance": np.random.uniform(100, 100),
+                    "starting_direction": angles_to_vector(
+                        (
+                            np.random.uniform(0, np.pi * 2),
+                            np.random.uniform(np.deg2rad(-10), np.deg2rad(10)),
+                        )
+                    ),
+                    "horizontal_tendency": np.deg2rad(np.random.uniform(-30, 30)),
+                    "horizontal_noise": np.deg2rad(5),
+                    "vertical_tendency": np.deg2rad(np.random.uniform(-10, 10)),
+                    "vertical_noise": np.deg2rad(3),
+                    "segment_length": 30,
+                    "segment_length_noise": 5,
+                    "node_position_noise": 4,
+                }
+            )
+            if i == 0:
+                success = Tunnel(
+                    graph, initial_node=central_node, params=tunnel_params
+                ).success
+                continue
+            success = False
+            while not success:
+                node = random.choice(graph.nodes)
+                if len(node.connected_nodes) < 2:
+                    print(node.connected_nodes)
+                    continue
+                success = Tunnel(graph, initial_node=node, params=tunnel_params).success
+        for i in range(4):
+            success = False
+            while not success:
+                i_node = random.choice(graph.nodes)
+                f_node = random.choice(graph.nodes)
+                assert isinstance(i_node, CaveNode)
+                assert isinstance(f_node, CaveNode)
+                if i_node is f_node:
+                    continue
+                same_tunnel = False
+                for tunnel in i_node.tunnels:
+                    if tunnel in f_node.tunnels:
+                        same_tunnel = True
+                        break
+                if same_tunnel:
+                    continue
+                # debug_plot(graph, wait=False)
+                # plt.scatter(i_node.x, i_node.y, c="r", s=1000)
+                # plt.scatter(f_node.x, f_node.y, c="k", s=1000)
+                # plt.draw()
+                # plt.waitforbuttonpress()
+                last_tunnel = Tunnel(
+                    graph,
+                    initial_node=i_node,
+                    final_node=f_node,
+                    params=tunnel_params,
+                )
+                success = last_tunnel.success
+        # debug_plot(graph)
+        # jwith open("datafiles/graph.pkl", "wb") as f:
+        #    pickle.dump(graph, f)
 
 
 if __name__ == "__main__":

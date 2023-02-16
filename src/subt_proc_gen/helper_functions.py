@@ -1,4 +1,5 @@
 import math
+from matplotlib import pyplot as plt
 import numpy as np
 
 
@@ -13,9 +14,17 @@ def angles_to_vector(angles):
 
 def vector_to_angles(vector):
     x, y, z = vector
-    ph = math.atan2(z, x**2 + y**2)
     th = math.atan2(y, x)
+    ph = math.atan2(z, (x**2 + y**2) ** 0.5)
     return th, ph
+
+
+def random_perpendicular(vector):
+    vector = np.reshape(vector, (1, 3))
+    alternative = vector + np.random.uniform(-1, 1, (1, 3))
+    resulting_vector = np.cross(vector, alternative)
+    resulting_vector /= np.linalg.norm(resulting_vector)
+    return resulting_vector
 
 
 def warp_angle_2pi(angle):
@@ -29,6 +38,15 @@ def warp_angle_pi(angle):
     if new_angle > np.pi:
         new_angle -= 2 * math.pi
     return new_angle
+
+
+def any_point_close(points1, points2, min_dist):
+    difference_matrix = np.ones((points1.shape[0], points2.shape[0], points1.shape[1]))
+    difference_matrix *= np.expand_dims(points1, 1)
+    difference_matrix -= np.expand_dims(points2, 0)
+    distances = np.linalg.norm(difference_matrix, axis=2)
+    result = np.any(distances < min_dist)
+    return result
 
 
 def gen_cylinder_around_point(
@@ -53,8 +71,6 @@ def get_indices_of_points_below_cylinder(points, center, radius):
 
 
 def angle_between_angles(a1, a2):
-    if a1 is None or a2 is None:
-        return np.pi
     return abs(warp_angle_pi(a2 - a1))
 
 

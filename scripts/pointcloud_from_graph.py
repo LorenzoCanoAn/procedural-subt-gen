@@ -28,23 +28,21 @@ def tunnel_interesects_with_list(tunnel: Tunnel, list_of_tunnels):
 
 def main():
     # Generate the vertices of the mesh
-    with open("datafiles/graph_.pkl", "rb") as f:
+    with open("datafiles/graph.pkl", "rb") as f:
         tunnel_network = pickle.load(f)
     # Order the tunnels so that the meshes intersect
     assert isinstance(tunnel_network, TunnelNetwork)
-    dist_threshold = 7
-    tunnels_with_mesh = list()
 
     if True:
         tunnel_network_with_mesh = TunnelNetworkWithMesh(
-            tunnel_network, meshing_params=TunnelMeshingParams({"roughness": 0.1})
+            tunnel_network, meshing_params=TunnelMeshingParams({"roughness": 0.0001})
         )
         tunnel_network_with_mesh.clean_intersections()
         points, normals = tunnel_network_with_mesh.mesh_points_and_normals()
-        # plotter = pv.Plotter()
-        # for i, mesh in enumerate(tunnel_network_with_mesh._tunnels_with_mesh):
-        #    plotter.add_mesh(pv.PolyData(mesh.all_selected_points), color=COLORS[i])
-        # plotter.show()
+        plotter = pv.Plotter()
+        for i, mesh in enumerate(tunnel_network_with_mesh._tunnels_with_mesh):
+            plotter.add_mesh(pv.PolyData(mesh.all_selected_points), color=COLORS[i])
+        plotter.show()
         np.save("points", points)
         np.save("normals", normals)
     else:
