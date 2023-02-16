@@ -150,12 +150,7 @@ class CaveNode(Node):
 
 class Tunnel:
     def __init__(
-        self,
-        parent,
-        initial_node=None,
-        final_node=None,
-        params=TunnelParams(),
-        override_checks=False,
+        self, parent, initial_node=None, final_node=None, params=TunnelParams()
     ):
         """A tunnel can be started from three different seeds:
         - If the seed is a CaveNode: The tunnel grows from said node according to its parameters
@@ -173,6 +168,8 @@ class Tunnel:
         self._spline = None
         successful_growth = True
         reson = None
+
+    def compute(self, initial_node, final_node):
         if isinstance(initial_node, CaveNode):
             if not final_node is None:
                 self.tunnel_type = "between_nodes"
@@ -181,15 +178,37 @@ class Tunnel:
                 self.add_node(initial_node)
                 self.tunnel_type = "grown"
                 successful_growth = self.grow_tunnel()
-        print(f"Successful_grouth: {successful_growth}")
-        print(f"nodes: {self.nodes}")
-        if not successful_growth and not override_checks:
+        else:
+            print("No initial node")
+            self.success = True
+            return
+
+        if not successful_growth:
             # print("Tunnel generation not successful, reason:")
             # print(f"\t {reason}")
             self.delete()
             self.success = False
         else:
             self.success = True
+
+    def from_list_of_poses(self, list_of_poses, close=False):
+        tp = self._params  # for readability
+
+        parent = None
+        for n in list_of_poses:
+
+            self.add_node(n)
+            print(n.tunnels)
+            # self._nodes.append()
+            if parent is not None:
+                self._nodes[-1].connect(self._nodes[parent])
+                parent = self._nodes[-1]
+
+        if close:
+            self._nodes.append(self._nodes[0])
+            self._nodes[-1].connect(self._nodes[-2])
+
+        return self.check_collissions()
 
     def delete(self):
         """
@@ -234,7 +253,7 @@ class Tunnel:
             self._params["starting_direction"], self[0]
         )
         if previous_orientation is None:
-            return False
+            return False, "Impossible to find a good insertion angle with the tunnel"
 
         d = 0
         n = 1
@@ -263,19 +282,12 @@ class Tunnel:
             previous_orientation = segment_orientation
             previous_node = new_node
             n += 1
-        print(f"Inside function nodes: {self.nodes}")
-        if len(self.nodes) < 2:
-            print("Unsuccesful tunnel: Only one node")
-            return False
         if not check_insertion_angle_of_candidate_node_for_intersection(
             self[1], self[0]
         ):
             print("Unsuccesful tunnel: Angle with intersection")
             return False
-        if not self.check_collissions():
-            print("Unsuccessful tunnel: Collides")
-            return False
-        return True
+        return self.check_collissions()
 
     def grow_between_nodes(self, initial_node, final_node):
         assert isinstance(initial_node, CaveNode)
@@ -336,53 +348,30 @@ class Tunnel:
         return common_nodes
 
     def check_collissions(self):
-        if not self.check_self_collissions():
-            print("Collides with itself")
-            return False
-        if not self.check_collisions_with_other_tunnels():
-            print("Collides with other tunnel")
-            return False
-        return True
+        return (
+            self.check_self_collissions() and self.check_collisions_with_other_tunnels()
+        )
 
-    def get_points_to_check_collisions_with_other_tunnels(
-        self, min_dist, precision=None
+    def check_collisions_with_other_tunnels(
+        self, min_dist=MIN_DIST_OF_TUNNEL_COLLISSIONS
     ):
-        if precision is None:
-            discretized_spline = self.spline.discretized[
-                1
-            ]  # select only the points of the discretized spline
-        else:
-            discretized_spline = self.spline.discretize(precision=precision)[1]
-        if len(self.nodes[0].connected_nodes) > 1:
-            indices_at_start = np.array(
-                np.where(
-                    np.linalg.norm(discretized_spline - self.nodes[0].xyz, axis=1)
-                    < min_dist * 2
-                )
-            ).T
-        else:
-            indices_at_start = np.zeros([0, 1]).astype(np.int32)
+        discretized_spline = self.spline.discretized[1]
+        elements_in_extremes = np.array(
+            np.where(
+                np.linalg.norm(discretized_spline - self.nodes[0].xyz, axis=1)
+                < min_dist * 2
+            )
+        ).T
         if len(self.nodes[-1].connected_nodes) > 1:
-            indices_at_end = np.array(
+            end_nodes = np.array(
                 np.where(
                     np.linalg.norm(discretized_spline - self.nodes[-1].xyz, axis=1)
                     < min_dist * 2
                 )
             ).T
-        else:
-            indices_at_end = np.zeros([0, 1]).astype(np.int32)
-        elements_in_extremes = np.vstack([indices_at_start, indices_at_end])
-
+            elements_in_extremes = np.vstack([elements_in_extremes, end_nodes])
         discretized_spline_without_tips = np.delete(
             discretized_spline, elements_in_extremes, axis=0
-        )
-        return discretized_spline_without_tips
-
-    def check_collisions_with_other_tunnels(
-        self, min_dist=MIN_DIST_OF_TUNNEL_COLLISSIONS
-    ):
-        discretized_spline_without_tips = (
-            self.get_points_to_check_collisions_with_other_tunnels(min_dist=min_dist)
         )
         for tunnel in self._parent.tunnels:
             if tunnel is self:
@@ -391,6 +380,7 @@ class Tunnel:
                 discretized_spline_without_tips, tunnel.spline.discretized[1], min_dist
             ):
                 return False
+
         return True
 
     def check_self_collissions(self, res=1, min_dist=6):
@@ -435,6 +425,8 @@ class TunnelNetwork(Graph):
         super().__init__()
         self._tunnels = list()
         self._intersections = list()
+        self._tunnels = list()
+        self._intersections = list()
 
     def remove_tunnel(self, tunnel):
         assert tunnel in self._tunnels, Exception(
@@ -443,6 +435,7 @@ class TunnelNetwork(Graph):
         self._tunnels.remove(tunnel)
 
     def add_tunnel(self, tunnel: Tunnel):
+        self._tunnels.append(tunnel)
         self._tunnels.append(tunnel)
 
     @property
@@ -458,5 +451,6 @@ class TunnelNetwork(Graph):
                 f"node is of type: {type(node)}"
             )
             if len(node.tunnels) >= 2:
+                self._intersections.append(node)
                 self._intersections.append(node)
         return self._intersections

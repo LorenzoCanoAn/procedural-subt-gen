@@ -9,7 +9,7 @@ MIN_DIST_OF_TUNNEL_COLLISSIONS = 10
 # MESH GENERATION PARAMETERS
 MIN_DIST_OF_MESH_POINTS = 0.5  # meters
 N_ANGLES_PER_CIRCLE = 30
-TUNNEL_AVG_RADIUS = 4  # meters
+TUNNEL_AVG_RADIUS = 2  # meters
 
 # Distance at which points are considered part of an intersection
 INTERSECTION_DISTANCE = 20

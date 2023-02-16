@@ -1,39 +1,33 @@
 """Functions to display and debug the graph generation process"""
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from subt_proc_gen.PARAMS import *
 import pyvista as pv
 from subt_proc_gen.tunnel import Tunnel, Graph, TunnelNetwork
-from dataclasses import dataclass
 
 
-@dataclass
-class graph_plotting_params:
-    intersection_color: str = "b"
-    # Grown tunnel parms
-    gt_nc: str = "b"
-    gt_na: float = 1
-    gt_sc: str = "b"
-    gt_sa: float = 1
-    gt_ec: str = "b"
-    gt_ea: float = 1
-    # Tunnel between nodes params
-    tbn_nc: str = "r"
-    tbn_na: float = 1
-    tbn_sc: str = "r"
-    tbn_sa: float = 1
-    tbn_ec: str = "r"
-    tbn_ea: float = 1
-
-
-def debug_plot(graph, in_3d=False, wait="", clear=False):
+def debug_plot(
+    graph, in_3d=False, wait="", clear=False, canvas: FigureCanvasQTAgg = None
+):
     if clear:
-        plt.gca().clear()
+        print("jjjj")
+        if canvas:
+            canvas.axes.clear()
+        else:
+            plt.gca().clear()
     if in_3d:
-        ax = plt.gcf().add_subplot(projection="3d")
-        plot_graph_3d(graph)
+        if canvas:
+            ax = canvas.add_subplot(projection="3d")
+        else:
+            ax = plt.gcf().add_subplot(projection="3d")
+        plot_graph_3d(graph, ax=ax)
     else:
-        plot_graph_2d(graph)
+        if canvas:
+            ax = canvas.add_subplot()
+        else:
+            ax = plt.gcf().add_subplot()
+        plot_graph_2d(graph, ax=ax)
     if wait == "click":
         plt.draw()
         plt.waitforbuttonpress()
@@ -60,11 +54,11 @@ def plot_graph_2d(graph, ax=None):
     ax.set_ylim(-150, 150)
 
 
-def plot_graph_3d(graph: TunnelNetwork, ax=None):
+def plot_graph_3d(graph: TunnelNetwork, ax=None, canvas=None):
     if ax is None:
         ax = plt.gca()
     for n_node, node in enumerate(graph.nodes):
-        ax.scatter3D(node.x, node.y, node.z, c="b", s=300)
+        #        ax.plot(node.x, node.y, node.z, c="b", s=300)
         ax.plot3D([node.x, node.x], [node.y, node.y], [node.z, 0], c="g", linewidth=3)
         ax.scatter3D(node.x, node.y, 0, c="g", s=150)
     for tunnel in graph.tunnels:
@@ -89,6 +83,8 @@ def plot_graph_3d(graph: TunnelNetwork, ax=None):
                 color = "k"
             elif tunnel.tunnel_type == "between_nodes":
                 color = "r"
+            else:
+                color = "b"
             ax.plot3D(
                 [n0.x, n1.x], [n0.y, n1.y], [n0.z, n1.z], c=color, linewidth=3, alpha=1
             )
@@ -118,7 +114,7 @@ def plot_graph_3d(graph: TunnelNetwork, ax=None):
         t.label.set_fontsize(20)
 
 
-def plot_spline(spline, ax=None, color="b"):
+def plot_tunnel_2d(tunnel, ax=None):
     if ax is None:
         ax = plt.gca()
     ds = np.arange(0, spline.length, SPLINE_PLOT_PRECISSION)
@@ -128,7 +124,11 @@ def plot_spline(spline, ax=None, color="b"):
         x, y, z = p.flatten()
         xs.append(x)
         ys.append(y)
-    ax.plot(xs, ys, c=color, linewidth=3, alpha=0.5)
+    if tunnel.tunnel_type == "grown":
+        color = "b"
+    else:
+        color = "r"
+    ax.plot(xs, ys, c=color, linewidth=3)
 
 
 def network_overview(tunnel_network):
