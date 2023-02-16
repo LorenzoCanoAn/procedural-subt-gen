@@ -35,11 +35,11 @@ class Edge:
 
 
 class Node:
-    graph = None
+    _graph = None
 
     def __init__(self, coords=np.zeros(3)):
-        self.graph.add_node(self)
-        self.connected_nodes = set()
+        self._graph.add_node(self)
+        self._connected_nodes = set()
         self.coords = coords
 
     @classmethod
@@ -55,11 +55,17 @@ class Node:
 
     def add_connection(self, node):
         """This function only inserts a new node in the connected nodes set"""
-        self.connected_nodes.add(node)
+        self._connected_nodes.add(node)
 
     def remove_connection(self, node):
         """This function only deletes a node from the connected nodes set"""
-        self.connected_nodes.remove(node)
+        self._connected_nodes.remove(node)
+
+    def delete(self):
+        for node in self._connected_nodes:
+            assert isinstance(node, Node)
+            node.remove_connection(self)
+        self._graph._nodes.remove(self)
 
     @property
     def xyz(self):
@@ -77,10 +83,14 @@ class Node:
     def z(self):
         return self.coords[2]
 
+    @property
+    def connected_nodes(self):
+        return self._connected_nodes
+
 
 class Graph:
     def __init__(self):
-        Node.graph = self
+        Node._graph = self
         self.recalculate_edges = True
         self._nodes = set()
         self._edges = set()
@@ -89,10 +99,11 @@ class Graph:
         if not node in self._nodes:
             self._nodes.add(node)
 
-    def remove_node(self, node):
+    def remove_node(self, node: Node):
         assert node in self._nodes, Exception(
             "Trying to remove a node that is not part of the graph"
         )
+        node.delete()
         self._nodes.remove(node)
         self.recalculate_edges = True
 
@@ -106,7 +117,7 @@ class Graph:
             self._edges.clear()
             for node_i in self._nodes:
                 assert isinstance(node_i, Node)
-                for connected_node in node_i.connected_nodes:
+                for connected_node in node_i._connected_nodes:
                     self._edges.add(Edge(node_i, connected_node))
 
         return self._edges

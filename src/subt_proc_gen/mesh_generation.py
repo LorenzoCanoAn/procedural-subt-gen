@@ -97,7 +97,6 @@ def mesh_from_vertices(points, normals, method, poisson_depth=11):
         mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
             pcd, depth=poisson_depth
         )
-        print("hola")
     elif method == "ball":
         radii = [0.6, 0.5, 0.4, 0.3]
         mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(
@@ -333,8 +332,9 @@ def generate_mesh_from_tunnel_network(tunnel_network: TunnelNetwork, path_to_mes
 
     mesh, ptcl = mesh_from_vertices(points, normals, method="poisson", poisson_depth=11)
     simplified_mesh = mesh.simplify_quadric_decimation(int(len(mesh.triangles) * 0.3))
-    print(f"Original mesh has {len(mesh.triangles)}")
-    print(f"Simplified mesh has {len(simplified_mesh.triangles)}")
+    print(f"Original mesh has {len(mesh.triangles)} triangles")
+    print(f"Simplified mesh has {len(simplified_mesh.triangles)} triangles")
+    print(f"Writing mesh to : {path_to_mesh}")
     o3d.io.write_triangle_mesh(
         path_to_mesh,
         simplified_mesh,
