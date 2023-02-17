@@ -46,7 +46,7 @@ def plot_graph_2d(graph, ax=None):
     for node in graph.nodes:
         ax.scatter(node.x, node.y, c="b", s=300)
     for tunnel in graph._tunnels:
-        plot_spline(tunnel.spline, ax)
+        plot_spline_2d(tunnel.spline, ax)
     mincoords = np.array((graph.minx, graph.miny))
     maxcoords = np.array((graph.maxx, graph.maxy))
     max_diff = max(maxcoords - mincoords)
@@ -114,7 +114,7 @@ def plot_graph_3d(graph: TunnelNetwork, ax=None, canvas=None):
         t.label.set_fontsize(20)
 
 
-def plot_tunnel_2d(tunnel, ax=None):
+def plot_spline_2d(spline, ax=None):
     if ax is None:
         ax = plt.gca()
     ds = np.arange(0, spline.length, SPLINE_PLOT_PRECISSION)
@@ -124,8 +124,6 @@ def plot_tunnel_2d(tunnel, ax=None):
         x, y, z = p.flatten()
         xs.append(x)
         ys.append(y)
-    if tunnel.tunnel_type == "grown":
-        color = "b"
     else:
         color = "r"
     ax.plot(xs, ys, c=color, linewidth=3)

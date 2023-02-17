@@ -149,9 +149,7 @@ class CaveNode(Node):
 
 
 class Tunnel:
-    def __init__(
-        self, parent, initial_node=None, final_node=None, params=TunnelParams()
-    ):
+    def __init__(self, parent, params=TunnelParams()):
         """A tunnel can be started from three different seeds:
         - If the seed is a CaveNode: The tunnel grows from said node according to its parameters
         - If the seed is an np.ndarray representing a point, a CaveNode is created in that position, and a tunnel is grown from it
@@ -169,7 +167,7 @@ class Tunnel:
         successful_growth = True
         reson = None
 
-    def compute(self, initial_node, final_node):
+    def compute(self, initial_node, final_node=None, do_checks=True):
         if isinstance(initial_node, CaveNode):
             if not final_node is None:
                 self.tunnel_type = "between_nodes"
@@ -183,9 +181,7 @@ class Tunnel:
             self.success = True
             return
 
-        if not successful_growth:
-            # print("Tunnel generation not successful, reason:")
-            # print(f"\t {reason}")
+        if not successful_growth and do_checks:
             self.delete()
             self.success = False
         else:

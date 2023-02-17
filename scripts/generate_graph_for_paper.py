@@ -34,11 +34,13 @@ def main():
                     "node_position_noise": 0,
                 }
             )
-            t1 = Tunnel(graph, initial_node=central_node, params=tunnel_params)
+            t1 = Tunnel(graph, params=tunnel_params)
+            t1.compute(initial_node=central_node)
             tunnel_params["starting_direction"] = angles_to_vector(
                 (np.deg2rad(30), np.deg2rad(-5))
             )
-            t2 = Tunnel(graph, initial_node=central_node, params=tunnel_params)
+            t2 = Tunnel(graph, params=tunnel_params)
+            t2.compute(initial_node=central_node)
             success = False
             while not success:
                 tunnel_params["distance"] = 200
@@ -48,9 +50,11 @@ def main():
                 print("Second tunnel")
                 t_show = Tunnel(
                     graph,
-                    initial_node=t1.nodes[-2],
                     params=tunnel_params,
-                    override_checks=True,
+                )
+                t_show.compute(
+                    initial_node=t1.nodes[-2],
+                    do_checks=True,
                 )
                 success = t_show.success
             debug_plot(graph, wait="", clear=True)
