@@ -223,10 +223,16 @@ class Tunnel:
         self._parent.remove_tunnel(self)
 
     def set_nodes(self, nodes):
+        """This function expects a list of CaveNode objects. They heve to be in order,
+        as it will connect them sequentially"""
         self._nodes = nodes
-        for node in self._nodes:
+        for n_node, node in enumerate(self._nodes):
+            # Connect each node with the previous one
+            if n_node > 0:
+                self.nodes[n_node - 1].connect(node)
             assert isinstance(node, CaveNode)
             node.tunnels.add(self)
+
         self._spline = Spline3D([n.xyz for n in self._nodes])
 
     def add_node(self, node):
