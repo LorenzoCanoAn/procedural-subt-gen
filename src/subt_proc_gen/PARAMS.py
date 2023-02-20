@@ -12,7 +12,7 @@ N_ANGLES_PER_CIRCLE = 30
 TUNNEL_AVG_RADIUS = 2  # meters
 
 # Distance at which points are considered part of an intersection
-INTERSECTION_DISTANCE = 20
+INTERSECTION_DISTANCE = 10
 HORIZONTAL_EXCLUSION_DISTANCE = 0.5
 
 COLORS = (

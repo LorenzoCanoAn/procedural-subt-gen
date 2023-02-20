@@ -57,7 +57,11 @@ def get_mesh_points_of_tunnel(tunnel, meshing_params):
     # This for loop advances through the spline circle a circle
     for n in range(N):
         ap, av = aps[n], avs[n]  # axis point and vector
-        u1 = np.cross(av, np.array([0, 1, 0], ndmin=2))
+        # u1 and u2 are perpendicular to av. To get u1, you do the cross-product of av
+        # with a non paralel vector
+        non_paralel_to_av = av + np.array([1, 1, 1], ndmin=2)
+        non_paralel_to_av /= np.linalg.norm(non_paralel_to_av, axis=1)
+        u1 = np.cross(av, non_paralel_to_av)
         u2 = np.cross(u1, av)
         angles = np.linspace(0, 2 * math.pi, n_a).reshape([-1, 1])
         radiuses = np.array([noise(n / N, a) for a in angles]).reshape([-1, 1])
@@ -285,6 +289,7 @@ class TunnelNetworkWithMesh:
         for n_intersection, intersection in enumerate(
             self._tunnel_network.intersections
         ):
+            print(intersection)
             print(f"Cleaning intersection {n_intersection} out of {n_intersections}")
             for tnmi in intersection.tunnels:
                 for tnmj in intersection.tunnels:

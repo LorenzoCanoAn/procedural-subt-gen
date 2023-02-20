@@ -453,5 +453,4 @@ class TunnelNetwork(Graph):
             )
             if len(node.tunnels) >= 2:
                 self._intersections.append(node)
-                self._intersections.append(node)
         return self._intersections
