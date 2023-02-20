@@ -8,6 +8,7 @@ from subt_proc_gen.PARAMS import (
 )
 from subt_proc_gen.helper_functions import (
     get_indices_close_to_point,
+    get_two_perpendicular_vectors_to_vector,
 )
 import math
 import numpy as np
@@ -59,12 +60,9 @@ def get_mesh_points_of_tunnel(tunnel, meshing_params):
         ap, av = aps[n], avs[n]  # axis point and vector
         # u1 and u2 are perpendicular to av. To get u1, you do the cross-product of av
         # with a non paralel vector
-        non_paralel_to_av = av + np.array([1, 1, 1], ndmin=2)
-        non_paralel_to_av /= np.linalg.norm(non_paralel_to_av, axis=1)
-        u1 = np.cross(av, non_paralel_to_av)
-        u2 = np.cross(u1, av)
         angles = np.linspace(0, 2 * math.pi, n_a).reshape([-1, 1])
         radiuses = np.array([noise(n / N, a) for a in angles]).reshape([-1, 1])
+        u1, u2 = get_two_perpendicular_vectors_to_vector(av)
         normals_ = u1 * np.sin(angles) + u2 * np.cos(angles)
         normals_ /= np.linalg.norm(normals_, axis=1).reshape([-1, 1])
         points_ = ap + normals_ * radiuses
@@ -223,10 +221,9 @@ class TunnelWithMesh:
             ap = np.reshape(ap, [1, -1])
             av = np.reshape(av, [1, -1])
         vap_p = point - ap  # vector form ap to p
-        r = np.linalg.norm(vap_p)
-        n = vap_p / r  # normal of p
-        u1 = np.cross(av, np.array([0, 1, 0], ndmin=2))
-        u2 = np.cross(u1, av)
+        p_r = np.linalg.norm(vap_p)
+        n = vap_p / p_r  # normal of p
+        u1, u2 = get_two_perpendicular_vectors_to_vector(av)
         nx = n[0, 0]
         ny = n[0, 1]
         u1x = u1[0, 0]
@@ -234,8 +231,9 @@ class TunnelWithMesh:
         u2x = u2[0, 0]
         u2y = u2[0, 1]
         a = np.arctan2(ny * u2y - nx * u2x, nx * u1x - ny * u1y)
-        radius = self._noise(d, a)
-        return radius > r
+        t_r = self._noise(d, a)
+        is_inside = t_r > p_r
+        return is_inside
 
     @property
     def all_selected_points(self):
@@ -289,14 +287,13 @@ class TunnelNetworkWithMesh:
         for n_intersection, intersection in enumerate(
             self._tunnel_network.intersections
         ):
-            print(intersection)
-            print(f"Cleaning intersection {n_intersection} out of {n_intersections}")
+            print(f"Cleaning intersection {n_intersection+1} out of {n_intersections}")
             for tnmi in intersection.tunnels:
                 for tnmj in intersection.tunnels:
+                    if tnmi is tnmj:
+                        continue
                     ti = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmi)
                     tj = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmj)
-                    if ti is tj:
-                        continue
                     assert isinstance(ti, TunnelWithMesh)
                     assert isinstance(tj, TunnelWithMesh)
                     indices_to_delete = []
