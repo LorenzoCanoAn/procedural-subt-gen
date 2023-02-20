@@ -288,6 +288,7 @@ class TunnelNetworkWithMesh:
             self._tunnel_network.intersections
         ):
             print(f"Cleaning intersection {n_intersection+1} out of {n_intersections}")
+            print(f"INTERSECTION AT {intersection.xyz}")
             for tnmi in intersection.tunnels:
                 for tnmj in intersection.tunnels:
                     if tnmi is tnmj:

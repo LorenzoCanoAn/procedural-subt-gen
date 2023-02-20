@@ -89,3 +89,11 @@ def get_indices_close_to_point(
         differences = points - np.reshape(point.flatten(), [1, 3])
     distances = np.linalg.norm(differences, axis=1)
     return np.array(np.where(distances < threshold_distance)).flatten()
+
+
+def get_two_perpendicular_vectors_to_vector(i_vect):
+    non_paralel_to_av = i_vect + np.array([1, 1, 1], ndmin=2)
+    non_paralel_to_av /= np.linalg.norm(non_paralel_to_av, axis=1)
+    u1 = np.cross(i_vect, non_paralel_to_av)
+    u2 = np.cross(u1, i_vect)
+    return u1, u2
