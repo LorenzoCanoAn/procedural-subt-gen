@@ -231,7 +231,7 @@ class Tunnel:
             if n_node > 0:
                 self.nodes[n_node - 1].connect(node)
             assert isinstance(node, CaveNode)
-            node.tunnels.add(self)
+            node.tunnels.append(self)
 
         self._spline = Spline3D([n.xyz for n in self._nodes])
 
@@ -437,7 +437,6 @@ class TunnelNetwork(Graph):
         self._tunnels.remove(tunnel)
 
     def add_tunnel(self, tunnel: Tunnel):
-        self._tunnels.append(tunnel)
         self._tunnels.append(tunnel)
 
     @property

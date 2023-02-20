@@ -75,9 +75,9 @@ def main():
                 s=50,
                 c="k",
             )
-            p = t_show.get_points_to_check_collisions_with_other_tunnels(
-                min_dist=MIN_DIST_OF_TUNNEL_COLLISSIONS, precision=5
-            )
+            # p = t_show.get_points_to_check_collisions_with_other_tunnels(
+            #    min_dist=MIN_DIST_OF_TUNNEL_COLLISSIONS, precision=5
+            # )
             plt.scatter(
                 x=p[:, 0],
                 y=p[:, 1],

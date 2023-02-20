@@ -50,7 +50,9 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
 
     # Order the tunnels so that the meshes intersect
     assert isinstance(tunnel_network, TunnelNetwork)
-
+    print("Looping oover tunnel network")
+    for tunnel in tunnel_network.tunnels:
+        print(tunnel)
     if True:
         tunnel_network_with_mesh = TunnelNetworkWithMesh(
             tunnel_network,
@@ -62,6 +64,7 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
         points, normals = tunnel_network_with_mesh.mesh_points_and_normals()
         # plotter = pv.Plotter()
         for i, mesh in enumerate(tunnel_network_with_mesh._tunnels_with_mesh):
+            print(i)
             plotter.add_mesh(pv.PolyData(mesh.all_selected_points), color=COLORS[i])
         # plotter.show()
         np.save("points", points)
