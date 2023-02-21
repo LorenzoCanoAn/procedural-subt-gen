@@ -291,6 +291,8 @@ class TunnelNetworkWithMesh:
             print(f"INTERSECTION AT {intersection.xyz}")
             for tnmi in intersection.tunnels:
                 for tnmj in intersection.tunnels:
+                    assert isinstance(tnmj, Tunnel)
+                    assert isinstance(tnmi, Tunnel)
                     if tnmi is tnmj:
                         continue
                     ti = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmi)
@@ -299,8 +301,22 @@ class TunnelNetworkWithMesh:
                     assert isinstance(tj, TunnelWithMesh)
                     indices_to_delete = []
                     pis = ti.points_at_intersection[intersection]
+                    print(
+                        f"Cleaning {tnmi.spline.length} at intersection {intersection.xyz}"
+                    )
                     for npi, pi in enumerate(pis):
+
                         if tj.is_point_inside(pi):
+                            print(
+                                "{:2.2f}, {:2.2f}, {:2.2f}, {:2.2f}, {:2.2f}, {:2.2f}".format(
+                                    intersection.x,
+                                    intersection.y,
+                                    intersection.z,
+                                    pi[0],
+                                    pi[1],
+                                    pi[2],
+                                )
+                            )
                             indices_to_delete.append(npi)
                     ti.delete_points_in_end(intersection, indices_to_delete)
 

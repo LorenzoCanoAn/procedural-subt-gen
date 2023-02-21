@@ -354,32 +354,43 @@ class Tunnel:
             self.check_self_collissions() and self.check_collisions_with_other_tunnels()
         )
 
+    def relevant_points_for_collision(self, distance_to_intersection=None):
+        if distance_to_intersection is None:
+            return self.spline.discretize(5)[1]
+        else:
+            discretized_spline = self.spline.discretize(5)[1]
+            elements_in_extremes = np.array(
+                np.where(
+                    np.linalg.norm(discretized_spline - self.nodes[0].xyz, axis=1)
+                    < distance_to_intersection
+                )
+            ).T
+            if len(self.nodes[-1].connected_nodes) > 1:
+                end_nodes = np.array(
+                    np.where(
+                        np.linalg.norm(discretized_spline - self.nodes[-1].xyz, axis=1)
+                        < distance_to_intersection
+                    )
+                ).T
+                elements_in_extremes = np.vstack([elements_in_extremes, end_nodes])
+            discretized_spline_without_tips = np.delete(
+                discretized_spline, elements_in_extremes, axis=0
+            )
+            return discretized_spline_without_tips
+
     def check_collisions_with_other_tunnels(
         self, min_dist=MIN_DIST_OF_TUNNEL_COLLISSIONS
     ):
-        discretized_spline = self.spline.discretized[1]
-        elements_in_extremes = np.array(
-            np.where(
-                np.linalg.norm(discretized_spline - self.nodes[0].xyz, axis=1)
-                < min_dist * 2
-            )
-        ).T
-        if len(self.nodes[-1].connected_nodes) > 1:
-            end_nodes = np.array(
-                np.where(
-                    np.linalg.norm(discretized_spline - self.nodes[-1].xyz, axis=1)
-                    < min_dist * 2
-                )
-            ).T
-            elements_in_extremes = np.vstack([elements_in_extremes, end_nodes])
-        discretized_spline_without_tips = np.delete(
-            discretized_spline, elements_in_extremes, axis=0
+        discretized_spline_without_tips = self.relevant_points_for_collision(
+            distance_to_intersection=min_dist * 1.5
         )
         for tunnel in self._parent.tunnels:
             if tunnel is self:
                 continue
             if any_point_close(
-                discretized_spline_without_tips, tunnel.spline.discretized[1], min_dist
+                discretized_spline_without_tips,
+                tunnel.relevant_points_for_collision(),
+                min_dist,
             ):
                 return False
 
