@@ -1,9 +1,11 @@
+import csv
 import sys
 
 import matplotlib
 import rospy
 from gazebo_msgs.msg import ModelState, ModelStates
 from geometry_msgs.msg import Pose
+from matplotlib import pyplot as plt
 from std_msgs.msg import Float32
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
@@ -87,6 +89,9 @@ class MainWindow(QtWidgets.QMainWindow):
         def loop(self):
             self.publish(self.value)
 
+        def getValue(self):
+            return self.value
+
         def publish(self, value):
             self.label.setText(self.fmt.format(self.value))
             v = self.kind()
@@ -98,13 +103,13 @@ class MainWindow(QtWidgets.QMainWindow):
         super(MainWindow, self).__init__(*args, **kwargs)
 
         self.pub = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size=1)
-
+        self.accumulated_distance = 0
+        self.prev_id = None
         rospy.init_node('uavc', anonymous=True)
+        self.params = []
 
         self.config = EasyConfig()
-        self.config.root().addString("drone_name", "Drone", "quadrotor")
-        self.config.root().addString("cave_name", "Cave", "cave_tile_1")
-        self.config.root().addFile("spline_file", "Spline file", extension=".txt")
+        self.config.root().addFile("spline_file", "Spline file", extension=".csv")
         self.config.root().addFileSave("poses_file", "Poses file", extension=".txt")
         self.config.load("uavc.yaml")
         menu = QMenuBar()
@@ -119,6 +124,7 @@ class MainWindow(QtWidgets.QMainWindow):
         cb = QPushButton("Set")
 
         def set_model():
+
             m = ModelState()
             m.pose.position.x = float(self.model_poses[0].text())
             m.pose.position.y = float(self.model_poses[1].text())
@@ -134,6 +140,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
             m.model_name = self.set_model_combo.currentText()
             self.pub.publish(m)
+            ct = self.set_model_combo.currentText()
+            states: ModelStates = rospy.wait_for_message("/gazebo/model_states", ModelStates)
+            self.set_model_combo.clear()
+            self.set_model_combo.addItems(states.name)
+            if ct in [self.set_model_combo.itemText(i) for i in range(self.set_model_combo.count())]:
+                self.set_model_combo.setCurrentText(ct)
+
+            for p in self.params:
+                p.publish(p.getValue())
+
 
         cb.clicked.connect(set_model)
 
@@ -169,12 +185,26 @@ class MainWindow(QtWidgets.QMainWindow):
         vb.addWidget(cb)
         hbox = QHBoxLayout()
 
+
+
         self.addLine(vb)
         p1 = self.Param("/slibon/command_x", Float32, 0, 0.5)
         p1.setPeriod(100)
         p1.setFormat("{:.1f} m/s")
         p1.start()
+
+
+        qb = QComboBox()
+        def speed_changed():
+            p1.setValue(float(qb.currentText()))
+
+        qb.addItems(["0","5", "6", "7", "7.5", "8"])
+        qb.currentTextChanged.connect(speed_changed)
+
+        vb.addWidget(qb)
+
         vb.addWidget(p1)
+        self.params.append(p1)
 
         stop_btn = QPushButton("Stop")
         stop_btn.clicked.connect(lambda : p1.setValue(0))
@@ -185,23 +215,41 @@ class MainWindow(QtWidgets.QMainWindow):
         p2 = self.Param("/slibon/mult_y", Float32, 1, 0.1)
         p2.setFormat("{:.1f}")
         vb.addWidget(p2)
+        self.params.append(p2)
         self.addLine(vb)
 
         p2 = self.Param("/slibon/mult_z", Float32, 1, 0.1)
         p2.setFormat("{:.1f}")
-        vb.addWidget(p2)
-        self.addLine(vb)
+        #vb.addWidget(p2)
+        #self.addLine(vb)
+        self.params.append(p2)
 
         p2 = self.Param("/slibon/mult_w", Float32, 4, 0.1)
         p2.setFormat("{:.1f}")
         vb.addWidget(p2)
+        self.params.append(p2)
 
         self.addLine(vb)
-
 
         p3 = self.Param("/slibon/mult_safety", Float32, 1, 0.1)
         p3.setFormat("{:.1f}")
         vb.addWidget(p3)
+        self.params.append(p3)
+
+        p3 = self.Param("/slibon/pid/kp", Float32, 1, 0.1)
+        p3.setFormat("{:.1f}")
+        vb.addWidget(p3)
+        self.params.append(p3)
+
+        p3 = self.Param("/slibon/pid/kd", Float32, 0, 0.1)
+        p3.setFormat("{:.1f}")
+        vb.addWidget(p3)
+        self.params.append(p3)
+
+        p3 = self.Param("/slibon/pid/ki", Float32, 0, 0.1)
+        p3.setFormat("{:.1f}")
+        vb.addWidget(p3)
+        self.params.append(p3)
 
         self.addLine(vb)
 
@@ -246,47 +294,97 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # POSES ##############################
 
+
         def record_pose():
-            f = open(self.config.get("poses_file"), "w")
-            file = self.config.get("spline_file")
-            if file:
-                spline = np.loadtxt(file)
+            if not btn.isChecked():
+                self.cnn_sub.unregister()
+                self.f.close()
+            else:
+                self.accumulated_distance = 0
+                self.prev_id = None
 
-            def callback_cnn(angle: CnnResult):
-                data = rospy.wait_for_message("/gazebo/model_states", ModelStates)
-                pose: Pose = data.pose[0]
-                r, p, y = euler_from_quaternion([pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w])
+                self.f = open(self.config.get("poses_file"), "w")
+                file = self.config.get("spline_file")
+                if file:
+                    spline = np.loadtxt(file)
 
-                min_dist = 1e6
-                min_dist_id = -1
-                min_dist_yaw = 0
-                for i in range(len(spline)):
-                    spx,spy, spyaw = spline[i, 1], spline[i, 2], np.arctan2(spline[i,4], spline[i,5])
-                    if math.sqrt(math.pow(spx - pose.position.x,2) + math.pow(spy - pose.position.y,2)) < min_dist:
-                        min_dist = math.sqrt(math.pow(spx - pose.position.x,2) + math.pow(spy - pose.position.y,2))
-                        min_dist_id = i
+                def callback_cnn(angle: CnnResult):
+                    data = rospy.wait_for_message("/gazebo/model_states", ModelStates)
+                    pose: Pose = data.pose[0]
+                    r, p, y = euler_from_quaternion([pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w])
 
-                spx, spy, spz, spyaw = spline[min_dist_id, 1], spline[min_dist_id, 2], spline[min_dist_id, 3], np.arctan2(spline[min_dist_id, 5], spline[min_dist_id, 4])
+                    min_dist = 1e6
+                    min_dist_id = -1
 
-                f.write("{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f}\n"
-                        .format(pose.position.x, pose.position.y, pose.position.z, r, p, y, spx, spy, spz, spyaw, angle.result))
+                    for i in range(len(spline)):
+                        spx,spy, spyaw = spline[i, 1], spline[i, 2], np.arctan2(spline[i,4], spline[i,5])
+                        if math.sqrt(math.pow(spx - pose.position.x,2) + math.pow(spy - pose.position.y,2)) < min_dist:
+                            min_dist = math.sqrt(math.pow(spx - pose.position.x,2) + math.pow(spy - pose.position.y,2))
+                            min_dist_id = i
 
-            self.cnn_sub = rospy.Subscriber("/slibon/cnn_angle", CnnResult, callback_cnn)
+                    if self.prev_id is None:
+                        self.prev_id = (pose.position.x, pose.position.y)
+
+
+                    covered = math.sqrt(math.pow(pose.position.x - self.prev_id[0], 2) + math.pow(pose.position.y - self.prev_id[1], 2))
+                    self.accumulated_distance = self.accumulated_distance + covered
+
+                    self.prev_id = (pose.position.x, pose.position.y)
+
+                    spx, spy, spz, spyaw = spline[min_dist_id, 1], spline[min_dist_id, 2], spline[min_dist_id, 3], np.arctan2(spline[min_dist_id, 5], spline[min_dist_id, 4])
+
+                    if not self.f.closed:
+                        print("distance", covered, self.accumulated_distance)
+                        self.f.write("{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:3f}\n"
+                            .format(pose.position.x, pose.position.y, pose.position.z, r, p, y, spx, spy, spz, spyaw, angle.result, self.accumulated_distance))
+
+                self.cnn_sub = rospy.Subscriber("/slibon/cnn_angle", CnnResult, callback_cnn)
 
         btn = QPushButton("Record Pose")
+        btn.setCheckable(True)
         btn.clicked.connect(record_pose)
-        vb.addWidget(btn)
-        btn = QPushButton("Stop")
-
-        def stop_record():
-            self.cnn_sub.unregister()
-
-        btn.clicked.connect(stop_record)
         vb.addWidget(btn)
 
         self.addLine(vb)
 
+        plot = QPushButton("Plot")
+        def plotting():
+            x = []
+            y = []
+            yaw = []
+            spx = []
+            spy = []
+            spyaw = []
+            spcnn = []
 
+            with open(self.config.get("poses_file"), 'r') as csvfile:
+                plots = csv.reader(csvfile, delimiter=',')
+
+                for row in plots:
+                    x.append(float(row[0]))
+                    y.append(float(row[1]))
+                    yaw.append(float(row[5]))
+                    spx.append(float(row[6]))
+                    spy.append(float(row[7]))
+                    spyaw.append(float(row[9]))
+                    spcnn.append(float(row[10]))
+
+            fig, axs = plt.subplots(3,1)
+            axs[0].plot(x, y, color='r')
+            axs[0].plot(spx, spy, color='b')
+            axs[0].axis('equal')
+
+
+            axs[1].plot(yaw, color='r')
+            axs[1].plot(spyaw, color='b')
+
+            axs[2].plot(np.convolve(spcnn, np.ones(6), 'valid') / 6, color="b")
+            axs[2].plot(np.array(yaw)-np.array(spyaw), color='r')
+
+            plt.show()
+
+        plot.clicked.connect(plotting)
+        vb.addWidget(plot)
 
         helper = QWidget()
         helper.setLayout(vb)
