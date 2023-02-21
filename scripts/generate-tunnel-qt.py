@@ -11,7 +11,7 @@ from matplotlib.figure import Figure
 
 from PyQt5.QtGui import QPixmap, QPainter, QPen, QIcon
 from PyQt5.QtWidgets import QMenuBar, QVBoxLayout, QWidget, QPushButton, QFrame, QTabWidget, QSplitter, \
-    QLabel, QFileDialog, QToolBar, QInputDialog, QMenu, QSlider, QMessageBox, QScrollArea
+    QLabel, QFileDialog, QToolBar, QInputDialog, QMenu, QSlider, QMessageBox, QScrollArea, QProgressDialog
 from pyvista import QtInteractor
 from pyvistaqt import QtInteractor
 from EasyConfig import EasyConfig
@@ -19,7 +19,7 @@ from pointcloud_from_graph import pc_from_graph
 from subt_proc_gen.display_functions import debug_plot
 from subt_proc_gen.tunnel import *
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtCore import Qt, QRect, QPoint, QRunnable, QThreadPool
+from PyQt5.QtCore import Qt, QRect, QPoint, QRunnable, QThreadPool, pyqtSignal, QObject
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -105,10 +105,14 @@ class Sketch(QLabel):
 
     def load(self, filename):
 
+        self.points.clear()
+        self.current_tree.clear()
+        self.trees.clear()
+
         f = open(filename, "r")
         data = yaml.safe_load(f)
         f.close()
-        self.points.clear()
+
         if len(data['points']) > 0:
             for p in data['points']:
                 q = Point()
@@ -128,6 +132,8 @@ class Sketch(QLabel):
 
     def clear_points(self):
         self.points.clear()
+        self.trees.clear()
+        self.current_tree.clear()
         self.p1 = None
         self.p2 = None
         self.color_index = 0
@@ -173,8 +179,20 @@ class Sketch(QLabel):
 
                 elif res == set_z:
                     text, ok = QInputDialog.getText(self, 'Set Z coordinate of node ' + str(p.index), 'Value', text=str(p.z()))
-                    if ok and text.replace(".", "").isnumeric():
+                    if ok and text.replace(".", "").replace("-","").isnumeric():
                         p.setZ(float(text))
+                        self.update()
+
+    def mouseDoubleClickEvent(self, ev: QtGui.QMouseEvent) -> None:
+        super().mouseDoubleClickEvent(ev)
+        for p in self.points:
+            r = QRect(p.x() - 10, p.y() - 10, 20, 20)
+            if r.contains(ev.pos().x(), ev.pos().y()):
+                text, ok = QInputDialog.getText(self, 'Set Z coordinate of node ' + str(p.index), 'Value', text=str(p.z()))
+                if ok and text.replace(".", "").replace("-","").isnumeric():
+                    p.setZ(float(text))
+                    self.update()
+                break
 
     def getPoints(self):
 
@@ -266,7 +284,10 @@ class Sketch(QLabel):
         for i in range(len(self.current_tree)):
             p = self.current_tree[i]
             painter.setPen(Qt.black)
-            painter.drawText(p, str(p.index))
+            if p.z() != 0:
+                painter.drawText(QPoint(p.x() + 10, p.y() + 10), str(p.index) + " z:" + str(p.z()))
+            else:
+                painter.drawText(QPoint(p.x() + 10, p.y() + 10), str(p.index))
             painter.setPen(self.colors[self.color_index])
             painter.drawEllipse(p, 10, 10)
             if i > 0:
@@ -277,7 +298,11 @@ class Sketch(QLabel):
             for i in range(len(tree)):
                 p = tree[i]
                 painter.setPen(Qt.black)
-                painter.drawText(p, str(p.index))
+                if p.z() != 0:
+                    painter.drawText(QPoint(p.x()+10, p.y()+10), str(p.index) + " z:" +str(p.z()))
+                else:
+                    painter.drawText(QPoint(p.x() + 10, p.y() + 10), str(p.index))
+
                 painter.setPen(self.colors[color])
                 painter.drawEllipse(p, 10, 10)
                 if i > 0:
@@ -466,8 +491,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sketch.setMinimumHeight(int(1080 * 1.5))
 
         vbox.addWidget(sa)
+        tb.addAction("Save", lambda:self.sketch.save( self.config.get("last"))).setIcon(QIcon.fromTheme('document-save'))
         tb.addAction("Clear", self.sketch.clear_points).setIcon(QIcon.fromTheme('edit-clear'))
         tb.addAction("Delete last", self.sketch.delete_last).setIcon(QIcon.fromTheme('edit-undo'))
+
 
         self.tab.addTab(helper, "Sketch")
         self.graph_tab = self.tab.addTab(self.sc, "Graph")
@@ -571,6 +598,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.graph = graph
                 self.roughness = roughness
                 self.radius = radius
+                class Helper(QObject):
+                    done = pyqtSignal()
+                self.helper = Helper()
 
             def run(self) -> None:
                 pc_from_graph(self.plotter, self.roughness, self.graph, window.model_path + "mesh.obj", radius=self.radius)
@@ -580,9 +610,23 @@ class MainWindow(QtWidgets.QMainWindow):
                 f = open(window.model_path + "model.sdf", "w")
                 f.write(window.model_sdf.replace("$name$", window.model_name))
                 f.close()
+                self.helper.done.emit()
 
         self.tab.setCurrentIndex(2)
-        QThreadPool.globalInstance().start(Runn(self.plotter, self.graph, self.slider.value() / 1000, self.radius_slider.value()))
+        self.pd = QProgressDialog(self)
+        self.pd.setMaximum(0)
+        self.pd.setCancelButton(None)
+        self.pd.setLabelText("Rendering")
+        self.pd.setModal(True)
+        self.pd.show()
+        if self.slider.value() == 1:
+            roughness = 0.000001
+        else:
+            roughness = self.slider.value() / 1000
+
+        run = Runn(self.plotter, self.graph, roughness, self.radius_slider.value())
+        run.helper.done.connect(lambda:self.pd.hide())
+        QThreadPool.globalInstance().start(run)
 
     def maino(self, canvas, c, poses=None):
         for i in range(1):
