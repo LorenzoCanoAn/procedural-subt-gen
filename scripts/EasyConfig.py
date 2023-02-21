@@ -188,7 +188,8 @@ class EasyConfig:
             self.list.setColumnCount(2)
             self.widgets = []
 
-            self.setMinimumHeight(500)
+            self.setMinimumHeight(300)
+            #self.list.setMinimumWidth(500)
 
             scroll = QScrollArea()
             scroll.setWidget(self.list)
@@ -209,7 +210,7 @@ class EasyConfig:
             # layout.addStretch(30)
 
             self.setLayout(layout)
-            self.setMinimumWidth(300)
+            self.setMinimumWidth(500)
 
             self.bb.accepted.connect(self.accept)
             self.bb.rejected.connect(self.reject)
