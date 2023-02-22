@@ -57,7 +57,7 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
         tunnel_network_with_mesh = TunnelNetworkWithMesh(
             tunnel_network,
             meshing_params=TunnelMeshingParams(
-                {"roughness": roughness, "radius": radius, "floor_to_axis_distance": 1}
+                {"roughness": roughness, "radius": radius, "floor_to_axis_distance": radius/4}
             ),
         )
         tunnel_network_with_mesh.clean_intersections()
