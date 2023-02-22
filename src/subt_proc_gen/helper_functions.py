@@ -13,7 +13,7 @@ def angles_to_vector(angles):
 
 
 def vector_to_angles(vector):
-    x, y, z = vector
+    x, y, z = vector.flatten()
     th = math.atan2(y, x)
     ph = math.atan2(z, (x**2 + y**2) ** 0.5)
     return th, ph
@@ -47,6 +47,16 @@ def any_point_close(points1, points2, min_dist):
     distances = np.linalg.norm(difference_matrix, axis=2)
     result = np.any(distances < min_dist)
     return result
+
+
+def what_points_are_close(points1, points2, min_dist):
+    difference_matrix = np.ones((points1.shape[0], points2.shape[0], points1.shape[1]))
+    difference_matrix *= np.expand_dims(points1, 1)
+    difference_matrix -= np.expand_dims(points2, 0)
+    distances = np.linalg.norm(difference_matrix, axis=2)
+    return np.where(np.any(distances < min_dist, axis=1)), np.where(
+        np.any(distances < min_dist, axis=0)
+    )
 
 
 def gen_cylinder_around_point(
@@ -92,8 +102,9 @@ def get_indices_close_to_point(
 
 
 def get_two_perpendicular_vectors_to_vector(i_vect):
-    non_paralel_to_av = i_vect + np.array([1, 1, 1], ndmin=2)
-    non_paralel_to_av /= np.linalg.norm(non_paralel_to_av, axis=1)
+    th, ph = vector_to_angles(i_vect)
+    ph += np.deg2rad(10)
+    non_paralel_to_av = angles_to_vector((th, ph))
     u1 = np.cross(i_vect, non_paralel_to_av)
     u2 = np.cross(u1, i_vect)
     return u1, u2

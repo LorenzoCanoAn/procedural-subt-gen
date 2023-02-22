@@ -354,11 +354,13 @@ class Tunnel:
             self.check_self_collissions() and self.check_collisions_with_other_tunnels()
         )
 
-    def relevant_points_for_collision(self, distance_to_intersection=None):
+    def relevant_points_for_collision(
+        self, distance_between_points=10, distance_to_intersection=None
+    ):
         if distance_to_intersection is None:
-            return self.spline.discretize(5)[1]
+            return self.spline.discretize(distance_between_points)[1]
         else:
-            discretized_spline = self.spline.discretize(5)[1]
+            discretized_spline = self.spline.discretize(distance_between_points)[1]
             elements_in_extremes = np.array(
                 np.where(
                     np.linalg.norm(discretized_spline - self.nodes[0].xyz, axis=1)

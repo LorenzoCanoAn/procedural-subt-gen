@@ -21,26 +21,6 @@ import pyvista as pv
 import matplotlib.pyplot as plt
 
 
-def get_points_along_axis(tunnel: Tunnel):
-    """This function is mainly for display purposes. It samples
-    the points along the spline of a tunnel."""
-    spline = tunnel.spline
-    assert isinstance(spline, Spline3D)
-    # Number of circles along the spline
-    N = math.ceil(spline.lenght / MIN_DIST_OF_MESH_POINTS)
-    d = spline.lenght / N
-    # This for loop advances through the spline circle a circle
-    axis_points = None
-    for n in range(N):
-        p, v = spline(n * d)
-        p = np.reshape(p, (1, -1))
-        if axis_points is None:
-            axis_points = p
-        else:
-            axis_points = np.vstack([axis_points, p])
-    return axis_points
-
-
 def get_mesh_points_of_tunnel(tunnel, meshing_params):
     assert isinstance(meshing_params, TunnelMeshingParams)
     assert isinstance(tunnel, Tunnel)
@@ -179,6 +159,34 @@ class TunnelWithMesh:
         self.normals_at_intersection = dict()
         self.central_points = np.copy(self._raw_points)
         self.central_normals = np.copy(self._raw_normals)
+
+    def get_xy_projection(self, precission=2):
+
+        spline = self._tunnel.spline
+        noise = self._noise
+        # Number of circles along the spline
+        N = math.ceil(spline.length / precission)
+        n_a = 2
+        points = np.zeros([N * n_a, 3])
+        normals = np.zeros([N * n_a, 3])
+        # axis points and vectors
+        ads, aps, avs = spline.discretize(precission)
+        # This for loop advances through the spline circle a circle
+        for n in range(N):
+            ap, av = aps[n], avs[n]  # axis point and vector
+            # u1 and u2 are perpendicular to av. To get u1, you do the cross-product of av
+            # with a non paralel vector
+            angles = np.array([0, np.pi]).reshape([-1, 1])
+            radiuses = np.array([noise(n / N, a) for a in angles]).reshape([-1, 1])
+            u1, u2 = get_two_perpendicular_vectors_to_vector(av)
+            normals_ = u1 * np.cos(angles) + u2 * np.sin(angles)
+            normals_ /= np.linalg.norm(normals_, axis=1).reshape([-1, 1])
+            points_ = ap + normals_ * radiuses
+            start = n * n_a
+            stop = n * n_a + n_a
+            points[start:stop] = points_
+            normals[start:stop] = -normals_
+        return points[:, :2], normals[:, :2]
 
     def add_intersection(self, node):
         indices_for_this_end_node = get_indices_close_to_point(

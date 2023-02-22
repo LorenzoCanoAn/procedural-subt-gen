@@ -114,7 +114,7 @@ def plot_graph_3d(graph: TunnelNetwork, ax=None, canvas=None):
         t.label.set_fontsize(20)
 
 
-def plot_spline_2d(spline, ax=None):
+def plot_spline_2d(spline, ax=None, color="r"):
     if ax is None:
         ax = plt.gca()
     ds = np.arange(0, spline.length, SPLINE_PLOT_PRECISSION)
@@ -124,9 +124,7 @@ def plot_spline_2d(spline, ax=None):
         x, y, z = p.flatten()
         xs.append(x)
         ys.append(y)
-    else:
-        color = "r"
-    ax.plot(xs, ys, c=color, linewidth=3)
+    ax.plot(xs, ys, c=color, linewidth=3, zorder=1)
 
 
 def network_overview(tunnel_network):
