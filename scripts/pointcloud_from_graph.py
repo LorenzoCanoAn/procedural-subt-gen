@@ -42,7 +42,8 @@ def tunnel_interesects_with_list(tunnel: Tunnel, list_of_tunnels):
     return False
 
 
-def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius=2):
+def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius=5):
+    fig = plt.figure(figsize=(10, 10))
     if not tunnel_network:
         # Generate the vertices of the mesh
         with open("datafiles/graph.pkl", "rb") as f:
@@ -51,8 +52,6 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
     # Order the tunnels so that the meshes intersect
     assert isinstance(tunnel_network, TunnelNetwork)
     print("Looping oover tunnel network")
-    for tunnel in tunnel_network.tunnels:
-        print(tunnel)
     if True:
         tunnel_network_with_mesh = TunnelNetworkWithMesh(
             tunnel_network,
@@ -67,6 +66,10 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
             print(i)
             plotter.add_mesh(pv.PolyData(mesh.all_selected_points), color=COLORS[i])
         # plotter.show()
+        for tunnel in tunnel_network_with_mesh._tunnels_with_mesh:
+            points, normals = tunnel.get_xy_projection()
+            plt.scatter(x=points[:, 0], y=points[:, 1], c="b")
+        plt.show()
         np.save("points", points)
         np.save("normals", normals)
     else:
@@ -75,22 +78,23 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
     methods = [
         "poisson",
     ]
-    for method in methods:
-        for poisson_depth in [11]:
-            mesh, ptcl = mesh_from_vertices(
-                points, normals, method=method, poisson_depth=poisson_depth
-            )
-            # o3d.visualization.draw_geometries([ptcl])
-            simplified_mesh = mesh.simplify_quadric_decimation(
-                int(len(mesh.triangles) * 0.3)
-            )
-            print(f"Original mesh has {len(mesh.triangles)}")
-            print(f"Simplified mesh has {len(simplified_mesh.triangles)}")
-            o3d.io.write_triangle_mesh(
-                filename,
-                # f"datafiles/{method}_depth_{poisson_depth}_simplified.obj",
-                simplified_mesh,
-            )
+    if not filename is None:
+        for method in methods:
+            for poisson_depth in [11]:
+                mesh, ptcl = mesh_from_vertices(
+                    points, normals, method=method, poisson_depth=poisson_depth
+                )
+                # o3d.visualization.draw_geometries([ptcl])
+                simplified_mesh = mesh.simplify_quadric_decimation(
+                    int(len(mesh.triangles) * 0.3)
+                )
+                print(f"Original mesh has {len(mesh.triangles)}")
+                print(f"Simplified mesh has {len(simplified_mesh.triangles)}")
+                o3d.io.write_triangle_mesh(
+                    filename,
+                    # f"datafiles/{method}_depth_{poisson_depth}_simplified.obj",
+                    simplified_mesh,
+                )
 
 
 '''
@@ -135,9 +139,9 @@ class MyMainWindow(MainWindow):
         self.plotter.add_mesh(sphere, show_edges=True)
         self.plotter.reset_camera()
 
-
-if __name__ == '__main__':
-    app = QtWidgets.QApplication(sys.argv)
-    window = MyMainWindow()
-    sys.exit(app.exec_())
 '''
+
+if __name__ == "__main__":
+    plotter = pv.Plotter()
+    pc_from_graph(plotter, 0.00001)
+    plotter.show()
