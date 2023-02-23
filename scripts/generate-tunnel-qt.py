@@ -88,6 +88,7 @@ class Sketch(QLabel):
         self.trees = []
         self.scale = 0.1
         self.current_tree = []
+        self.selected=None
 
     def delete_last(self):
         if len(self.current_tree) > 0:
@@ -108,24 +109,27 @@ class Sketch(QLabel):
         self.points.clear()
         self.current_tree.clear()
         self.trees.clear()
+        try:
+            f = open(filename, "r")
+            data = yaml.safe_load(f)
+            f.close()
 
-        f = open(filename, "r")
-        data = yaml.safe_load(f)
-        f.close()
+            if len(data['points']) > 0:
+                for p in data['points']:
+                    q = Point()
+                    q.deserialize(p)
+                    self.points.append(q)
 
-        if len(data['points']) > 0:
-            for p in data['points']:
-                q = Point()
-                q.deserialize(p)
-                self.points.append(q)
+            for color, nodes in enumerate(data['trees']):
+                tree = []
+                for node_id in nodes:
+                    tree.append(self.points[node_id])
+                self.trees.append((tree, color))
 
-        for color, nodes in enumerate(data['trees']):
-            tree = []
-            for node_id in nodes:
-                tree.append(self.points[node_id])
-            self.trees.append((tree, color))
-
-        self.update()
+            self.update()
+            return True
+        except:
+            return False
 
     def setScale(self, scale):
         self.scale = scale
@@ -200,6 +204,10 @@ class Sketch(QLabel):
             self.trees.append((self.current_tree, self.color_index))
             self.current_tree = []
 
+        self.p1 = None
+        self.p2 = None
+        self.update()
+
         if len(self.points) == 0:
             return
 
@@ -225,7 +233,13 @@ class Sketch(QLabel):
 
     def mousePressEvent(self, ev: QtGui.QMouseEvent) -> None:
         super().mousePressEvent(ev)
-        if ev.modifiers() & Qt.ShiftModifier:
+        if ev.modifiers() & Qt.ControlModifier:
+            for p in self.points:
+                r = QRect(p.x() - 10, p.y() - 10, 20, 20)
+                if r.contains(ev.pos().x(), ev.pos().y()):
+                    self.selected = p
+
+        elif ev.modifiers() & Qt.ShiftModifier:
             for p in self.points:
                 r = QRect(p.x() - 10, p.y() - 10, 20, 20)
                 if r.contains(ev.pos().x(), ev.pos().y()):
@@ -243,22 +257,19 @@ class Sketch(QLabel):
 
     def mouseMoveEvent(self, ev: QtGui.QMouseEvent) -> None:
         super().mouseMoveEvent(ev)
-        if ev.modifiers() & Qt.ControlModifier:
-            for p in self.points:
-                r = QRect(p.x() - 10, p.y() - 10, 20, 20)
-                if r.contains(ev.pos().x(), ev.pos().y()):
-                    p.setX(ev.pos().x())
-                    p.setY(ev.pos().y())
-                    self.update()
-
+        if self.selected:
+            self.selected.setX(ev.pos().x())
+            self.selected.setY(ev.pos().y())
+            self.update()
         elif self.p1 is not None:
             self.p2 = ev.pos()
             self.update()
 
     def mouseReleaseEvent(self, ev: QtGui.QMouseEvent) -> None:
         super().mouseReleaseEvent(ev)
-
-        if self.p1 and self.p2:
+        if self.selected:
+            self.selected = None
+        elif self.p1 and self.p2:
             found = None
             for p in self.points:
                 r = QRect(p.x() - 10, p.y() - 10, 20, 20)
@@ -311,6 +322,10 @@ class Sketch(QLabel):
         if self.p1 and self.p2:
             painter.setPen(QPen(self.colors[self.color_index]))
             painter.drawLine(self.p1, self.p2)
+
+        if self.p1:
+            painter.drawEllipse(self.p1, 15, 15)
+
 
         if len(self.points) > 0:
             painter.setPen(QPen(Qt.red))
@@ -495,7 +510,6 @@ class MainWindow(QtWidgets.QMainWindow):
         tb.addAction("Clear", self.sketch.clear_points).setIcon(QIcon.fromTheme('edit-clear'))
         tb.addAction("Delete last", self.sketch.delete_last).setIcon(QIcon.fromTheme('edit-undo'))
 
-
         self.tab.addTab(helper, "Sketch")
         self.graph_tab = self.tab.addTab(self.sc, "Graph")
         self.tab.addTab(self.frame, "Render")
@@ -508,8 +522,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self.tab)
 
         if self.config.get("last"):
-            self.sketch.load(self.config.get("last"))
-            self.setWindowTitle(self.config.get("last"))
+            if self.sketch.load(self.config.get("last")):
+                self.setWindowTitle(self.config.get("last"))
 
         self.show()
 
@@ -520,18 +534,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.radius_label.setText(str(self.radius_slider.value()) + " ")
 
     def save_yaml(self):
-        dest, _ = QFileDialog.getSaveFileName(self, "Save YAML Document", "./tree.yaml",
-                                              "YAML Files (*.yaml)")
+        dest, _ = QFileDialog.getSaveFileName(self, "Save PTG Document", self.config.get("last"),
+                                              "PTG Files (*.ptg)")
         if dest and dest != "":
+            if not dest.endswith(".ptg"):
+                dest = dest + ".ptg"
             self.config.set("last", dest)
             self.setWindowTitle(self.config.get("last"))
             self.sketch.save(dest)
             self.config.save("gst.yaml")
 
     def new_yaml(self):
-        dest, _ = QFileDialog.getSaveFileName(self, "Save YAML Document", "./tree.yaml",
-                                              "YAML Files (*.yaml)")
+        dest, _ = QFileDialog.getSaveFileName(self, "Save PTG Document", "./tunnel.ptg",
+                                              "PTG Files (*.ptg)")
         if dest and dest != "":
+            if not dest.endswith(".ptg"):
+                dest = dest + ".ptg"
             self.sketch.clear_points()
             self.config.set("last", dest)
             self.setWindowTitle(self.config.get("last"))
@@ -539,8 +557,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.config.save("gst.yaml")
 
     def load_yaml(self):
-        file, _ = QFileDialog.getOpenFileName(self, "Open YAML file", "",
-                                              "YAML Files (*.yaml)")
+        file, _ = QFileDialog.getOpenFileName(self, "Open PTG file", "",
+                                              "PTG Files (*.ptg)")
         if file is not None and file != "":
             self.config.set("last", file)
             self.setWindowTitle(self.config.get("last"))
@@ -557,7 +575,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if num == 1:
             self.doing()
         elif num == 2:
-            self.rendera()
+            pass#self.rendera()
 
     def doing(self):
         if not self.config.get("last"):
@@ -603,13 +621,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.helper = Helper()
 
             def run(self) -> None:
-                pc_from_graph(self.plotter, self.roughness, self.graph, window.model_path + "mesh.obj", radius=self.radius)
+                proj_points, proj_normals = pc_from_graph(self.plotter, self.roughness, self.graph, window.model_path + "mesh.obj", radius=self.radius)
                 f = open(window.model_path + "model.config", "w")
                 f.write(window.model_config.replace("$name$", window.model_name))
                 f.close()
                 f = open(window.model_path + "model.sdf", "w")
                 f.write(window.model_sdf.replace("$name$", window.model_name))
                 f.close()
+                np.savetxt(window.model_path + "contour.csv", proj_points)
                 self.helper.done.emit()
 
         self.tab.setCurrentIndex(2)
