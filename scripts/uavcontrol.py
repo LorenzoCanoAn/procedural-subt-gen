@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import csv
 import os.path
 import sys
@@ -156,9 +158,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.params = []
 
         self.config = EasyConfig()
-        self.config.root().addFile("spline_file", "Spline file", extension=".csv")
-        self.config.root().addFileSave("poses_file", "Poses file", extension=".txt")
-        self.config.root().addString("last")
+        self.config.root().addFolderChoice("models_folder", "Models Directory")
+
+        ss = self.config.root().addHidden("hidden")
+        ss.addString("current_model")
+        ss.addString("last")
 
         self.config.load("uavc.yaml")
 
@@ -192,7 +196,18 @@ class MainWindow(QtWidgets.QMainWindow):
             m.pose.orientation.w = q[3]
 
             m.model_name = self.set_model_combo.currentText()
-            self.pub.publish(m)
+            self.counter = 0
+
+            def pub():
+                self.counter += 1
+                if self.counter > 20:
+                    self.q.stop()
+                self.pub.publish(m)
+
+            self.q = QTimer()
+            self.q.timeout.connect(pub)
+            self.q.start(50)
+
             ct = self.set_model_combo.currentText()
             states: ModelStates = rospy.wait_for_message("/gazebo/model_states", ModelStates)
             self.set_model_combo.clear()
@@ -206,6 +221,21 @@ class MainWindow(QtWidgets.QMainWindow):
         cb.clicked.connect(set_model)
 
         vb = QVBoxLayout()
+
+        models = os.listdir(self.config.get("models_folder"))
+        self.models_cb = QComboBox()
+        self.models_cb.addItems(models)
+
+        def model_changed():
+            self.config.set("current_model", self.models_cb.currentText())
+            self.config.save("uavc.yaml")
+
+        if self.config.get("current_model"):
+            self.models_cb.setCurrentText(self.config.get("current_model"))
+
+        self.models_cb.currentIndexChanged.connect(model_changed)
+
+        vb.addWidget(self.models_cb)
 
         xyz = QGridLayout()
 
@@ -306,57 +336,75 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # SPLINE ##############################
         def move_spline():
-            file = self.config.get("spline_file")
-            if file:
-                poses = np.loadtxt(file)
-                self.a = QTimer()
-                self.i = 0
+            if self.sender().isChecked():
+                folder = self.config.get("models_folder") + os.sep + self.config.get("current_model")
+                if folder:
+                    poses = np.loadtxt(folder + os.sep + "spline.csv")
+                    self.a = QTimer()
+                    self.i = 0
 
-                def do_move():
-                    m = ModelState()
-                    m.model_name = self.config.get("drone_name")
-                    m.pose.position.x = poses[self.i, 1]
-                    m.pose.position.y = poses[self.i, 2]
-                    vector = (poses[self.i, 4], poses[self.i, 5])
-                    angle = np.arctan2(vector[1], vector[0])
+                    def do_move():
+                        m = ModelState()
+                        m.model_name = "quadrotor"
+                        m.pose.position.x = poses[self.i, 1]
+                        m.pose.position.y = poses[self.i, 2]
+                        m.pose.position.z = poses[self.i, 3]
+                        vector = (poses[self.i, 4], poses[self.i, 5])
+                        angle = np.arctan2(vector[1], vector[0])
 
-                    q = quaternion_from_euler(0, 0, angle)
-                    m.pose.orientation.x = q[0]
-                    m.pose.orientation.y = q[1]
-                    m.pose.orientation.z = q[2]
-                    m.pose.orientation.w = q[3]
-                    print(m.pose.position.x)
-                    self.i = self.i + 1
-                    if self.i >= len(poses):
-                        self.i = 0
-                    self.pub.publish(m)
+                        q = quaternion_from_euler(0, 0, angle)
+                        m.pose.orientation.x = q[0]
+                        m.pose.orientation.y = q[1]
+                        m.pose.orientation.z = q[2]
+                        m.pose.orientation.w = q[3]
+                        print(m.pose.position.x)
 
-                self.a.timeout.connect(lambda: do_move())
-                self.a.start(50)
+                        if self.record_btn.isChecked():
+                            self.i = self.i + 1
+
+                        if self.i >= len(poses):
+                            self.i = 0
+
+                        self.pub.publish(m)
+
+                    self.a.timeout.connect(lambda: do_move())
+                    self.a.start(25)
+            else:
+                self.a.stop()
 
         btn = QPushButton("Move Spline")
         btn.clicked.connect(move_spline)
-        vb.addWidget(btn)
-        btn = QPushButton("Stop")
-        btn.clicked.connect(lambda: self.a.stop())
-        vb.addWidget(btn)
+        btn.setCheckable(True)
 
+        vb.addWidget(btn)
         self.addLine(vb)
 
         # POSES ##############################
 
         def record_pose():
-            if not btn.isChecked():
+            model_folder = self.config.get("models_folder") + os.sep + self.config.get("current_model")
+
+            if not self.record_btn.isChecked():
                 self.cnn_sub.unregister()
                 self.f.close()
+                self.accumulated_distance = 0
+                filename, _ = QFileDialog.getSaveFileName(self, "Open csv file", model_folder + os.sep + "poses.csv",
+                                                          "Pose Files (*.csv)")
+
+                if filename is not None and filename != "":
+                    os.rename(model_folder + os.sep + "poses.csv", filename)
+
             else:
                 self.accumulated_distance = 0
                 self.prev_id = None
 
-                self.f = open(self.config.get("poses_file"), "w")
-                file = self.config.get("spline_file")
-                if file:
-                    spline = np.loadtxt(file)
+
+                text = str()
+                for p in self.params:
+                    text = text + "_" + "{:.1f}".format(p.getValue())
+
+                self.f = open(model_folder + os.sep + "poses.csv", "w")
+                spline = np.loadtxt(model_folder + os.sep + "spline.csv")
 
                 def callback_cnn(angle: CnnResult):
                     data = rospy.wait_for_message("/gazebo/model_states", ModelStates)
@@ -391,10 +439,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 self.cnn_sub = rospy.Subscriber("/slibon/cnn_angle", CnnResult, callback_cnn)
 
-        btn = QPushButton("Record Pose")
-        btn.setCheckable(True)
-        btn.clicked.connect(record_pose)
-        vb.addWidget(btn)
+        self.record_btn = QPushButton("Record Pose")
+        self.record_btn.setCheckable(True)
+        self.record_btn.clicked.connect(record_pose)
+        vb.addWidget(self.record_btn)
 
         self.addLine(vb)
 
@@ -409,7 +457,9 @@ class MainWindow(QtWidgets.QMainWindow):
             spyaw = []
             spcnn = []
 
-            with open(self.config.get("poses_file"), 'r') as csvfile:
+            model_folder = self.config.get("models_folder") + os.sep + self.config.get("current_model")
+            with open(model_folder + os.sep + "poses.csv", 'r') as csvfile:
+
                 plots = csv.reader(csvfile, delimiter=',')
 
                 for row in plots:

@@ -43,7 +43,7 @@ def tunnel_interesects_with_list(tunnel: Tunnel, list_of_tunnels):
 
 
 def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius=5):
-    fig = plt.figure(figsize=(10, 10))
+#    fig = plt.figure(figsize=(10, 10))
     if not tunnel_network:
         # Generate the vertices of the mesh
         with open("datafiles/graph.pkl", "rb") as f:
@@ -56,7 +56,7 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
         tunnel_network_with_mesh = TunnelNetworkWithMesh(
             tunnel_network,
             meshing_params=TunnelMeshingParams(
-                {"roughness": roughness, "radius": radius, "floor_to_axis_distance": 1}
+                {"roughness": roughness, "radius": radius, "floor_to_axis_distance": radius/4}
             ),
         )
         tunnel_network_with_mesh.clean_intersections()
@@ -67,9 +67,9 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
             plotter.add_mesh(pv.PolyData(mesh.all_selected_points), color=COLORS[i])
         # plotter.show()
         for tunnel in tunnel_network_with_mesh._tunnels_with_mesh:
-            points, normals = tunnel.get_xy_projection()
-            plt.scatter(x=points[:, 0], y=points[:, 1], c="b")
-        plt.show()
+            proj_points, proj_normals = tunnel.get_xy_projection(0.1)
+            #plt.scatter(x=points[:, 0], y=points[:, 1], c="b")
+        #plt.show()
         np.save("points", points)
         np.save("normals", normals)
     else:
@@ -95,6 +95,7 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
                     # f"datafiles/{method}_depth_{poisson_depth}_simplified.obj",
                     simplified_mesh,
                 )
+    return proj_points, proj_normals
 
 
 '''
