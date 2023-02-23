@@ -13,12 +13,14 @@ Random Generation:
     v_tend: 0
     v_noise: 0
   Segment:
-    s_length: 10
+    s_length: 10.0
     s_noise: 0
     scale: 0.1
     roughness: 0.0001
   np_noise: null
 Models:
-  models_base_dir: null
+  models_base_dir: /home/lorenzo/git/procedural-subt-gen/datafiles/qt
 '@Private':
   last: /home/lorenzo/git/procedural-subt-gen/tree.yaml
+easyconfig:
+  expanded: '01000000000000000000010'

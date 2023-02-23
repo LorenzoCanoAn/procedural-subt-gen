@@ -11,7 +11,6 @@ def debug_plot(
     graph, in_3d=False, wait="", clear=False, canvas: FigureCanvasQTAgg = None
 ):
     if clear:
-        print("jjjj")
         if canvas:
             canvas.axes.clear()
         else:
@@ -114,7 +113,7 @@ def plot_graph_3d(graph: TunnelNetwork, ax=None, canvas=None):
         t.label.set_fontsize(20)
 
 
-def plot_spline_2d(spline, ax=None, color="r"):
+def plot_spline_2d(spline, ax=None, color="r", zorder=1):
     if ax is None:
         ax = plt.gca()
     ds = np.arange(0, spline.length, SPLINE_PLOT_PRECISSION)
@@ -124,7 +123,7 @@ def plot_spline_2d(spline, ax=None, color="r"):
         x, y, z = p.flatten()
         xs.append(x)
         ys.append(y)
-    ax.plot(xs, ys, c=color, linewidth=3, zorder=1)
+    ax.plot(xs, ys, c=color, linewidth=3, zorder=zorder)
 
 
 def network_overview(tunnel_network):
