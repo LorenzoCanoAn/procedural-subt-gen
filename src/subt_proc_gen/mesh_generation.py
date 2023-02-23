@@ -287,11 +287,6 @@ class TunnelNetworkWithMesh:
             )
             print(f"Time: {(ns()-start)*1e-9:<5.2f} s", end=" // ")
             print(f"{self._tunnels_with_mesh[-1].n_points:<5} points")
-        for intersection in self._tunnel_network.intersections:
-            for tunnel in intersection.tunnels:
-                ti = TunnelWithMesh.tunnel_to_tunnelwithmesh(tunnel).add_intersection(
-                    intersection
-                )
 
     def clean_intersections(self):
         n_intersections = len(self._tunnel_network.intersections)
@@ -306,6 +301,7 @@ class TunnelNetworkWithMesh:
                     assert isinstance(tnmi, Tunnel)
                     if tnmi is tnmj:
                         continue
+                    print("Hola")
                     ti = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmi)
                     tj = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmj)
                     assert isinstance(ti, TunnelWithMesh)

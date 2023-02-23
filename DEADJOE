@@ -19,3 +19,17 @@ Processing '/etc/joe/editorrc'...
 Processing '/etc/joe/ftyperc'...
 Finished processing /etc/joe/ftyperc
 Finished processing /etc/joe/editorrc
+
+*** These modified files were found in JOE when it aborted on Thu Feb 23 11:40:28 2023
+*** JOE was aborted by UNIX signal 1
+
+*** File '(Unnamed)'
+./devel/include/slibon/CnnResult.h
+./src/danilo/slibon/launch/slibon.launch
+/home/lorenzo/git/procedural-subt-gen/.git/MERGE_MSG
+
+*** File '* Startup Log *'
+Processing '/etc/joe/editorrc'...
+Processing '/etc/joe/ftyperc'...
+Finished processing /etc/joe/ftyperc
+Finished processing /etc/joe/editorrc

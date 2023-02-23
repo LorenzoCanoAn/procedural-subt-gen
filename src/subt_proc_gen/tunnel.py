@@ -136,7 +136,8 @@ class CaveNode(Node):
         """Nodes must keep track of what tunnels they are a part of
         this way, if a node is part of more than one tunnel, it means it
         is  an intersection"""
-        self._tunnels.append(new_tunnel)
+        if not new_tunnel in self.tunnels:
+            self._tunnels.append(new_tunnel)
 
     def remove_tunnel(self, tunnel):
         assert isinstance(tunnel, Tunnel)

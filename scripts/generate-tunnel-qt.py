@@ -4,14 +4,30 @@ import sys
 import matplotlib
 import yaml
 
-matplotlib.use('Qt5Agg')
+matplotlib.use("Qt5Agg")
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 from PyQt5.QtGui import QPixmap, QPainter, QPen, QIcon
-from PyQt5.QtWidgets import QMenuBar, QVBoxLayout, QWidget, QPushButton, QFrame, QTabWidget, QSplitter, \
-    QLabel, QFileDialog, QToolBar, QInputDialog, QMenu, QSlider, QMessageBox, QScrollArea, QProgressDialog
+from PyQt5.QtWidgets import (
+    QMenuBar,
+    QVBoxLayout,
+    QWidget,
+    QPushButton,
+    QFrame,
+    QTabWidget,
+    QSplitter,
+    QLabel,
+    QFileDialog,
+    QToolBar,
+    QInputDialog,
+    QMenu,
+    QSlider,
+    QMessageBox,
+    QScrollArea,
+    QProgressDialog,
+)
 from pyvista import QtInteractor
 from pyvistaqt import QtInteractor
 from EasyConfig import EasyConfig
@@ -23,7 +39,6 @@ from PyQt5.QtCore import Qt, QRect, QPoint, QRunnable, QThreadPool, pyqtSignal, 
 
 
 class MplCanvas(FigureCanvasQTAgg):
-
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         fig = Figure(dpi=dpi)
         self.axes = fig.add_subplot(111)
@@ -49,20 +64,19 @@ class Point(QPoint):
         return np.array([self.x() / 10, self.y() / 10, self.z() / 10])
 
     def serialize(self, dictionary):
-        dictionary['index'] = self.index
-        dictionary['x'] = self.x()
-        dictionary['y'] = self.y()
-        dictionary['z'] = self.z()
+        dictionary["index"] = self.index
+        dictionary["x"] = self.x()
+        dictionary["y"] = self.y()
+        dictionary["z"] = self.z()
 
     def deserialize(self, dictionary):
-        self.index = dictionary['index']
-        self.setX(dictionary['x'])
-        self.setY(dictionary['y'])
-        self.setZ(dictionary['z'])
+        self.index = dictionary["index"]
+        self.setX(dictionary["x"])
+        self.setY(dictionary["y"])
+        self.setZ(dictionary["z"])
 
 
 class CCaveNode(CaveNode):
-
     def __init__(self, coords=np.zeros(3)):
         self._connected_nodes = set()
         self.coords = coords
@@ -70,7 +84,6 @@ class CCaveNode(CaveNode):
 
 
 class Sketch(QLabel):
-
     def __init__(self):
         super().__init__()
         pix = QPixmap(200, 200)
@@ -88,7 +101,7 @@ class Sketch(QLabel):
         self.trees = []
         self.scale = 0.1
         self.current_tree = []
-        self.selected=None
+        self.selected = None
 
     def delete_last(self):
         if len(self.current_tree) > 0:
@@ -114,13 +127,13 @@ class Sketch(QLabel):
             data = yaml.safe_load(f)
             f.close()
 
-            if len(data['points']) > 0:
-                for p in data['points']:
+            if len(data["points"]) > 0:
+                for p in data["points"]:
                     q = Point()
                     q.deserialize(p)
                     self.points.append(q)
 
-            for color, nodes in enumerate(data['trees']):
+            for color, nodes in enumerate(data["trees"]):
                 tree = []
                 for node_id in nodes:
                     tree.append(self.points[node_id])
@@ -144,19 +157,21 @@ class Sketch(QLabel):
         self.update()
 
     def save(self, filename):
-        dictionary = {'points': [], 'trees': []}
+        dictionary = {"points": [], "trees": []}
 
-        if len(self.current_tree) > 0 and self.current_tree not in [t for t, c in self.trees]:
+        if len(self.current_tree) > 0 and self.current_tree not in [
+            t for t, c in self.trees
+        ]:
             self.trees.append((self.current_tree, self.color_index))
             self.current_tree = []
 
         for p in self.points:
             data = {}
             p.serialize(data)
-            dictionary['points'].append(data)
+            dictionary["points"].append(data)
 
         for tree, color in self.trees:
-            dictionary['trees'].append([node.index for node in tree])
+            dictionary["trees"].append([node.index for node in tree])
 
         f = open(filename, "w")
         yaml.dump(dictionary, f)
@@ -182,8 +197,13 @@ class Sketch(QLabel):
                     return
 
                 elif res == set_z:
-                    text, ok = QInputDialog.getText(self, 'Set Z coordinate of node ' + str(p.index), 'Value', text=str(p.z()))
-                    if ok and text.replace(".", "").replace("-","").isnumeric():
+                    text, ok = QInputDialog.getText(
+                        self,
+                        "Set Z coordinate of node " + str(p.index),
+                        "Value",
+                        text=str(p.z()),
+                    )
+                    if ok and text.replace(".", "").replace("-", "").isnumeric():
                         p.setZ(float(text))
                         self.update()
 
@@ -192,15 +212,22 @@ class Sketch(QLabel):
         for p in self.points:
             r = QRect(p.x() - 10, p.y() - 10, 20, 20)
             if r.contains(ev.pos().x(), ev.pos().y()):
-                text, ok = QInputDialog.getText(self, 'Set Z coordinate of node ' + str(p.index), 'Value', text=str(p.z()))
-                if ok and text.replace(".", "").replace("-","").isnumeric():
+                text, ok = QInputDialog.getText(
+                    self,
+                    "Set Z coordinate of node " + str(p.index),
+                    "Value",
+                    text=str(p.z()),
+                )
+                if ok and text.replace(".", "").replace("-", "").isnumeric():
                     p.setZ(float(text))
                     self.update()
                 break
 
     def getPoints(self):
 
-        if len(self.current_tree) > 0 and self.current_tree not in [t for t, c in self.trees]:
+        if len(self.current_tree) > 0 and self.current_tree not in [
+            t for t, c in self.trees
+        ]:
             self.trees.append((self.current_tree, self.color_index))
             self.current_tree = []
 
@@ -243,7 +270,9 @@ class Sketch(QLabel):
             for p in self.points:
                 r = QRect(p.x() - 10, p.y() - 10, 20, 20)
                 if r.contains(ev.pos().x(), ev.pos().y()):
-                    if len(self.current_tree) > 0 and self.current_tree not in [t for t, c in self.trees]:
+                    if len(self.current_tree) > 0 and self.current_tree not in [
+                        t for t, c in self.trees
+                    ]:
                         self.trees.append((self.current_tree, self.color_index))
                     self.current_tree = [p]
                     self.p1 = p
@@ -296,7 +325,9 @@ class Sketch(QLabel):
             p = self.current_tree[i]
             painter.setPen(Qt.black)
             if p.z() != 0:
-                painter.drawText(QPoint(p.x() + 10, p.y() + 10), str(p.index) + " z:" + str(p.z()))
+                painter.drawText(
+                    QPoint(p.x() + 10, p.y() + 10), str(p.index) + " z:" + str(p.z())
+                )
             else:
                 painter.drawText(QPoint(p.x() + 10, p.y() + 10), str(p.index))
             painter.setPen(self.colors[self.color_index])
@@ -310,7 +341,10 @@ class Sketch(QLabel):
                 p = tree[i]
                 painter.setPen(Qt.black)
                 if p.z() != 0:
-                    painter.drawText(QPoint(p.x()+10, p.y()+10), str(p.index) + " z:" +str(p.z()))
+                    painter.drawText(
+                        QPoint(p.x() + 10, p.y() + 10),
+                        str(p.index) + " z:" + str(p.z()),
+                    )
                 else:
                     painter.drawText(QPoint(p.x() + 10, p.y() + 10), str(p.index))
 
@@ -326,17 +360,25 @@ class Sketch(QLabel):
         if self.p1:
             painter.drawEllipse(self.p1, 15, 15)
 
-
         if len(self.points) > 0:
             painter.setPen(QPen(Qt.red))
-            painter.drawLine(self.rect().x(), self.points[0].y(), self.rect().width() + self.rect().x(), self.points[0].y())
+            painter.drawLine(
+                self.rect().x(),
+                self.points[0].y(),
+                self.rect().width() + self.rect().x(),
+                self.points[0].y(),
+            )
             painter.setPen(QPen(Qt.green))
-            painter.drawLine(self.points[0].x(), self.rect().y(), self.points[0].x(), self.rect().height() + self.rect().y())
+            painter.drawLine(
+                self.points[0].x(),
+                self.rect().y(),
+                self.points[0].x(),
+                self.rect().height() + self.rect().y(),
+            )
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    model_config = \
-        '<?xml version="1.0"?>\n\
+    model_config = '<?xml version="1.0"?>\n\
 <model>\n\
   <name>$name$</name>\n\
   <version>1.0</version>\n \
@@ -345,8 +387,7 @@ class MainWindow(QtWidgets.QMainWindow):
   </description>\n\
 </model>'
 
-    model_sdf = \
-        '<?xml version="1.0"?>\n\
+    model_sdf = '<?xml version="1.0"?>\n\
 <sdf version="1.6">\n\
   <model name="$name$">\n\
     <static>true</static>\n\
@@ -467,7 +508,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.slider.setSingleStep(100)
         self.slider.valueChanged.connect(self.slider_changed)
         self.radius_slider.valueChanged.connect(self.radius_slider_changed)
-        render_tb.addAction("Go", self.rendera).setIcon(QIcon.fromTheme('media-playback-start'))
+        render_tb.addAction("Go", self.rendera).setIcon(
+            QIcon.fromTheme("media-playback-start")
+        )
         render_tb.addSeparator()
 
         self.slider_label = QLabel("0.001")
@@ -506,9 +549,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sketch.setMinimumHeight(int(1080 * 1.5))
 
         vbox.addWidget(sa)
-        tb.addAction("Save", lambda:self.sketch.save( self.config.get("last"))).setIcon(QIcon.fromTheme('document-save'))
-        tb.addAction("Clear", self.sketch.clear_points).setIcon(QIcon.fromTheme('edit-clear'))
-        tb.addAction("Delete last", self.sketch.delete_last).setIcon(QIcon.fromTheme('edit-undo'))
+        tb.addAction("Save", lambda: self.sketch.save(self.config.get("last"))).setIcon(
+            QIcon.fromTheme("document-save")
+        )
+        tb.addAction("Clear", self.sketch.clear_points).setIcon(
+            QIcon.fromTheme("edit-clear")
+        )
+        tb.addAction("Delete last", self.sketch.delete_last).setIcon(
+            QIcon.fromTheme("edit-undo")
+        )
 
         self.tab.addTab(helper, "Sketch")
         self.graph_tab = self.tab.addTab(self.sc, "Graph")
@@ -534,8 +583,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.radius_label.setText(str(self.radius_slider.value()) + " ")
 
     def save_yaml(self):
-        dest, _ = QFileDialog.getSaveFileName(self, "Save PTG Document", self.config.get("last"),
-                                              "PTG Files (*.ptg)")
+        dest, _ = QFileDialog.getSaveFileName(
+            self, "Save PTG Document", self.config.get("last"), "PTG Files (*.ptg)"
+        )
         if dest and dest != "":
             if not dest.endswith(".ptg"):
                 dest = dest + ".ptg"
@@ -545,8 +595,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.config.save("gst.yaml")
 
     def new_yaml(self):
-        dest, _ = QFileDialog.getSaveFileName(self, "Save PTG Document", "./tunnel.ptg",
-                                              "PTG Files (*.ptg)")
+        dest, _ = QFileDialog.getSaveFileName(
+            self, "Save PTG Document", "./tunnel.ptg", "PTG Files (*.ptg)"
+        )
         if dest and dest != "":
             if not dest.endswith(".ptg"):
                 dest = dest + ".ptg"
@@ -557,8 +608,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.config.save("gst.yaml")
 
     def load_yaml(self):
-        file, _ = QFileDialog.getOpenFileName(self, "Open PTG file", "",
-                                              "PTG Files (*.ptg)")
+        file, _ = QFileDialog.getOpenFileName(
+            self, "Open PTG file", "", "PTG Files (*.ptg)"
+        )
         if file is not None and file != "":
             self.config.set("last", file)
             self.setWindowTitle(self.config.get("last"))
@@ -575,7 +627,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if num == 1:
             self.doing()
         elif num == 2:
-            pass#self.rendera()
+            pass  # self.rendera()
 
     def doing(self):
         if not self.config.get("last"):
@@ -588,7 +640,9 @@ class MainWindow(QtWidgets.QMainWindow):
         #        isExist = os.path.exists(models_base_dir)
         # if not isExist:
         self.model_name = os.path.basename(os.path.splitext(self.config.get("last"))[0])
-        self.model_path = self.config.get("models_base_dir") + os.sep + self.model_name + os.sep
+        self.model_path = (
+            self.config.get("models_base_dir") + os.sep + self.model_name + os.sep
+        )
         os.makedirs(self.model_path, exist_ok=True)
 
         self.fig.clear()
@@ -616,12 +670,21 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.graph = graph
                 self.roughness = roughness
                 self.radius = radius
+
                 class Helper(QObject):
                     done = pyqtSignal()
+
                 self.helper = Helper()
 
             def run(self) -> None:
-                proj_points, proj_normals = pc_from_graph(self.plotter, self.roughness, self.graph, window.model_path + "mesh.obj", radius=self.radius)
+                print("AHHHH")
+                proj_points, proj_normals = pc_from_graph(
+                    self.plotter,
+                    self.roughness,
+                    self.graph,
+                    window.model_path + "mesh.obj",
+                    radius=self.radius,
+                )
                 f = open(window.model_path + "model.config", "w")
                 f.write(window.model_config.replace("$name$", window.model_name))
                 f.close()
@@ -644,7 +707,7 @@ class MainWindow(QtWidgets.QMainWindow):
             roughness = self.slider.value() / 1000
 
         run = Runn(self.plotter, self.graph, roughness, self.radius_slider.value())
-        run.helper.done.connect(lambda:self.pd.hide())
+        run.helper.done.connect(lambda: self.pd.hide())
         QThreadPool.globalInstance().start(run)
 
     def maino(self, canvas, c, poses=None):
@@ -656,7 +719,9 @@ class MainWindow(QtWidgets.QMainWindow):
             tunnel_params = TunnelParams(
                 {
                     "distance": np.random.uniform(c.get("min_dist"), c.get("max_dist")),
-                    "starting_direction": np.array((c.get("sd_x"), c.get("sd_y"), c.get("sd_z"))),
+                    "starting_direction": np.array(
+                        (c.get("sd_x"), c.get("sd_y"), c.get("sd_z"))
+                    ),
                     "horizontal_tendency": np.deg2rad(c.get("h_tend")),
                     "horizontal_noise": np.deg2rad(c.get("h_noise")),
                     "vertical_tendency": np.deg2rad(c.get("v_tend")),
