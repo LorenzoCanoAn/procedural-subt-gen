@@ -66,8 +66,14 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
             print(i)
             plotter.add_mesh(pv.PolyData(mesh.all_selected_points), color=COLORS[i])
         # plotter.show()
-        for tunnel in tunnel_network_with_mesh._tunnels_with_mesh:
-            proj_points, proj_normals = tunnel.get_xy_projection(0.1)
+        for i, tunnel in enumerate(tunnel_network_with_mesh._tunnels_with_mesh):
+            if i == 0:
+                proj_points, proj_normals = tunnel.get_xy_projection(0.1)
+            else:
+                _proj_points, _proj_normals = tunnel.get_xy_projection(0.1)
+                proj_points = np.vstack([proj_points, _proj_points])
+                proj_normals = np.vstack([proj_normals, proj_normals])
+
             #plt.scatter(x=points[:, 0], y=points[:, 1], c="b")
         #plt.show()
         np.save("points", points)

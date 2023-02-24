@@ -176,7 +176,7 @@ class TunnelWithMesh:
             ap, av = aps[n], avs[n]  # axis point and vector
             # u1 and u2 are perpendicular to av. To get u1, you do the cross-product of av
             # with a non paralel vector
-            angles = np.array([0, np.pi]).reshape([-1, 1])
+            angles = np.array([80*np.pi/180, np.pi-80*np.pi/180]).reshape([-1, 1]) # TODO:
             radiuses = np.array([noise(n / N, a) for a in angles]).reshape([-1, 1])
             u1, u2 = get_two_perpendicular_vectors_to_vector(av)
             normals_ = u1 * np.cos(angles) + u2 * np.sin(angles)

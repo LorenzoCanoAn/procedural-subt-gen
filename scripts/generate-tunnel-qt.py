@@ -46,7 +46,7 @@ class Point(QPoint):
         self.zpos = val
 
     def nppose(self):
-        return np.array([self.x() / 10, self.y() / 10, self.z() / 10])
+        return np.array([self.x(), self.y(), self.z()])
 
     def serialize(self, dictionary):
         dictionary['index'] = self.index
@@ -198,7 +198,7 @@ class Sketch(QLabel):
                     self.update()
                 break
 
-    def getPoints(self):
+    def getPoints(self, scale):
 
         if len(self.current_tree) > 0 and self.current_tree not in [t for t, c in self.trees]:
             self.trees.append((self.current_tree, self.color_index))
@@ -213,7 +213,7 @@ class Sketch(QLabel):
 
         nodes = []
         for p in self.points:
-            nodes.append(CCaveNode(p.nppose()))
+            nodes.append(CCaveNode(p.nppose()*scale))
 
         x, y, z = nodes[0].coords
         for n in nodes:
@@ -508,7 +508,21 @@ class MainWindow(QtWidgets.QMainWindow):
         vbox.addWidget(sa)
         tb.addAction("Save", lambda:self.sketch.save( self.config.get("last"))).setIcon(QIcon.fromTheme('document-save'))
         tb.addAction("Clear", self.sketch.clear_points).setIcon(QIcon.fromTheme('edit-clear'))
+        tb.addSeparator()
         tb.addAction("Delete last", self.sketch.delete_last).setIcon(QIcon.fromTheme('edit-undo'))
+        tb.addSeparator()
+        label = QLabel("Scale: 1 ")
+        label.setMinimumWidth(70)
+        tb.addWidget(label)
+        self.scale_slider = QSlider()
+        self.scale_slider.setMinimum(1)
+        self.scale_slider.setMaximum(20)
+        self.scale_slider.setValue(10)
+        self.scale_slider.setOrientation(Qt.Horizontal)
+        self.scale_slider.setMaximumWidth(200)
+        self.scale_slider.valueChanged.connect(lambda: label.setText("Ratio: {:.1f} ".format(self.scale_slider.value()/10)))
+        tb.addWidget(self.scale_slider)
+
 
         self.tab.addTab(helper, "Sketch")
         self.graph_tab = self.tab.addTab(self.sc, "Graph")
@@ -667,7 +681,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 }
             )
 
-            points, trees = self.sketch.getPoints()
+            points, trees = self.sketch.getPoints(self.scale_slider.value()/10/10)
             for p in points:
                 graph.add_node(p)
 

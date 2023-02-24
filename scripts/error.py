@@ -1,6 +1,5 @@
 import numpy as np
 import pyvista as pv
-from src.subt_proc_gen.tunnel import TunnelNetwork
 from pointcloud_from_graph import pc_from_graph
 from subt_proc_gen.helper_functions import *
 from subt_proc_gen.tunnel import *
