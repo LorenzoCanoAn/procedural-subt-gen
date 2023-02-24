@@ -43,7 +43,7 @@ def get_mesh_points_of_tunnel(tunnel, meshing_params):
         angles = np.linspace(0, 2 * math.pi, n_a).reshape([-1, 1])
         radiuses = np.array([noise(n / N, a) for a in angles]).reshape([-1, 1])
         u1, u2 = get_two_perpendicular_vectors_to_vector(av)
-        normals_ = u1 * np.sin(angles) + u2 * np.cos(angles)
+        normals_ = -(u1 * np.sin(angles) + u2 * np.cos(angles))
         normals_ /= np.linalg.norm(normals_, axis=1).reshape([-1, 1])
         points_ = ap + normals_ * radiuses
         start = n * n_a
@@ -67,6 +67,9 @@ def get_mesh_points_of_tunnel(tunnel, meshing_params):
             - meshing_params["floor_to_axis_distance"]
         )
         floor_normals[:, :] = np.array([0, 0, 1]).reshape(1, 3)
+    else:
+        floor_points = np.zeros((0, 3))
+        floor_normals = np.zeros((0, 3))
     return points, normals, floor_points, floor_normals, noise  # so the shape is Nx3
 
 
@@ -93,7 +96,7 @@ class TunnelNoiseGenerator:
         self.lenght = length
         self.radius = meshing_params["radius"]
         self.roughness = meshing_params["roughness"]
-        self.seed = time.time_ns()
+        self.seed = 3  # time.time_ns()
         self.noise1 = PerlinNoise(octaves=length * self.roughness, seed=self.seed)
         self.noise2 = PerlinNoise(octaves=length * self.roughness * 2, seed=self.seed)
         self.noise3 = PerlinNoise(octaves=length * self.roughness * 4, seed=self.seed)
@@ -284,11 +287,6 @@ class TunnelNetworkWithMesh:
             )
             print(f"Time: {(ns()-start)*1e-9:<5.2f} s", end=" // ")
             print(f"{self._tunnels_with_mesh[-1].n_points:<5} points")
-        for intersection in self._tunnel_network.intersections:
-            for tunnel in intersection.tunnels:
-                ti = TunnelWithMesh.tunnel_to_tunnelwithmesh(tunnel).add_intersection(
-                    intersection
-                )
 
     def clean_intersections(self):
         n_intersections = len(self._tunnel_network.intersections)
@@ -303,6 +301,7 @@ class TunnelNetworkWithMesh:
                     assert isinstance(tnmi, Tunnel)
                     if tnmi is tnmj:
                         continue
+                    print("Hola")
                     ti = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmi)
                     tj = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmj)
                     assert isinstance(ti, TunnelWithMesh)

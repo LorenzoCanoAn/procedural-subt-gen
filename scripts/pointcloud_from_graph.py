@@ -150,5 +150,5 @@ class MyMainWindow(MainWindow):
 
 if __name__ == "__main__":
     plotter = pv.Plotter()
-    pc_from_graph(plotter, 0.00001)
+    pc_from_graph(plotter, 0.1)
     plotter.show()
