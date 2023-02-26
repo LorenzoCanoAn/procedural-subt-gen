@@ -14,7 +14,7 @@ import pyvista as pv
 import os
 
 interactive = False
-save_file_name = "mesh_generation_4"
+save_file_name = "intersection_cleaning_4"
 if interactive:
     window_size = 1000, 1000
     size_mult = 1
@@ -26,20 +26,22 @@ arrow_color = ["r", "r"]
 axis_point_color = ["b", "b"]
 backgroudn_color = "white"
 axis_point_radius = 0.1
+plot_axis_related_things = True
 plot_pointcloud_without_noise = True
-noise = 0.3
+noise = 0.0
 flatten_floor = True
 size_of_points = 30
-first_ring_color = "c"
-rest_of_the_points_color = "gray"
-floor_points_color = "orange"
-first_ring_separation_number = N_ANGLES_PER_CIRCLE - 19 * flatten_floor
-show = [True, True, flatten_floor]
+t1_pts_to_del_color = "y"
+t2_pts_to_del_color = "y"
+
+show = [True, True, False]
 
 
 def main():
     save_path_1 = os.path.join(save_folder, save_file_name + "_1.png")
     save_path_2 = os.path.join(save_folder, save_file_name + "_2.png")
+    fig = plt.figure(figsize=(10, 10))
+    plt.tight_layout(pad=0, w_pad=0, h_pad=0)
     # Generate the graph
     graph = TunnelNetwork()
     central_node = CaveNode()
@@ -61,7 +63,10 @@ def main():
     tunnel_params["starting_direction"] = angles_to_vector(
         (np.deg2rad(-50), np.deg2rad(0))
     )
+    tunnel_2 = Tunnel(graph, tunnel_params)
+    tunnel_2.compute(tunnel_1.nodes[2])
     axis_points_1 = tunnel_1.spline.discretize(MIN_DIST_OF_MESH_POINTS)[1]
+    axis_points_2 = tunnel_2.spline.discretize(MIN_DIST_OF_MESH_POINTS)[1]
 
     ####################################################################################################################################
     # 	PLOT THE AXIS-RELATED THINGS
@@ -69,31 +74,34 @@ def main():
     plotter = pv.Plotter(off_screen=not interactive)
     plotter.set_background("white")
     plotter.window_size = window_size
-    # Plot the arrows
-    for n_axis, axis_points in enumerate([axis_points_1]):
-        for n_point in range(1, len(axis_points_1)):
-            start = axis_points[n_point - 1]
-            end = axis_points[n_point]
-            direction = end - start
-            arrow = pv.Arrow(
-                start=start,
-                direction=direction,
-                tip_length=0.25 / MIN_DIST_OF_MESH_POINTS,
-                tip_radius=0.1 / MIN_DIST_OF_MESH_POINTS,
-                shaft_radius=0.05 / MIN_DIST_OF_MESH_POINTS,
-                scale=MIN_DIST_OF_MESH_POINTS,
-            )
-            plotter.add_mesh(arrow, color=arrow_color[n_axis])
-    # Plot Spheres
-    for n_axis, axis_points in enumerate([axis_points_1]):
-        for n_point, axis_point in enumerate(axis_points):
-            if n_point == len(axis_points_1) - 1:
-                continue
-            sphere = pv.Sphere(
-                radius=axis_point_radius,
-                center=axis_point,
-            )
-            plotter.add_mesh(sphere, color=axis_point_color[n_axis])
+    if plot_axis_related_things:
+        # Plot the arrows
+        all_axis_arrows = [[], []]
+        for n_axis, axis_points in enumerate([axis_points_1, axis_points_2]):
+            for n_point in range(1, len(axis_points_1)):
+                start = axis_points[n_point - 1]
+                end = axis_points[n_point]
+                direction = end - start
+                arrow = pv.Arrow(
+                    start=start,
+                    direction=direction,
+                    tip_length=0.25 / MIN_DIST_OF_MESH_POINTS,
+                    tip_radius=0.1 / MIN_DIST_OF_MESH_POINTS,
+                    shaft_radius=0.05 / MIN_DIST_OF_MESH_POINTS,
+                    scale=MIN_DIST_OF_MESH_POINTS,
+                )
+                plotter.add_mesh(arrow, color=arrow_color[n_axis])
+        # Create the spheres
+        all_axis_spheres = [[], []]
+        for n_axis, axis_points in enumerate([axis_points_1, axis_points_2]):
+            for n_point, axis_point in enumerate(axis_points):
+                if n_point == len(axis_points_1) - 1:
+                    continue
+                sphere = pv.Sphere(
+                    radius=axis_point_radius,
+                    center=axis_point,
+                )
+                plotter.add_mesh(sphere, color=axis_point_color[n_axis])
 
     ####################################################################################################################################
     # 	Plot the pointcloud
@@ -108,39 +116,66 @@ def main():
             }
         )
         twm1 = TunnelWithMesh(tunnel_1, meshing_params=params)
+        twm2 = TunnelWithMesh(tunnel_2, meshing_params=params)
         pts1 = twm1.central_points
-        first_ring_points = pts1[:first_ring_separation_number]
-        rest_of_the_points = pts1[first_ring_separation_number:]
-        floor_points = twm1._floor_points
+        pts2 = twm2.central_points
+        ids1 = []
+        ids2 = []
+        for id1, pt1 in enumerate(pts1):
+            if twm2.is_point_inside(pt1):
+                ids1.append(id1)
+        for id2, pt2 in enumerate(pts2):
+            if twm1.is_point_inside(pt2):
+                ids2.append(id2)
+        pts1_nok = pts1[ids1]
+        pts2_nok = pts2[ids2]
+        pts1_ok = np.delete(pts1, ids1, axis=0)
+        pts2_ok = np.delete(pts2, ids2, axis=0)
+        pts1_ok = np.concatenate([pts1_ok, twm1._floor_points], axis=0)
+        pts2_ok = np.concatenate([pts2_ok, twm2._floor_points], axis=0)
+        pc1_ok = pv.PolyData(pts1_ok)
+        pc2_ok = pv.PolyData(pts2_ok)
+        pc1_nok = pv.PolyData(pts1_nok)
+        pc2_nok = pv.PolyData(pts2_nok)
         if show[0]:
             plotter.add_mesh(
-                first_ring_points,
-                color=first_ring_color,
+                pc1_ok,
+                color="g",
+                show_scalar_bar=False,
                 render_points_as_spheres=True,
                 point_size=size_of_points * size_mult,
             )
         if show[1]:
             plotter.add_mesh(
-                rest_of_the_points,
-                color=rest_of_the_points_color,
+                pc2_ok,
+                color="m",
+                show_scalar_bar=False,
                 render_points_as_spheres=True,
                 point_size=size_of_points * size_mult,
             )
         if show[2]:
             plotter.add_mesh(
-                floor_points,
-                color=floor_points_color,
+                pc1_nok,
+                color=t1_pts_to_del_color,
+                show_scalar_bar=False,
                 render_points_as_spheres=True,
                 point_size=size_of_points * size_mult,
             )
-
+        if show[3]:
+            plotter.add_mesh(
+                pc2_nok,
+                color=t2_pts_to_del_color,
+                show_scalar_bar=False,
+                render_points_as_spheres=True,
+                point_size=size_of_points * size_mult,
+            )
     # CAMERA PARAMETERS
-    cpos1 = (-15.945418823045705, -1.0636138978704643, 13.898379345134758)
-    cfpt1 = (13.035282192024912, -0.41908787282745563, -4.054063608336675)
-    cr1 = 79.4557275207785
-    cpos2 = (-11.843470490563574, 6.59792186315452, 7.735660994695985)
-    cfpt2 = (11.922466606554108, -3.59260552114094, -3.4623617162215345)
-    cr2 = 99.23827287385221
+    cpos1 = (12.263109855335816, -15.439865265681345, 9.341490494085114)
+    cfpt1 = (18.52788972550311, -4.1186584686806444, 0.08970480496248534)
+    cr1 = 46.71755840988013
+    cpos2 = (32.359539537453045, -7.064128555564271, 9.00584406349876)
+    cfpt2 = (18.993666752563772, -3.984861227766646, 0.9507657881694531)
+    cr2 = -80.07716059069989
     _ = plotter.add_axes(
         line_width=5,
         cone_radius=0.6,

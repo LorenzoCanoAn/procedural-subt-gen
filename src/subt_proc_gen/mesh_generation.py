@@ -96,12 +96,19 @@ class TunnelNoiseGenerator:
         self.lenght = length
         self.radius = meshing_params["radius"]
         self.roughness = meshing_params["roughness"]
-        self.seed = 3  # time.time_ns()
-        self.noise1 = PerlinNoise(octaves=length * self.roughness, seed=self.seed)
-        self.noise2 = PerlinNoise(octaves=length * self.roughness * 2, seed=self.seed)
-        self.noise3 = PerlinNoise(octaves=length * self.roughness * 4, seed=self.seed)
+        self.seed = 1677436382510714946  # time.time_ns()
+        if self.roughness != 0.0:
+            self.noise1 = PerlinNoise(octaves=length * self.roughness, seed=self.seed)
+            self.noise2 = PerlinNoise(
+                octaves=length * self.roughness * 2, seed=self.seed
+            )
+            self.noise3 = PerlinNoise(
+                octaves=length * self.roughness * 4, seed=self.seed
+            )
 
     def __call__(self, d, angle):
+        if self.roughness == 0:
+            return self.radius
         l = angle * self.radius / self.lenght
         n1 = self.noise1((d, l))
         n2 = self.noise2((d, l))
@@ -287,6 +294,11 @@ class TunnelNetworkWithMesh:
             )
             print(f"Time: {(ns()-start)*1e-9:<5.2f} s", end=" // ")
             print(f"{self._tunnels_with_mesh[-1].n_points:<5} points")
+        for intersection in self._tunnel_network.intersections:
+            for tunnel in intersection.tunnels:
+                ti = TunnelWithMesh.tunnel_to_tunnelwithmesh(tunnel).add_intersection(
+                    intersection
+                )
 
     def clean_intersections(self):
         n_intersections = len(self._tunnel_network.intersections)
