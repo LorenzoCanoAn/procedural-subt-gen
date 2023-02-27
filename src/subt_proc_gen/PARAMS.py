@@ -13,7 +13,6 @@ TUNNEL_AVG_RADIUS = 2  # meters
 
 # Distance at which points are considered part of an intersection
 INTERSECTION_DISTANCE = 10
-HORIZONTAL_EXCLUSION_DISTANCE = 0.5
 
 COLORS = (
     array((255, 0, 0)) / 255.0,
