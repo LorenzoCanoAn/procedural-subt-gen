@@ -42,7 +42,7 @@ def tunnel_interesects_with_list(tunnel: Tunnel, list_of_tunnels):
     return False
 
 
-def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius=5):
+def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius=5, meshing_params = None):
 #    fig = plt.figure(figsize=(10, 10))
     if not tunnel_network:
         # Generate the vertices of the mesh
@@ -51,14 +51,19 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
 
     # Order the tunnels so that the meshes intersect
     assert isinstance(tunnel_network, TunnelNetwork)
-    print("Looping oover tunnel network")
+    print("Looping over tunnel network")
     if True:
+
+        if meshing_params is None:
+            meshing_params = TunnelMeshingParams(
+                {"roughness": roughness, "radius": radius, "floor_to_axis_distance": radius / 4}
+            )
+
         tunnel_network_with_mesh = TunnelNetworkWithMesh(
             tunnel_network,
-            meshing_params=TunnelMeshingParams(
-                {"roughness": roughness, "radius": radius, "floor_to_axis_distance": radius/4}
-            ),
+            meshing_params=TunnelMeshingParams(meshing_params),
         )
+
         tunnel_network_with_mesh.clean_intersections()
         points, normals = tunnel_network_with_mesh.mesh_points_and_normals()
         # plotter = pv.Plotter()

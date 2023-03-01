@@ -2,6 +2,7 @@ import os
 import sys
 
 import matplotlib
+import pyvista
 import yaml
 
 matplotlib.use("Qt5Agg")
@@ -114,7 +115,13 @@ class Sketch(QLabel):
                 for i, node in enumerate(self.points):
                     node.index = i
 
-            self.p1 = self.current_tree[-1]
+            if len(self.current_tree) > 1:
+                self.p1 = self.current_tree[-1]
+            else:
+                self.current_tree=[]
+                self.p1 = None
+                self.p2 = None
+
             self.update()
 
     def load(self, filename):
@@ -358,6 +365,7 @@ class Sketch(QLabel):
             painter.drawLine(self.p1, self.p2)
 
         if self.p1:
+            painter.setPen(QPen(self.colors[self.color_index]))
             painter.drawEllipse(self.p1, 15, 15)
 
         if len(self.points) > 0:
@@ -489,8 +497,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # vb.addWidget(rend)
 
         self.frame = QFrame()
-
+        self.frame2 = QFrame()
         self.plotter = QtInteractor(self.frame)
+        self.plotter2 = QtInteractor(self.frame2)
+
         vlayout = QVBoxLayout()
 
         render_tb = QToolBar()
@@ -505,9 +515,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.radius_slider.setMaximum(8)
         self.radius_slider.setTickInterval(1)
 
+        self.floor_slider = QSlider(Qt.Horizontal)
+        self.floor_slider.setValue(1)
+        self.floor_slider.setMinimum(0)
+        self.floor_slider.setMaximum(8)
+        self.floor_slider.setTickInterval(1)
+
         # self.slider.setSingleStep(100)
         self.slider.valueChanged.connect(self.slider_changed)
         self.radius_slider.valueChanged.connect(self.radius_slider_changed)
+        self.floor_slider.valueChanged.connect(self.floor_slider_changed)
+
+
         render_tb.addAction("Go", self.rendera).setIcon(
             QIcon.fromTheme("media-playback-start")
         )
@@ -523,10 +542,20 @@ class MainWindow(QtWidgets.QMainWindow):
         render_tb.addWidget(QLabel("Radius: "))
         render_tb.addWidget(self.radius_label)
         render_tb.addWidget(self.radius_slider)
+
         render_tb.addSeparator()
+
+        render_tb.addWidget(QLabel("Floor: "))
+        self.floor_label = QLabel("1")
+        render_tb.addWidget(self.floor_label)
+        render_tb.addWidget(self.floor_slider)
 
         vlayout.addWidget(render_tb)
         vlayout.addWidget(self.plotter.interactor)
+
+        vvlayout = QVBoxLayout()
+        vvlayout.addWidget(self.plotter2.interactor)
+        self.frame2.setLayout(vvlayout)
 
         self.frame.setLayout(vlayout)
 
@@ -568,8 +597,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.tab.addTab(helper, "Sketch")
         self.graph_tab = self.tab.addTab(self.sc, "Graph")
+
         self.tab.addTab(self.frame, "Render")
         self.tab.setTabEnabled(2, False)
+
+        self.tab.addTab(self.frame2, "Mesh")
+        self.tab.setTabEnabled(3, False)
 
         self.frame = QFrame()
         self.lay.addWidget(self.tab)
@@ -588,6 +621,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def radius_slider_changed(self):
         self.radius_label.setText(str(self.radius_slider.value()) + " ")
+
+    def floor_slider_changed(self):
+        self.floor_label.setText(str(self.floor_slider.value()) + " ")
 
     def save_yaml(self):
         dest, _ = QFileDialog.getSaveFileName(
@@ -635,6 +671,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self.doing()
         elif num == 2:
             pass  # self.rendera()
+        elif num == 3:
+            mesh = pyvista.read(self.model_path + "mesh.obj")
+            mesh = mesh.clip('x', invert=False, origin=(2,0,0))
+
+            self.plotter2.remove_all_lights()
+            pyvista.global_theme.color = 'red'
+            self.plotter2.clear()
+            self.plotter2.enable_shadows()
+            self.plotter2.set_background(color='w')
+            self.plotter2.add_mesh(mesh, show_edges=True)#,     ambient=0.2,  diffuse=0.5,    specular=0.5,    specular_power=90,)
+            #self.plotter2.disable_anti_aliasing()
 
     def doing(self):
         if not self.config.get("last"):
@@ -647,9 +694,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #        isExist = os.path.exists(models_base_dir)
         # if not isExist:
         self.model_name = os.path.basename(os.path.splitext(self.config.get("last"))[0])
-        self.model_path = (
-            self.config.get("models_base_dir") + os.sep + self.model_name + os.sep
-        )
+        self.model_path = self.config.get("models_base_dir") + os.sep + self.model_name + os.sep
         os.makedirs(self.model_path, exist_ok=True)
 
         self.fig.clear()
@@ -670,36 +715,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plotter.clear()
         window = self
 
+
+
         class Runn(QRunnable):
-            def __init__(self, plotter, graph, roughness, radius):
+            def __init__(self, callback):
                 super().__init__()
-                self.plotter = plotter
-                self.graph = graph
-                self.roughness = roughness
-                self.radius = radius
-
-                class Helper(QObject):
-                    done = pyqtSignal()
-
-                self.helper = Helper()
+                self.callback = callback
 
             def run(self) -> None:
-                print("AHHHH")
-                proj_points, proj_normals = pc_from_graph(
-                    self.plotter,
-                    self.roughness,
-                    self.graph,
-                    window.model_path + "mesh.obj",
-                    radius=self.radius,
-                )
-                f = open(window.model_path + "model.config", "w")
-                f.write(window.model_config.replace("$name$", window.model_name))
-                f.close()
-                f = open(window.model_path + "model.sdf", "w")
-                f.write(window.model_sdf.replace("$name$", window.model_name))
-                f.close()
-                np.savetxt(window.model_path + "contour.csv", proj_points)
-                self.helper.done.emit()
+                self.callback()
 
         self.tab.setCurrentIndex(2)
         self.pd = QProgressDialog(self)
@@ -713,8 +737,29 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             roughness = self.slider.value() / 1000
 
-        run = Runn(self.plotter, self.graph, roughness, self.radius_slider.value())
-        run.helper.done.connect(lambda: self.pd.hide())
+        def process():
+            meshing_params = {"roughness": roughness, "radius": self.radius_slider.value(), "floor_to_axis_distance": self.floor_slider.value()}
+            proj_points, proj_normals = pc_from_graph(
+                self.plotter,
+                roughness,
+                self.graph,
+                window.model_path + "mesh.obj",
+                radius=self.radius_slider.value(), meshing_params=meshing_params
+            )
+
+            f = open(window.model_path + "model.config", "w")
+            f.write(window.model_config.replace("$name$", window.model_name))
+            f.close()
+            f = open(window.model_path + "model.sdf", "w")
+            f.write(window.model_sdf.replace("$name$", window.model_name))
+            f.close()
+            np.savetxt(window.model_path + "contour.csv", proj_points)
+            #self.helper.done.emit()
+            self.tab.setTabEnabled(3, True)
+            self.pd.hide()
+
+        run = Runn(process)
+#        run.helper.done.connect(lambda: self.pd.hide())
         QThreadPool.globalInstance().start(run)
 
     def maino(self, canvas, c, poses=None):

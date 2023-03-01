@@ -6,15 +6,16 @@ import sys
 
 import matplotlib
 import rospy
+import tf
 from gazebo_msgs.msg import ModelState, ModelStates
-from geometry_msgs.msg import Pose, Twist
+from geometry_msgs.msg import Pose, Twist, PoseStamped
 from nav_msgs.msg import Odometry
 from matplotlib import pyplot as plt
 from std_msgs.msg import Float32, Float32MultiArray
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
 matplotlib.use('Qt5Agg')
-from slibon.msg import CnnResult
+from slibon.msg import CnnResult, Circle
 
 from PyQt5.QtWidgets import QMenuBar, QVBoxLayout, QWidget, QPushButton, QHBoxLayout, QFrame, QSplitter, \
     QLabel, QGridLayout, QLineEdit, QComboBox, QFileDialog
@@ -375,18 +376,40 @@ class MainWindow(QtWidgets.QMainWindow):
                     def do_move():
                         m = ModelState()
                         m.model_name = "quadrotor"
-                        m.pose.position.x = poses[self.i, 1]
-                        m.pose.position.y = poses[self.i, 2]
-                        m.pose.position.z = poses[self.i, 3]
+
                         vector = (poses[self.i, 4], poses[self.i, 5])
+                        perp = [-poses[self.i, 5], poses[self.i, 4]]
+
                         angle = np.arctan2(vector[1], vector[0])
 
-                        q = quaternion_from_euler(0, 0, angle)
+                        print("I:", self.i)
+                        if self.i >3750:
+                            dy = math.cos(self.i*0.025)
+                            m.pose.position.x = poses[self.i, 1] + perp[0]*dy
+                            m.pose.position.y = poses[self.i, 2] + perp[1]*dy
+                        else:
+                            m.pose.position.x = poses[self.i, 1]
+                            m.pose.position.y = poses[self.i, 2]
+
+                        m.pose.position.z = poses[self.i, 3]+0.5
+
+                        dyaw = math.cos(self.i*0.05/4)*40
+                        if self.i > 2500:
+                            droll = math.cos(self.i * 0.025/4 + 0.4) * 20
+                        else:
+                            droll = 0
+
+                        if self.i > 1250:
+                            dpitch = math.cos(self.i * 0.07/4 + 1) * 20
+                        else:
+                            dpitch = 0
+
+                        q = quaternion_from_euler(droll*3.14/180, dpitch*3.14/180, angle+dyaw*3.14/180)
                         m.pose.orientation.x = q[0]
                         m.pose.orientation.y = q[1]
                         m.pose.orientation.z = q[2]
                         m.pose.orientation.w = q[3]
-                        print(m.pose.position.x)
+#                        print(m.pose.position.x)
 
                         if self.record_btn.isChecked():
                             self.i = self.i + 1
@@ -395,9 +418,10 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.i = 0
 
                         self.pub.publish(m)
+                        self.moved=50
 
                     self.a.timeout.connect(lambda: do_move())
-                    self.a.start(25)
+                    self.a.start(100)
             else:
                 self.a.stop()
 
@@ -431,10 +455,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 self.f = open(model_folder + os.sep + "poses.csv", "w")
                 spline = np.loadtxt(model_folder + os.sep + "spline.csv")
+                self.listener = tf.TransformListener()
 
                 def callback_cnn(angle: CnnResult):
+                    print(self.moved)
+
+                    self.moved = self.moved -1
+
+                    if self.moved > 48:
+                        return
+
                     data = rospy.wait_for_message("/gazebo/model_states", ModelStates)
+
                     speed:Odometry = rospy.wait_for_message("/ground_truth/state", Odometry)
+
+
                     pose: Pose = data.pose[0]
                     r, p, y = euler_from_quaternion([pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w])
 
@@ -458,18 +493,28 @@ class MainWindow(QtWidgets.QMainWindow):
                     spx, spy, spz, spyaw = spline[min_dist_id, 1], spline[min_dist_id, 2], spline[min_dist_id, 3], np.arctan2(spline[min_dist_id, 5],
                                                                                                                               spline[min_dist_id, 4])
 
-                    msg: Float32MultiArray = rospy.wait_for_message("/slibon/circle_car", Float32MultiArray)
+                    msg: Circle = rospy.wait_for_message("/slibon/circle_car", Circle)
+                    pa = PoseStamped()
+                    pa.header.frame_id = "vertical_base_link"
+                    pa.pose.position.x = msg.x
+                    pa.pose.position.y = msg.y
+                    pa.pose.position.z = msg.z
+                    pa.header.stamp = rospy.Time(0)
+
+                    self.listener.waitForTransform("/vertical_base_link", "/world", rospy.Time(0), rospy.Duration(4.0))
+                    pa = self.listener.transformPose("/world", pa)
+                    print(pa.pose.position)
+
 
                     if not self.f.closed:
                         print("distance", covered, self.accumulated_distance)
-                        self.f.write("{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},"
-                                     "{:.3f}\n"
+                        self.f.write("{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f}\n"
                                      .format(pose.position.x, pose.position.y, pose.position.z, r, p, y, spx, spy, spz, spyaw, angle.result,
                                              self.accumulated_distance,
                                              speed.twist.twist.linear.x, speed.twist.twist.linear.y, speed.twist.twist.angular.z,
-                                             msg.data[0], msg.data[1], msg.data[2]))
+                                             pa.pose.position.x,pa.pose.position.y, msg.r))
 
-                self.cnn_sub = rospy.Subscriber("/slibon/cnn_angle", CnnResult, callback_cnn)
+                self.cnn_sub = rospy.Subscriber("/slibon/cnn_angle", CnnResult, callback_cnn, queue_size=1)
 
         self.record_btn = QPushButton("Record Pose")
         self.record_btn.setCheckable(True)
