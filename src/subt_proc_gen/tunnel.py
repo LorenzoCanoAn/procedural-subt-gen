@@ -4,7 +4,7 @@ from subt_proc_gen.graph import Graph, Node
 from subt_proc_gen.PARAMS import *
 from subt_proc_gen.spline import Spline3D
 import numpy as np
-import matplotlib.pyplot as plt
+from random import choice
 from subt_proc_gen.helper_functions import (
     vector_to_angles,
     warp_angle_2pi,
@@ -40,8 +40,6 @@ def correct_direction_of_intersecting_tunnel(
     min_neg_difference, min_pos_difference = np.pi, np.pi
     for n_node, node in enumerate(intersection_node.connected_nodes):
         th1, ph1 = vector_to_angles(node.xyz - intersection_node.xyz)
-        if angle_between_angles(th1, th0) < np.deg2rad(3):
-            return None
         # Angular distance to this connection
         difference = warp_angle_pi(th1 - th0)
         # Is this angular distance the new closest one?
@@ -65,6 +63,8 @@ def correct_direction_of_intersecting_tunnel(
     else:
         thf = th0
     final_direction = angles_to_vector((thf, ph0))
+    print(intersection_node)
+    print(thf)
     return final_direction
 
 
@@ -110,17 +110,17 @@ class TunnelParams(dict):
                 self[key] = params[key]
 
     def random(self):
-        self["distance"] = np.random.uniform(20, 200)
+        self["distance"] = np.random.uniform(40, 100)
         th = np.deg2rad(np.random.uniform(-180, 180))
         ph = np.deg2rad(np.random.uniform(-20, 20))
         self["starting_direction"] = angles_to_vector((th, ph))
-        self["horizontal_tendency"] = np.deg2rad(np.random.uniform(-10, 10))
-        self["horizontal_noise"] = np.deg2rad(np.random.uniform(0, 5))
-        self["vertical_tendency"] = np.deg2rad(np.random.uniform(-5, 5))
-        self["vertical_noise"] = np.deg2rad(np.random.uniform(0, 2))
-        self["segment_length"] = self["distance"] * np.random.uniform(0.1, 0.2)
-        self["segment_length_noise"] = self["segment_length"] / 5
-        self["node_position_noise"] = np.random.uniform(5, 7)
+        self["horizontal_tendency"] = np.deg2rad(np.random.uniform(-40, 40))
+        self["horizontal_noise"] = np.deg2rad(np.random.uniform(0, 20))
+        self["vertical_tendency"] = np.deg2rad(np.random.uniform(-20, 20))
+        self["vertical_noise"] = np.deg2rad(np.random.uniform(0, 10))
+        self["segment_length"] = self["distance"] * np.random.uniform(0.1, 0.15)
+        self["segment_length_noise"] = self["segment_length"] / 3
+        self["node_position_noise"] = np.random.uniform(4, 5)
 
 
 class CaveNode(Node):
@@ -187,6 +187,7 @@ class Tunnel:
             self.success = False
         else:
             self.success = True
+        return self.success
 
     def from_list_of_poses(self, list_of_poses, close=False):
         tp = self._params  # for readability
@@ -195,7 +196,6 @@ class Tunnel:
         for n in list_of_poses:
 
             self.add_node(n)
-            print(n.tunnels)
             # self._nodes.append()
             if parent is not None:
                 self._nodes[-1].connect(self._nodes[parent])
@@ -256,7 +256,7 @@ class Tunnel:
             self._params["starting_direction"], self[0]
         )
         if previous_orientation is None:
-            return False, "Impossible to find a good insertion angle with the tunnel"
+            return False
 
         d = 0
         n = 1
@@ -330,15 +330,15 @@ class Tunnel:
         if not check_insertion_angle_of_candidate_node_for_intersection(
             self[1], self[0]
         ):
-            print("Unsuccessfull grouth: Intersection angle error with first node")
+            print("Unsuccessfull growth: Intersection angle error with first node")
             return False
         if not check_insertion_angle_of_candidate_node_for_intersection(
             self[-2], self[-1]
         ):
-            print("Unsuccessfull grouth: Intersection angle error with second node")
+            print("Unsuccessfull growth: Intersection angle error with second node")
             return False
         if not self.check_collissions():
-            print("Unsuccessfull grouth: Collision check failed")
+            print("Unsuccessfull growth: Collision check failed")
             return False
         return True
 
@@ -385,7 +385,7 @@ class Tunnel:
         self, min_dist=MIN_DIST_OF_TUNNEL_COLLISSIONS
     ):
         discretized_spline_without_tips = self.relevant_points_for_collision(
-            distance_to_intersection=min_dist * 1.5
+            distance_to_intersection=min_dist * 1.5, distance_between_points=1
         )
         for tunnel in self._parent.tunnels:
             if tunnel is self:
@@ -443,6 +443,7 @@ class TunnelNetwork(Graph):
         self._intersections = list()
         self._tunnels = list()
         self._intersections = list()
+        CaveNode()  # This adds a node automatically to the TunnelNetwork
 
     def remove_tunnel(self, tunnel):
         assert tunnel in self._tunnels, Exception(
@@ -468,3 +469,46 @@ class TunnelNetwork(Graph):
             if len(node.tunnels) >= 2:
                 self._intersections.append(node)
         return self._intersections
+
+    def add_random_tunnel_from_initial_node(self, trial_limit=20):
+        n_trials = 0
+        success = False
+        while not success and trial_limit > n_trials:
+            tunnel_params = TunnelParams()
+            tunnel_params.random()
+            tunnel = Tunnel(self, params=tunnel_params)
+            success = tunnel.compute(
+                initial_node=choice(self.nodes),
+            )
+            n_trials += 1
+
+    def add_random_tunnel_from_initial_to_final_node(self, trial_limit=20):
+        n_trials = 0
+        success = False
+        while not success and trial_limit > n_trials:
+            i_node = choice(self.nodes)
+            f_node = choice(self.nodes)
+            assert isinstance(i_node, CaveNode)
+            assert isinstance(f_node, CaveNode)
+            # Check that the nodes are different and are
+            # in different tunnels
+            if i_node is f_node:
+                continue
+            same_tunnel = False
+            for tunnel in i_node.tunnels:
+                if tunnel in f_node.tunnels:
+                    same_tunnel = True
+                    break
+            if same_tunnel:
+                continue
+            tunnel_params = TunnelParams()
+            tunnel_params.random()
+            tunnel = Tunnel(
+                self,
+                params=tunnel_params,
+            )
+            success = tunnel.compute(
+                initial_node=i_node,
+                final_node=f_node,
+            )
+            n_trials += 1

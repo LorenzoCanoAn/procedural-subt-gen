@@ -179,9 +179,8 @@ class Sketch(QLabel):
 
         for tree, color in self.trees:
             dictionary["trees"].append([node.index for node in tree])
-
-        f = open(filename, "w")
-        yaml.dump(dictionary, f)
+        with open(filename, "w") as f:
+            yaml.dump(dictionary, f)
 
     def contextMenuEvent(self, ev: QtGui.QContextMenuEvent) -> None:
         for p in self.points:
