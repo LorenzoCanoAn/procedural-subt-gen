@@ -5,16 +5,33 @@ from enum import Enum
 import yaml
 from PyQt5.QtCore import Qt, QRectF, QRect
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, \
-    QFileDialog, QLineEdit, QLabel, QDialog, QCheckBox, QDialogButtonBox, QComboBox, QFrame, QSizePolicy, QTreeWidget, QTreeWidgetItem, QAbstractItemView, \
-    QScrollArea, QHeaderView, QTextEdit
+from PyQt5.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QPushButton,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QFileDialog,
+    QLineEdit,
+    QLabel,
+    QDialog,
+    QCheckBox,
+    QDialogButtonBox,
+    QComboBox,
+    QFrame,
+    QSizePolicy,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QAbstractItemView,
+    QScrollArea,
+    QHeaderView,
+    QTextEdit,
+)
 
 
 class EasyConfig:
-
-
     class Dialog(QDialog):
-
         def get_expanded(self):
             res = []
 
@@ -55,7 +72,7 @@ class EasyConfig:
                 if value is not None:
                     self.ed.setText(str(value))
                     self.ed.home(True)
-                    self.ed.setSelection(0,0)
+                    self.ed.setSelection(0, 0)
                 self.layout.addWidget(self.ed)
 
             def get_value(self):
@@ -91,7 +108,11 @@ class EasyConfig:
 
             def get_value(self):
                 if self.ed.text() != "":
-                    return base64.encodebytes(self.ed.text().encode()).decode().replace('\n', '')
+                    return (
+                        base64.encodebytes(self.ed.text().encode())
+                        .decode()
+                        .replace("\n", "")
+                    )
                 else:
                     return None
 
@@ -114,7 +135,11 @@ class EasyConfig:
 
         class Float(String):
             def get_value(self):
-                return float(self.ed.text()) if self.ed.text().replace(".", "").isnumeric() else None
+                return (
+                    float(self.ed.text())
+                    if self.ed.text().replace(".", "").isnumeric()
+                    else None
+                )
 
         class Checkbox(QWidget):
             def __init__(self, name, value, pretty):
@@ -145,7 +170,15 @@ class EasyConfig:
                 self.cb.setChecked(value > 0)
 
         class File(String):
-            def __init__(self, name, value, pretty, extra, is_save_dialog = False, is_folder_choice = False):
+            def __init__(
+                self,
+                name,
+                value,
+                pretty,
+                extra,
+                is_save_dialog=False,
+                is_folder_choice=False,
+            ):
                 super().__init__(name, value, pretty)
                 self.btn = QPushButton()
                 self.btn.setIcon(QIcon.fromTheme("document-open"))
@@ -167,13 +200,23 @@ class EasyConfig:
 
             def open_file(self):
                 if self.is_save_dialog:
-                    file_name, _ = QFileDialog.getSaveFileName(self, "Open " + self.extra.upper() + " Document", "",
-                                                               self.extra.upper() + " Files (*." + self.extra + ")")
+                    file_name, _ = QFileDialog.getSaveFileName(
+                        self,
+                        "Open " + self.extra.upper() + " Document",
+                        "",
+                        self.extra.upper() + " Files (*." + self.extra + ")",
+                    )
                 elif self.is_folder_choice:
-                    file_name = QFileDialog.getExistingDirectory(self, "Select Directory", "")
+                    file_name = QFileDialog.getExistingDirectory(
+                        self, "Select Directory", ""
+                    )
                 else:
-                    file_name, _ = QFileDialog.getOpenFileName(self, "Save " + self.extra.upper() + " Document", "",
-                                                               self.extra.upper() + " Files (*." + self.extra + ")")
+                    file_name, _ = QFileDialog.getOpenFileName(
+                        self,
+                        "Save " + self.extra.upper() + " Document",
+                        "",
+                        self.extra.upper() + " Files (*." + self.extra + ")",
+                    )
                 if file_name != "":
                     self.ed.setText(file_name)
 
@@ -189,7 +232,7 @@ class EasyConfig:
             self.widgets = []
 
             self.setMinimumHeight(300)
-            #self.list.setMinimumWidth(500)
+            # self.list.setMinimumWidth(500)
 
             scroll = QScrollArea()
             scroll.setWidget(self.list)
@@ -255,7 +298,9 @@ class EasyConfig:
 
         def add(self, key, kind=Kind.STR, default=None, extra=None, pretty=None):
             pretty = pretty if pretty else key
-            self.addChild(EasyConfig.Elem(key, pretty, kind, default, extra, parent=self))
+            self.addChild(
+                EasyConfig.Elem(key, pretty, kind, default, extra, parent=self)
+            )
             return self
 
         def addString(self, name, pretty=None, default=None):
@@ -274,10 +319,22 @@ class EasyConfig:
             return self.add(name, EasyConfig.Elem.Kind.FLOAT, default, None, pretty)
 
         def addFile(self, name, pretty=None, default=None, extension="txt"):
-            return self.add(name, EasyConfig.Elem.Kind.FILE, default, extension.replace(".", ""), pretty)
+            return self.add(
+                name,
+                EasyConfig.Elem.Kind.FILE,
+                default,
+                extension.replace(".", ""),
+                pretty,
+            )
 
         def addFileSave(self, name, pretty=None, default=None, extension="txt"):
-            return self.add(name, EasyConfig.Elem.Kind.FILE_SAVE, default, extension.replace(".", ""), pretty)
+            return self.add(
+                name,
+                EasyConfig.Elem.Kind.FILE_SAVE,
+                default,
+                extension.replace(".", ""),
+                pretty,
+            )
 
         def addFolderChoice(self, name, pretty=None, default=None):
             return self.add(name, EasyConfig.Elem.Kind.CHOSE_DIR, default, None, pretty)
@@ -286,19 +343,25 @@ class EasyConfig:
             return self.add(name, EasyConfig.Elem.Kind.CHECKBOX, default, None, pretty)
 
         def addCombobox(self, name, pretty=None, items=None):
-            return self.add(name, EasyConfig.Elem.Kind.COMBOBOX, items[0], items, pretty)
+            return self.add(
+                name, EasyConfig.Elem.Kind.COMBOBOX, items[0], items, pretty
+            )
 
         def addChild(self, elem):
             self.child.append(elem)
 
         def addSubSection(self, key, pretty=None):
             pretty = pretty if pretty else key
-            elem = EasyConfig.Elem(key, pretty, EasyConfig.Elem.Kind.SUBSECTION, parent=self)
+            elem = EasyConfig.Elem(
+                key, pretty, EasyConfig.Elem.Kind.SUBSECTION, parent=self
+            )
             self.addChild(elem)
             return elem
 
         def addHidden(self, key):
-            elem = EasyConfig.Elem(key, "@", EasyConfig.Elem.Kind.SUBSECTION, parent=self)
+            elem = EasyConfig.Elem(
+                key, "@", EasyConfig.Elem.Kind.SUBSECTION, parent=self
+            )
             self.addChild(elem)
             return elem
 
@@ -310,9 +373,13 @@ class EasyConfig:
             elif e.kind == EasyConfig.Elem.Kind.FILE:
                 self.w = EasyConfig.Dialog.File(e.key, e.value, e.pretty, e.extra)
             elif e.kind == EasyConfig.Elem.Kind.FILE_SAVE:
-                self.w = EasyConfig.Dialog.File(e.key, e.value, e.pretty, e.extra, is_save_dialog=True)
+                self.w = EasyConfig.Dialog.File(
+                    e.key, e.value, e.pretty, e.extra, is_save_dialog=True
+                )
             elif e.kind == EasyConfig.Elem.Kind.CHOSE_DIR:
-                self.w = EasyConfig.Dialog.File(e.key, e.value, e.pretty, e.extra, is_folder_choice=True)
+                self.w = EasyConfig.Dialog.File(
+                    e.key, e.value, e.pretty, e.extra, is_folder_choice=True
+                )
             elif e.kind == EasyConfig.Elem.Kind.CHECKBOX:
                 self.w = EasyConfig.Dialog.Checkbox(e.key, e.value, e.pretty)
             elif e.kind == EasyConfig.Elem.Kind.COMBOBOX:
@@ -354,7 +421,9 @@ class EasyConfig:
                 if not self.pretty.startswith("@"):
                     for c in self.child:
                         c.collect()
-            elif not self.pretty.startswith("@") and not self.parent.pretty.startswith("@"):
+            elif not self.pretty.startswith("@") and not self.parent.pretty.startswith(
+                "@"
+            ):
                 self.value = self.w.get_value()
 
         def load(self, dic, keys=None):
@@ -384,7 +453,9 @@ class EasyConfig:
                     qtw.setText(0, self.pretty)
                     node.addChild(qtw)
                     node = qtw
-            elif not self.pretty.startswith("@") and not self.parent.pretty.startswith("@"):
+            elif not self.pretty.startswith("@") and not self.parent.pretty.startswith(
+                "@"
+            ):
                 self.create(list, node)
 
             for c in self.child:
@@ -392,7 +463,7 @@ class EasyConfig:
 
     def __init__(self):
         self.root_node = self.Elem("root", "root", EasyConfig.Elem.Kind.ROOT)
-        self.reserved = 'main'
+        self.reserved = "main"
         self.expanded = None
 
     def tab(self):
@@ -456,7 +527,7 @@ class EasyConfig:
 
     def store_easyconfig_info(self, tree):
         if self.expanded:
-            tree["easyconfig"] = {"expanded": ''.join(str(e) for e in self.expanded)}
+            tree["easyconfig"] = {"expanded": "".join(str(e) for e in self.expanded)}
 
     def recover_easyconfig_info(self, tree):
         expanded = tree.get("easyconfig", {}).get("expanded")
@@ -468,7 +539,7 @@ class EasyConfig:
         self.root_node.getDictionary(tree)
         self.store_easyconfig_info(tree)
 
-        with open(filename, 'w') as f:
+        with open(filename, "w") as f:
             yaml.dump(tree, f, sort_keys=False)
 
     def get_node(self, keys):
@@ -481,7 +552,12 @@ class EasyConfig:
 
     def get_nodes(self, key):
         def recu(node, found):
-            if node and key and node.kind != EasyConfig.Elem.Kind.SUBSECTION and (node.key.lower() == key.lower()):  # or node.pretty.lower() == key.lower()):
+            if (
+                node
+                and key
+                and node.kind != EasyConfig.Elem.Kind.SUBSECTION
+                and (node.key.lower() == key.lower())
+            ):  # or node.pretty.lower() == key.lower()):
                 found.append(node)
             for c in node.child:
                 recu(c, found)
@@ -492,7 +568,7 @@ class EasyConfig:
 
     def load(self, filename):
         try:
-            with open(filename, 'r') as f:
+            with open(filename, "r") as f:
                 config = yaml.safe_load(f)
                 self.recover_easyconfig_info(config)
                 self.root_node.load(config)
@@ -507,11 +583,11 @@ class MainWindow(QPushButton):
         self.setGeometry(QRect(100, 100, 100, 100))
 
         self.c = EasyConfig()
-        first_level = self.c.root().addSubSection("first_level","First level")
+        first_level = self.c.root().addSubSection("first_level", "First level")
         first_level.addInt("int", "One int")
         first_level.addInt("float", "One float")
-        second_level = first_level.addSubSection("second_level","Second Level")
-        second_level.addCheckbox("checkbox","The checkbox")
+        second_level = first_level.addSubSection("second_level", "Second Level")
+        second_level.addCheckbox("checkbox", "The checkbox")
         first_level.addInt("float2", "Another float")
         private = self.c.root().addHidden("private")
         more_private = private.addHidden("more_private")

@@ -13,12 +13,9 @@ from subt_proc_gen.helper_functions import (
 import math
 import numpy as np
 from perlin_noise import PerlinNoise
-import time
 import open3d as o3d
 from time import time_ns as ns
 import random
-import pyvista as pv
-import matplotlib.pyplot as plt
 
 
 def get_mesh_points_of_tunnel(tunnel, meshing_params):
@@ -136,10 +133,10 @@ class TunnelMeshingParams(dict):
                 self[key] = params[key]
 
     def random(self):
-        self["roughness"] = np.random.uniform(0.1, 0.2)
-        self["fltatten_floor"] = random.uniform(0, 1) < 0.8
+        self["roughness"] = np.random.uniform(0.3)
+        self["flatten_floor"] = True
         self["floor_to_axis_distance"] = random.uniform(1, 1.5)
-        self["radius"] = random.uniform(3, 3.5)
+        self["radius"] = TUNNEL_AVG_RADIUS
 
 
 class TunnelWithMesh:
@@ -278,9 +275,8 @@ class TunnelNetworkWithMesh:
     """Wrapper around a TunnelNetwork that creates a TunnelWithMesh from each Tunnels
     and implements the intersection-cleaning functions (to remove the interior points in each of the"""
 
-    def __init__(self, tunnel_network, meshing_params):
+    def __init__(self, tunnel_network: TunnelNetwork, i_meshing_params):
         assert isinstance(tunnel_network, TunnelNetwork)
-        assert isinstance(meshing_params, TunnelMeshingParams)
         self._tunnel_network = tunnel_network
         self._tunnels_with_mesh = list()
         for n, tunnel in enumerate(self._tunnel_network.tunnels):
@@ -289,6 +285,11 @@ class TunnelNetworkWithMesh:
                 end=" // ",
             )
             start = ns()
+            if i_meshing_params == "random":
+                meshing_params = TunnelMeshingParams(random=True)
+            else:
+                assert isinstance(i_meshing_params, TunnelMeshingParams)
+                meshing_params = i_meshing_params
             self._tunnels_with_mesh.append(
                 TunnelWithMesh(tunnel, meshing_params=meshing_params)
             )
@@ -305,37 +306,21 @@ class TunnelNetworkWithMesh:
         for n_intersection, intersection in enumerate(
             self._tunnel_network.intersections
         ):
-            print(f"Cleaning intersection {n_intersection+1} out of {n_intersections}")
-            print(f"INTERSECTION AT {intersection.xyz}")
             for tnmi in intersection.tunnels:
                 for tnmj in intersection.tunnels:
                     assert isinstance(tnmj, Tunnel)
                     assert isinstance(tnmi, Tunnel)
                     if tnmi is tnmj:
                         continue
-                    print("Hola")
                     ti = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmi)
                     tj = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmj)
                     assert isinstance(ti, TunnelWithMesh)
                     assert isinstance(tj, TunnelWithMesh)
                     indices_to_delete = []
                     pis = ti.points_at_intersection[intersection]
-                    print(
-                        f"Cleaning {tnmi.spline.length} at intersection {intersection.xyz}"
-                    )
                     for npi, pi in enumerate(pis):
 
                         if tj.is_point_inside(pi):
-                            print(
-                                "{:2.2f}, {:2.2f}, {:2.2f}, {:2.2f}, {:2.2f}, {:2.2f}".format(
-                                    intersection.x,
-                                    intersection.y,
-                                    intersection.z,
-                                    pi[0],
-                                    pi[1],
-                                    pi[2],
-                                )
-                            )
                             indices_to_delete.append(npi)
                     ti.delete_points_in_end(intersection, indices_to_delete)
 
@@ -355,6 +340,26 @@ class TunnelNetworkWithMesh:
                     (mesh_normals, tunnel_with_mesh.all_selected_normals)
                 )
         return mesh_points, mesh_normals
+
+    def compute_mesh(self):
+        points, normals = self.mesh_points_and_normals()
+        mesh, ptcl = mesh_from_vertices(
+            points, normals, method="poisson", poisson_depth=11
+        )
+        simplified_mesh = mesh.simplify_quadric_decimation(
+            int(len(mesh.triangles) * 0.3)
+        )
+        print(f"Original mesh has {len(mesh.triangles)} triangles")
+        print(f"Simplified mesh has {len(simplified_mesh.triangles)} triangles")
+        self.mesh = mesh
+        self.simplified_mesh = simplified_mesh
+        return mesh, simplified_mesh
+
+    def save_mesh(self, file_path):
+        root, extension = os.path.splitext(file_path)
+        simplified_mesh_file_path = root + "_simplified" + extension
+        o3d.io.write_triangle_mesh(file_path, self.mesh)
+        o3d.io.write_triangle_mesh(simplified_mesh_file_path, self.simplified_mesh)
 
 
 def generate_mesh_from_tunnel_network(tunnel_network: TunnelNetwork, path_to_mesh):
