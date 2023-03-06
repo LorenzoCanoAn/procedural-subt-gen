@@ -194,7 +194,6 @@ class Tunnel:
 
         parent = None
         for n in list_of_poses:
-
             self.add_node(n)
             # self._nodes.append()
             if parent is not None:
@@ -295,7 +294,7 @@ class Tunnel:
     def grow_between_nodes(self, initial_node, final_node):
         assert isinstance(initial_node, CaveNode)
         assert isinstance(final_node, CaveNode)
-        diff = final_node.coords - initial_node.coords
+        diff = final_node._coords - initial_node._coords
         dist = np.linalg.norm(diff)
         vect = diff / dist
         n = int(np.ceil(dist / self._params["segment_length"]))
@@ -308,7 +307,7 @@ class Tunnel:
         for d in ds:
             new_node_coords = np.reshape(
                 vect * d
-                + initial_node.coords
+                + initial_node._coords
                 + np.random.uniform(0, self._params["node_position_noise"], (1, 3)),
                 (3,),
             )
@@ -322,7 +321,7 @@ class Tunnel:
         for i in range(1, len(self)):
             n0 = self[i - 1]
             n1 = self[i]
-            vect = n1.coords - n0.coords
+            vect = n1._coords - n0._coords
             th, ph = vector_to_angles(vect)
             if abs(ph) > MAX_SEGMENT_INCLINATION:
                 print("Unsuccessful tunnel: Segment with too much inclination")
