@@ -85,7 +85,7 @@ class Node:
 
     @property
     def connected_nodes(self):
-        return self._connected_node
+        return self._connected_nodes
 
 
 class Graph:
