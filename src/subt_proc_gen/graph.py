@@ -2,36 +2,6 @@
 import numpy as np
 
 
-class Edge:
-    def __init__(self, n0, n1):
-        assert issubclass(type(n0), Node)
-        assert issubclass(type(n1), Node)
-
-        self.nodes = frozenset((n0, n1))
-
-    def __getitem__(self, index):
-        return list(self.nodes[index])
-
-    def __hash__(self):
-        return hash(self.nodes)
-
-    def plot2d(self, ax):
-        nodes = list(self.nodes)
-        x0 = nodes[0].x
-        x1 = nodes[1].x
-        y0 = nodes[0].y
-        y1 = nodes[1].y
-        ax.plot([x0, x1], [y0, y1], c="k")
-
-    def plot3d(self, ax):
-        nodes = list(self.nodes)
-        x0 = nodes[0].x
-        x1 = nodes[1].x
-        y0 = nodes[0].y
-        y1 = nodes[1].y
-        z0 = nodes[0].z
-        z1 = nodes[1].z
-        ax.plot3D([x0, x1], [y0, y1], [z0, z1], c="k")
 
 
 class Node:
@@ -87,6 +57,18 @@ class Node:
     def connected_nodes(self):
         return self._connected_nodes
 
+class Edge:
+    def __init__(self, n0, n1):
+        assert issubclass(type(n0), Node)
+        assert issubclass(type(n1), Node)
+
+        self.nodes = frozenset((n0, n1))
+
+    def __getitem__(self, index):
+        return list(self.nodes[index])
+
+    def __hash__(self):
+        return hash(self.nodes)
 
 class Graph:
     def __init__(self):
