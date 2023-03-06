@@ -5,16 +5,10 @@ import numpy as np
 
 
 class Node:
-    _graph = None
-
     def __init__(self, coords=np.zeros(3)):
         self._graph.add_node(self)
         self._connected_nodes = set()
         self.coords = coords
-
-    @classmethod
-    def set_graph(cls, graph):
-        cls.__graph = graph
 
     def connect(self, node):
         """This function does everything to connect two nodes and update the
@@ -30,12 +24,6 @@ class Node:
     def remove_connection(self, node):
         """This function only deletes a node from the connected nodes set"""
         self._connected_nodes.remove(node)
-
-    def delete(self):
-        for node in self._connected_nodes:
-            assert isinstance(node, Node)
-            node.remove_connection(self)
-        self._graph._nodes.remove(self)
 
     @property
     def xyz(self):
@@ -72,7 +60,6 @@ class Edge:
 
 class Graph:
     def __init__(self):
-        Node._graph = self
         self.recalculate_edges = True
         self._nodes = set()
         self._edges = set()
