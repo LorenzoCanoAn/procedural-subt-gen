@@ -42,13 +42,19 @@ def tunnel_interesects_with_list(tunnel: Tunnel, list_of_tunnels):
     return False
 
 
-def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius=5, meshing_params = None):
-#    fig = plt.figure(figsize=(10, 10))
+def pc_from_graph(
+    plotter,
+    roughness,
+    tunnel_network=None,
+    filename=None,
+    radius=5,
+    meshing_params=None,
+):
+    #    fig = plt.figure(figsize=(10, 10))
     if not tunnel_network:
         # Generate the vertices of the mesh
         with open("datafiles/graph.pkl", "rb") as f:
             tunnel_network = pickle.load(f)
-
     # Order the tunnels so that the meshes intersect
     assert isinstance(tunnel_network, TunnelNetwork)
     print("Looping over tunnel network")
@@ -56,7 +62,11 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
 
         if meshing_params is None:
             meshing_params = TunnelMeshingParams(
-                {"roughness": roughness, "radius": radius, "floor_to_axis_distance": radius / 4}
+                {
+                    "roughness": roughness,
+                    "radius": radius,
+                    "floor_to_axis_distance": radius / 4,
+                }
             )
 
         tunnel_network_with_mesh = TunnelNetworkWithMesh(
@@ -79,8 +89,8 @@ def pc_from_graph(plotter, roughness, tunnel_network=None, filename=None, radius
                 proj_points = np.vstack([proj_points, _proj_points])
                 proj_normals = np.vstack([proj_normals, proj_normals])
 
-            #plt.scatter(x=points[:, 0], y=points[:, 1], c="b")
-        #plt.show()
+            # plt.scatter(x=points[:, 0], y=points[:, 1], c="b")
+        # plt.show()
         np.save("points", points)
         np.save("normals", normals)
     else:

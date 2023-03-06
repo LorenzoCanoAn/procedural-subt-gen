@@ -118,7 +118,7 @@ class Sketch(QLabel):
             if len(self.current_tree) > 1:
                 self.p1 = self.current_tree[-1]
             else:
-                self.current_tree=[]
+                self.current_tree = []
                 self.p1 = None
                 self.p2 = None
 
@@ -246,7 +246,7 @@ class Sketch(QLabel):
 
         nodes = []
         for p in self.points:
-            nodes.append(CCaveNode(p.nppose()*scale))
+            nodes.append(CCaveNode(p.nppose() * scale))
 
         x, y, z = nodes[0].coords
         for n in nodes:
@@ -525,7 +525,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.radius_slider.valueChanged.connect(self.radius_slider_changed)
         self.floor_slider.valueChanged.connect(self.floor_slider_changed)
 
-
         render_tb.addAction("Go", self.rendera).setIcon(
             QIcon.fromTheme("media-playback-start")
         )
@@ -577,10 +576,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sketch.setMinimumHeight(int(1080 * 1.5))
 
         vbox.addWidget(sa)
-        tb.addAction("Save", lambda:self.sketch.save( self.config.get("last"))).setIcon(QIcon.fromTheme('document-save'))
-        tb.addAction("Clear", self.sketch.clear_points).setIcon(QIcon.fromTheme('edit-clear'))
+        tb.addAction("Save", lambda: self.sketch.save(self.config.get("last"))).setIcon(
+            QIcon.fromTheme("document-save")
+        )
+        tb.addAction("Clear", self.sketch.clear_points).setIcon(
+            QIcon.fromTheme("edit-clear")
+        )
         tb.addSeparator()
-        tb.addAction("Delete last", self.sketch.delete_last).setIcon(QIcon.fromTheme('edit-undo'))
+        tb.addAction("Delete last", self.sketch.delete_last).setIcon(
+            QIcon.fromTheme("edit-undo")
+        )
         tb.addSeparator()
         label = QLabel("Scale: 1 ")
         label.setMinimumWidth(70)
@@ -591,7 +596,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.scale_slider.setValue(10)
         self.scale_slider.setOrientation(Qt.Horizontal)
         self.scale_slider.setMaximumWidth(200)
-        self.scale_slider.valueChanged.connect(lambda: label.setText("Ratio: {:.1f} ".format(self.scale_slider.value()/10)))
+        self.scale_slider.valueChanged.connect(
+            lambda: label.setText(
+                "Ratio: {:.1f} ".format(self.scale_slider.value() / 10)
+            )
+        )
         tb.addWidget(self.scale_slider)
 
         self.tab.addTab(helper, "Sketch")
@@ -672,15 +681,17 @@ class MainWindow(QtWidgets.QMainWindow):
             pass  # self.rendera()
         elif num == 3:
             mesh = pyvista.read(self.model_path + "mesh.obj")
-            mesh = mesh.clip('x', invert=False, origin=(2,0,0))
+            mesh = mesh.clip("x", invert=False, origin=(2, 0, 0))
 
             self.plotter2.remove_all_lights()
-            pyvista.global_theme.color = 'red'
+            pyvista.global_theme.color = "red"
             self.plotter2.clear()
             self.plotter2.enable_shadows()
-            self.plotter2.set_background(color='w')
-            self.plotter2.add_mesh(mesh, show_edges=True)#,     ambient=0.2,  diffuse=0.5,    specular=0.5,    specular_power=90,)
-            #self.plotter2.disable_anti_aliasing()
+            self.plotter2.set_background(color="w")
+            self.plotter2.add_mesh(
+                mesh, show_edges=True
+            )  # ,     ambient=0.2,  diffuse=0.5,    specular=0.5,    specular_power=90,)
+            # self.plotter2.disable_anti_aliasing()
 
     def doing(self):
         if not self.config.get("last"):
@@ -693,7 +704,9 @@ class MainWindow(QtWidgets.QMainWindow):
         #        isExist = os.path.exists(models_base_dir)
         # if not isExist:
         self.model_name = os.path.basename(os.path.splitext(self.config.get("last"))[0])
-        self.model_path = self.config.get("models_base_dir") + os.sep + self.model_name + os.sep
+        self.model_path = (
+            self.config.get("models_base_dir") + os.sep + self.model_name + os.sep
+        )
         os.makedirs(self.model_path, exist_ok=True)
 
         self.fig.clear()
@@ -713,8 +726,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.plotter.clear()
         window = self
-
-
 
         class Runn(QRunnable):
             def __init__(self, callback):
@@ -737,15 +748,19 @@ class MainWindow(QtWidgets.QMainWindow):
             roughness = self.slider.value() / 1000
 
         def process():
-            meshing_params = {"roughness": roughness, "radius": self.radius_slider.value(), "floor_to_axis_distance": self.floor_slider.value()}
+            meshing_params = {
+                "roughness": roughness,
+                "radius": self.radius_slider.value(),
+                "floor_to_axis_distance": self.floor_slider.value(),
+            }
             proj_points, proj_normals = pc_from_graph(
                 self.plotter,
                 roughness,
                 self.graph,
                 window.model_path + "mesh.obj",
-                radius=self.radius_slider.value(), meshing_params=meshing_params
+                radius=self.radius_slider.value(),
+                meshing_params=meshing_params,
             )
-
             f = open(window.model_path + "model.config", "w")
             f.write(window.model_config.replace("$name$", window.model_name))
             f.close()
@@ -753,12 +768,12 @@ class MainWindow(QtWidgets.QMainWindow):
             f.write(window.model_sdf.replace("$name$", window.model_name))
             f.close()
             np.savetxt(window.model_path + "contour.csv", proj_points)
-            #self.helper.done.emit()
+            # self.helper.done.emit()
             self.tab.setTabEnabled(3, True)
             self.pd.hide()
 
         run = Runn(process)
-#        run.helper.done.connect(lambda: self.pd.hide())
+        #        run.helper.done.connect(lambda: self.pd.hide())
         QThreadPool.globalInstance().start(run)
 
     def maino(self, canvas, c, poses=None):
@@ -783,7 +798,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 }
             )
 
-            points, trees = self.sketch.getPoints(self.scale_slider.value()/10/10)
+            points, trees = self.sketch.getPoints(self.scale_slider.value() / 10 / 10)
             for p in points:
                 graph.add_node(p)
 

@@ -133,10 +133,10 @@ class TunnelMeshingParams(dict):
                 self[key] = params[key]
 
     def random(self):
-        self["roughness"] = np.random.uniform(0.3)
-        self["flatten_floor"] = True
+        self["roughness"] = np.random.uniform(0, 0.3)
+        self["flatten_floor"] = np.random.choice([True, False])
         self["floor_to_axis_distance"] = random.uniform(1, 1.5)
-        self["radius"] = TUNNEL_AVG_RADIUS
+        self["radius"] = np.random.uniform(3, 5)
 
 
 class TunnelWithMesh:
@@ -183,7 +183,9 @@ class TunnelWithMesh:
             ap, av = aps[n], avs[n]  # axis point and vector
             # u1 and u2 are perpendicular to av. To get u1, you do the cross-product of av
             # with a non paralel vector
-            angles = np.array([80*np.pi/180, np.pi-80*np.pi/180]).reshape([-1, 1]) # TODO:
+            angles = np.array([80 * np.pi / 180, np.pi - 80 * np.pi / 180]).reshape(
+                [-1, 1]
+            )  # TODO:
             radiuses = np.array([noise(n / N, a) for a in angles]).reshape([-1, 1])
             u1, u2 = get_two_perpendicular_vectors_to_vector(av)
             normals_ = u1 * np.cos(angles) + u2 * np.sin(angles)
@@ -277,6 +279,7 @@ class TunnelNetworkWithMesh:
 
     def __init__(self, tunnel_network: TunnelNetwork, i_meshing_params):
         assert isinstance(tunnel_network, TunnelNetwork)
+        self.tunnel_to_tunnel_with_mesh = {}
         self._tunnel_network = tunnel_network
         self._tunnels_with_mesh = list()
         for n, tunnel in enumerate(self._tunnel_network.tunnels):
@@ -293,11 +296,12 @@ class TunnelNetworkWithMesh:
             self._tunnels_with_mesh.append(
                 TunnelWithMesh(tunnel, meshing_params=meshing_params)
             )
+            self.tunnel_to_tunnel_with_mesh[tunnel] = self._tunnels_with_mesh[-1]
             print(f"Time: {(ns()-start)*1e-9:<5.2f} s", end=" // ")
             print(f"{self._tunnels_with_mesh[-1].n_points:<5} points")
         for intersection in self._tunnel_network.intersections:
             for tunnel in intersection.tunnels:
-                ti = TunnelWithMesh.tunnel_to_tunnelwithmesh(tunnel).add_intersection(
+                ti = self.tunnel_to_tunnel_with_mesh[tunnel].add_intersection(
                     intersection
                 )
 
@@ -306,23 +310,26 @@ class TunnelNetworkWithMesh:
         for n_intersection, intersection in enumerate(
             self._tunnel_network.intersections
         ):
-            for tnmi in intersection.tunnels:
-                for tnmj in intersection.tunnels:
-                    assert isinstance(tnmj, Tunnel)
-                    assert isinstance(tnmi, Tunnel)
-                    if tnmi is tnmj:
-                        continue
-                    ti = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmi)
-                    tj = TunnelWithMesh.tunnel_to_tunnelwithmesh(tnmj)
-                    assert isinstance(ti, TunnelWithMesh)
-                    assert isinstance(tj, TunnelWithMesh)
-                    indices_to_delete = []
-                    pis = ti.points_at_intersection[intersection]
-                    for npi, pi in enumerate(pis):
+            self.clean_intersection(intersection)
 
-                        if tj.is_point_inside(pi):
-                            indices_to_delete.append(npi)
-                    ti.delete_points_in_end(intersection, indices_to_delete)
+    def clean_intersection(self, intersection):
+        for tnmi in intersection.tunnels:
+            for tnmj in intersection.tunnels:
+                assert isinstance(tnmj, Tunnel)
+                assert isinstance(tnmi, Tunnel)
+                if tnmi is tnmj:
+                    continue
+                ti = self.tunnel_to_tunnel_with_mesh[tnmi]
+                tj = self.tunnel_to_tunnel_with_mesh[tnmj]
+                assert isinstance(ti, TunnelWithMesh)
+                assert isinstance(tj, TunnelWithMesh)
+                indices_to_delete = []
+                pis = ti.points_at_intersection[intersection]
+                for npi, pi in enumerate(pis):
+
+                    if tj.is_point_inside(pi):
+                        indices_to_delete.append(npi)
+                ti.delete_points_in_end(intersection, indices_to_delete)
 
     def mesh_points_and_normals(self):
         mesh_points = None
