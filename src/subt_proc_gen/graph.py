@@ -1,49 +1,62 @@
 """This file contains the graph structure onto which evertything else is built upon"""
 import numpy as np
+from subt_proc_gen.geometry import Point
 
 
 class Node:
-    def __init__(self, coords=None):
-        if coords is None:
-            self._coords = np.zeros((1, 3), dtype=np.double)
-        else:
-            self.set_coords(coords)
+    _global_counter = 0
 
-    def set_coords(self, coords):
-        if isinstance(coords, list) or isinstance(coords, tuple):
-            assert len(coords) == 3
-            self._coords = np.reshape(np.array(coords, dtype=np.ndarray), (1, 3))
-        elif isinstance(coords, np.ndarray):
-            assert coords.size == 3
-            self._coords = np.reshape(coords.astype(np.double), (1, 3))
+    @classmethod
+    def _get_next_id(cls):
+        id = cls._global_counter
+        cls._global_counter += 1
+        return id
+
+    def __init__(self, coords=None):
+        self._id = self._get_next_id()
+        if coords is None:
+            self._pose = Point()
+        else:
+            self._pose = Point(coords)
+
+    def __str__(self):
+        return str(self._id)
 
     @property
     def xyz(self):
-        return self._coords
+        return self._pose.xyz
 
     @property
     def x(self):
-        return self._coords[0]
+        return self._pose.x
 
     @property
     def y(self):
-        return self._coords[1]
+        return self._pose.y
 
     @property
     def z(self):
-        return self._coords[2]
+        return self._pose.z
 
 
 class Edge:
     def __init__(self, n0: Node, n1: Node):
         self._nodes = frozenset((n0, n1))
+        self._hash = hash(self._nodes)
 
     def __hash__(self):
-        return hash(self._nodes)
+        return self._hash
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
+    def __str__(self):
+        n1, n2 = self.nodes
+        return f"({n1}, {n2})"
 
     @property
     def nodes(self):
-        return self._nodes
+        return tuple(self._nodes)
 
 
 class Graph:
@@ -89,11 +102,6 @@ class Graph:
     def are_connected(self, node1: Node, node2: Node):
         return node2 in self._adj_list[node1]
 
-    def assert_unidirectionality(self):
-        for ni in self._adj_list:
-            for nj in self._adj_list[ni]:
-                assert ni in self._adj_list[nj]
-
     @property
     def nodes(self):
         return self._nodes
@@ -132,6 +140,22 @@ class Graph:
         return max([n.z for n in self._nodes])
 
 
+###########################################################################
+# FUNCTIONS
+###########################################################################
+
+
+def assert_unidirectionality(graph: Graph):
+    for ni in graph._adj_list:
+        for nj in graph._adj_list[ni]:
+            assert ni in graph._adj_list[nj]
+
+
+###########################################################################
+# TESTS
+###########################################################################
+
+
 def test1():
     g = Graph()
     n1 = Node()
@@ -142,21 +166,18 @@ def test1():
 
 def test2():
     g = Graph()
-    for _ in range(1000):
+    for _ in range(20000):
         g.add_node(Node(np.random.random(3)))
-    for _ in range(500):
+    for _ in range(1000):
         ni, nj = random.choices(tuple(g.nodes), k=2)
         g.connect(ni, nj)
-
     edges = tuple(g.edges)
-    to_remove = random.choices(edges, k=100)
-
+    to_remove = set(list(set(random.choices(edges, k=500))))
     for n_edge, edge in enumerate(set(to_remove)):
-        print(n_edge)
         assert isinstance(edge, Edge)
         n1, n2 = tuple(edge.nodes)
         g.disconnect(n1, n2)
-    g.assert_unidirectionality()
+    assert_unidirectionality(g)
 
 
 # TESTS
