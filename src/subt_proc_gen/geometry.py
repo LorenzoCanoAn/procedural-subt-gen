@@ -8,7 +8,7 @@ from subt_proc_gen.helper_functions import get_indices_close_to_point
 ###############################################################
 
 
-class Point:
+class Point3D:
     def __init__(self, coords):
         self.set_coords(coords)
 
@@ -21,21 +21,21 @@ class Point:
             self._coords = np.reshape(coords.astype(np.double), (1, 3))
 
     def __sub__(self, other):
-        if isinstance(other, Vector):
-            return Point(self.xyz - other.xyz)
-        elif isinstance(other, Point):
-            return Vector(self.xyz - other.xyz)
+        if isinstance(other, Vector3D):
+            return Point3D(self.xyz - other.xyz)
+        elif isinstance(other, Point3D):
+            return Vector3D(self.xyz - other.xyz)
 
     def __add__(self, other):
-        if isinstance(other, Vector):
-            return Point(self.xyz + other.xyz)
-        elif isinstance(other, Point):
+        if isinstance(other, Vector3D):
+            return Point3D(self.xyz + other.xyz)
+        elif isinstance(other, Point3D):
             raise TypeError("A Point cannot be added other Point")
         else:
             raise TypeError(f"Adding {type(other)} to Point not supported")
 
     def __eq__(self, other):
-        if isinstance(other, Point):
+        if isinstance(other, Point3D):
             return np.all(self.xyz == other.xyz)
         return False
 
@@ -56,7 +56,7 @@ class Point:
         return self._coords
 
 
-class Vector:
+class Vector3D:
     def __init__(self, coords, spherical_coords=False):
         if spherical_coords:
             self.__set_spherical(coords)
@@ -67,25 +67,25 @@ class Vector:
         return self._length
 
     def __add__(self, other):
-        if isinstance(other, Point):
-            return Point(self.xyz + other.xyz)
-        elif isinstance(other, Vector):
-            return Vector(self.xyz + other.xyz)
+        if isinstance(other, Point3D):
+            return Point3D(self.xyz + other.xyz)
+        elif isinstance(other, Vector3D):
+            return Vector3D(self.xyz + other.xyz)
         else:
             raise NotImplementedError(f"Vector does not support adding {type(other)}")
 
     def __sub__(self, other):
-        if isinstance(other, Point):
-            return Point(self.xyz - other.xyz)
-        elif isinstance(other, Vector):
-            return Vector(self.xyz - other.xyz)
+        if isinstance(other, Point3D):
+            return Point3D(self.xyz - other.xyz)
+        elif isinstance(other, Vector3D):
+            return Vector3D(self.xyz - other.xyz)
         else:
             raise NotImplementedError(
                 f"Vector does not support subtracting {type(other)}"
             )
 
     def __eq__(self, other):
-        if isinstance(other, Vector):
+        if isinstance(other, Vector3D):
             return np.all(np.isclose(self.xyz, other.xyz, rtol=1e-10))
         return False
 
@@ -177,21 +177,35 @@ class Spline3D:
     interpolate a series of 3d points along x,y and z"""
 
     def __init__(self, points):
-        self.points = np.array(points)
-        self.distances = [0.0 for _ in range(len(self.points))]
+        for p in points:
+            assert isinstance(p, Point3D)
+        self._points = list(points)
+        self._len = len(self._points)
+        self._point_array = np.zeros(shape=[self._len, 3], dtype=np.double)
+        self._dist_array = np.reshape(
+            np.array([0.0 for _ in range(len(self.points))]), [-1, 1]
+        )
+        for i, p in enumerate(self._points):
+            self._point_array[i, :] = p.xyz
         for i in range(len(points) - 1):
-            self.distances[i + 1] = self.distances[i] + np.linalg.norm(
+            self._dist_array[i + 1] = self._dist_array[i] + np.linalg.norm(
                 points[i + 1] - points[i]
             )
-        self.length = self.distances[-1]
-        degree = 3 if len(self.distances) > 3 else len(self.distances) - 1
-        self.xspline = interpolate.splrep(self.distances, self.points[:, 0], k=degree)
-        self.yspline = interpolate.splrep(self.distances, self.points[:, 1], k=degree)
-        self.zspline = interpolate.splrep(self.distances, self.points[:, 2], k=degree)
+        self._dist = self._dist_array[-1]
+        self._degree = 3 if len(self._dist_array) > 3 else len(self._dist_array) - 1
+        self.xspline = interpolate.splrep(
+            self._dist_array, self.points[:, 0], k=self._degree
+        )
+        self.yspline = interpolate.splrep(
+            self._dist_array, self.points[:, 1], k=self._degree
+        )
+        self.zspline = interpolate.splrep(
+            self._dist_array, self.points[:, 2], k=self._degree
+        )
         self._discretized = dict()
 
     def __call__(self, d):
-        assert d >= 0 and d <= self.length
+        assert d >= 0 and d <= self._dist
         x = interpolate.splev(d, self.xspline)
         y = interpolate.splev(d, self.yspline)
         z = interpolate.splev(d, self.zspline)
@@ -207,9 +221,9 @@ class Spline3D:
     def discretize(self, precision):
         if not precision in self._discretized.keys():
             # number of sampling points
-            nd = int(np.ceil(self.length / precision))
+            nd = int(np.ceil(self._dist / precision))
             # sampling distances
-            ds = np.linspace(0, self.length, nd)
+            ds = np.linspace(0, self._dist, nd)
             # sampled points and directions
             ps, vs = np.zeros([nd, 3]), np.zeros([nd, 3])
             for n, d in enumerate(ds):
@@ -271,20 +285,20 @@ def inclination_to_phi(inclination):
 # TESTING
 ###############################################################
 def test1():
-    p1 = Point(np.random.random([1, 3]))
-    p2 = Point(np.random.random([1, 3]))
+    p1 = Point3D(np.random.random([1, 3]))
+    p2 = Point3D(np.random.random([1, 3]))
     v2 = p1 - p2
-    assert isinstance(v2, Vector)
+    assert isinstance(v2, Vector3D)
     p3 = p2 + v2
-    assert isinstance(p3, Point)
+    assert isinstance(p3, Point3D)
     assert p3 == p1
 
 
 def test2():
-    p1 = Point(np.random.random([1, 3]))
-    p2 = Point(np.random.random([1, 3]))
+    p1 = Point3D(np.random.random([1, 3]))
+    p2 = Point3D(np.random.random([1, 3]))
     v1 = p1 - p2
-    v2 = Vector(v1.ptp, spherical_coords=True)
+    v2 = Vector3D(v1.ptp, spherical_coords=True)
     assert v2 == v1
 
 

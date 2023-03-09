@@ -2,7 +2,7 @@
 and build it as such"""
 from subt_proc_gen.graph import Graph, Node
 from subt_proc_gen.PARAMS import *
-from subt_proc_gen.spline import Spline3D
+from subt_proc_gen.geometry import Spline3D
 import numpy as np
 from random import choice
 from subt_proc_gen.helper_functions import (
@@ -400,7 +400,7 @@ class Tunnel:
 
     def check_self_collissions(self, res=1, min_dist=6):
         spline = self.spline
-        length = spline.length
+        length = spline._dist
         N = int(np.ceil(length / res))
         points = np.zeros((N, 3))
         ds = np.linspace(0, length, N)
@@ -422,7 +422,7 @@ class Tunnel:
 
     @property
     def distance(self):
-        return self.spline.length
+        return self.spline._dist
 
     @property
     def spline(self):

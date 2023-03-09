@@ -1,6 +1,6 @@
 """This file contains the graph structure onto which evertything else is built upon"""
 import numpy as np
-from subt_proc_gen.geometry import Point
+from subt_proc_gen.geometry import Point3D
 
 
 class Node:
@@ -15,9 +15,9 @@ class Node:
     def __init__(self, coords=None):
         self._id = self._get_next_id()
         if coords is None:
-            self._pose = Point()
+            self._pose = Point3D()
         else:
-            self._pose = Point(coords)
+            self._pose = Point3D(coords)
 
     def __str__(self):
         return str(self._id)
@@ -65,6 +65,9 @@ class Graph:
         self._edges = set()
         self._adj_list = dict()
         self._recalculate_edges = True
+
+    def __len__(self):
+        return len(self._nodes)
 
     def add_node(self, node: Node):
         assert isinstance(node, Node)
@@ -149,40 +152,3 @@ def assert_unidirectionality(graph: Graph):
     for ni in graph._adj_list:
         for nj in graph._adj_list[ni]:
             assert ni in graph._adj_list[nj]
-
-
-###########################################################################
-# TESTS
-###########################################################################
-
-
-def test1():
-    g = Graph()
-    n1 = Node()
-    n2 = Node(np.random.random(3))
-    n3 = Node([1, 2, 3])
-    n4 = Node((1, 2, 3))
-
-
-def test2():
-    g = Graph()
-    for _ in range(20000):
-        g.add_node(Node(np.random.random(3)))
-    for _ in range(1000):
-        ni, nj = random.choices(tuple(g.nodes), k=2)
-        g.connect(ni, nj)
-    edges = tuple(g.edges)
-    to_remove = set(list(set(random.choices(edges, k=500))))
-    for n_edge, edge in enumerate(set(to_remove)):
-        assert isinstance(edge, Edge)
-        n1, n2 = tuple(edge.nodes)
-        g.disconnect(n1, n2)
-    assert_unidirectionality(g)
-
-
-# TESTS
-if __name__ == "__main__":
-    import random
-
-    test1()
-    test2()
