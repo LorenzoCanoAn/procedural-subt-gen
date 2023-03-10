@@ -168,7 +168,6 @@ class TunnelWithMesh:
         self.central_normals = np.copy(self._raw_normals)
 
     def get_xy_projection(self, precission=2):
-
         spline = self._tunnel.spline
         noise = self._noise
         # Number of circles along the spline
@@ -275,7 +274,8 @@ class TunnelWithMesh:
 
 class TunnelNetworkWithMesh:
     """Wrapper around a TunnelNetwork that creates a TunnelWithMesh from each Tunnels
-    and implements the intersection-cleaning functions (to remove the interior points in each of the"""
+    and implements the intersection-cleaning functions (to remove the interior points in each of the
+    """
 
     def __init__(self, tunnel_network: TunnelNetwork, i_meshing_params):
         assert isinstance(tunnel_network, TunnelNetwork)
@@ -326,7 +326,6 @@ class TunnelNetworkWithMesh:
                 indices_to_delete = []
                 pis = ti.points_at_intersection[intersection]
                 for npi, pi in enumerate(pis):
-
                     if tj.is_point_inside(pi):
                         indices_to_delete.append(npi)
                 ti.delete_points_in_end(intersection, indices_to_delete)

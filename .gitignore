@@ -1,13 +1,14 @@
 # Config
 /*.yaml
-
+.vscode
 # Visualization files
 screenshots/**
 datafiles/**
 *.png
 *.npy
 devel/**
-
+# Result files
+*.obj
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
