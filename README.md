@@ -52,4 +52,4 @@ This is a visualization tab for the final mesh, that has been saved into the mes
 ![Graph Tab](/README_images/gui_4.png)
 
 ## API
-If there is a need to generate more complex networks in a programatic, an API is provided.
+If there is a need to generate more complex networks in a programatic, an API is provided. To give an idea of how to use it, here is a step-by-step example of one way to use it.
