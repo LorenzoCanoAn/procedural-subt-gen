@@ -37,4 +37,18 @@ After finishing the sketch, it is necessary to save it into a file. The first ti
 The purpose of this tab is to check the final graph in 3D, and ensure that it has the desired shape.
 
 
+![Graph Tab](/README_images/gui_2.png)
 
+### Render Tab
+In this tab it is possible to select the desired parameters that will control the final geometry of the mesh. Currently there are three available parameters:
+1. The roughness of the tunnel walls. This will control the magnitde of the Perlin noise that will be applied to the tunnel walls.
+2. Radius: This parameter controlls the base radius of all the tunnels.
+3. Floor: This controls the distance from the floor to the tunnel axis. The larger the value, the lower the floor will be. If the value is greater than the radius, there will not be a flat floor.
+![Graph Tab](/README_images/gui_3.png)
+
+### Mesh Tab
+This is a visualization tab for the final mesh, that has been saved into the mesh.obj file in the previously selected folder.
+![Graph Tab](/README_images/gui_4.png)
+
+## API
+If there is a need to generate more complex networks in a programatic, an API is provided.
