@@ -1,3 +1,32 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+[project]
+authors = [
+  {name = "Lorenzo Cano", email = "lcano@unizar.es"},
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "matplotlib",
+  "open3d",
+  "perlin_noise",
+  "pyqt5",
+  "pyvista",
+  "pyvistaqt",
+  "pyyaml",
+  "scipy",
+]
+description = "Package to genearate meshes that look like underground environments"
+name = "SubterraneanProceduralGeneration"
+readme = "README.md"
+requires-python = ">=3.7"
+version = "0.0.1"
+[project.urls]
+"Bug Tracker" = "https://github.com/LorenzoCanoAn/procedural-subt-gen/issues"
+"Homepage" = "https://github.com/LorenzoCanoAn/procedural-subt-gen"
+[tool.hatch.build.targets.wheel]
+packages = ["src/*"]
