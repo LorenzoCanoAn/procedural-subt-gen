@@ -19,6 +19,8 @@ class Point3D:
         elif isinstance(coords, np.ndarray):
             assert coords.size == 3
             self._coords = np.reshape(coords.astype(np.double), (1, 3))
+        elif isinstance(coords, Point3D):
+            self._coords = coords.xyz
 
     def __sub__(self, other):
         if isinstance(other, Vector3D):
