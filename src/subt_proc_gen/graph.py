@@ -12,12 +12,9 @@ class Node:
         cls._global_counter += 1
         return id
 
-    def __init__(self, coords=None):
+    def __init__(self, coords):
         self._id = self._get_next_id()
-        if coords is None:
-            self._pose = Point3D()
-        else:
-            self._pose = Point3D(coords)
+        self._pose = Point3D(coords)
 
     def __str__(self):
         return str(self._id)
