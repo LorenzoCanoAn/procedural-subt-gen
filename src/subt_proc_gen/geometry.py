@@ -59,6 +59,11 @@ class Point3D:
 
 
 class Vector3D:
+    @classmethod
+    def from_inclination_yaw_distance(cls, inclination, yaw, distance):
+        phi = inclination_to_phi(inclination)
+        return Vector3D((distance, yaw, phi))
+
     def __init__(self, coords, spherical_coords=False):
         if spherical_coords:
             self.__set_spherical(coords)
