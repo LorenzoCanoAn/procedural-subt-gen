@@ -106,19 +106,73 @@ class TunnelNoiseGenerator:
 
 
 class TunnelMeshingParams:
+    # Default params
+    _default_radius = 4
+    _default_noise_freq = 0.1
+    _default_noise_magn = 1
+    _default_flatten_floor = True
+    _default_fta_distance = 2
+    # Random params
+    _random_radius_interval = (1, 6)
+    _random_noise_freq_interval = (0.3, 0)
+    _random_noise_relative_magn_interval = (0.1, 0.7)
+    _random_flatten_floor_probability = 0.5
+    _random_fta_relative_distance_interval = [0, 1.5]
+
+    @classmethod
+    def from_defaults(cls):
+        return TunnelMeshingParams(
+            radius=cls._default_radius,
+            noise_freq=cls._default_noise_freq,
+            noise_magn=cls._default_noise_magn,
+            flatten_floor=cls._default_flatten_floor,
+            fta_distance=cls._default_fta_distance,
+        )
+
+    @classmethod
+    def random(cls):
+        radius = np.random.uniform(
+            cls._random_radius_interval[0],
+            cls._random_radius_interval[1],
+        )
+        noise_freq = np.random.uniform(
+            cls._random_noise_freq_interval[0],
+            cls._random_noise_freq_interval[1],
+        )
+        noise_magn = radius * np.random.uniform(
+            cls._random_noise_relative_magn_interval[0],
+            cls._random_noise_relative_magn_interval[1],
+        )
+        flatten_floor = cls._random_flatten_floor_probability > np.random.random()
+        fta_distance = radius * np.random.uniform(
+            cls._random_noise_relative_magn_interval[0],
+            cls._random_noise_relative_magn_interval[1],
+        )
+        return TunnelMeshingParams(
+            radius=radius,
+            noise_freq=noise_freq,
+            noise_magn=noise_magn,
+            flatten_floor=flatten_floor,
+            fta_distance=fta_distance,
+        )
+
     def __init__(
-        self, radius=None, roughness=None, flatten_floor=None, fta_distance=None
+        self,
+        radius=None,
+        noise_freq=None,
+        noise_magn=None,
+        flatten_floor=None,
+        fta_distance=None,
     ):
         assert not radius is None
-        assert not roughness is None
+        assert not noise_freq is None
+        assert not noise_magn is None
         assert not flatten_floor is None
         assert not fta_distance is None
-
-    def random(self):
-        self["roughness"] = np.random.uniform(0, 0.3)
-        self["flatten_floor"] = np.random.choice([True, False])
-        self["floor_to_axis_distance"] = random.uniform(1, 1.5)
-        self["radius"] = np.random.uniform(3, 5)
+        self.radius = radius
+        self.noise_freq = noise_freq
+        self.flatter_floor = flatten_floor
+        self.fta_distance = fta_distance
 
 
 class TunnelWithMesh:
