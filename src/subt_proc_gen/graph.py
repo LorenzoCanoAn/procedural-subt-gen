@@ -1,6 +1,6 @@
 """This file contains the graph structure onto which evertything else is built upon"""
 import numpy as np
-from subt_proc_gen.geometry import Point3D
+from subt_proc_gen.geometry import Point3D, Vector3D
 
 
 class Node:
@@ -18,6 +18,14 @@ class Node:
 
     def __str__(self):
         return str(self._id)
+
+    def __add__(self, other):
+        if isinstance(other, Vector3D):
+            return Node(self._pose + other)
+        else:
+            raise NotImplemented(
+                f"Adding a {type(other)} to a {type(self)} not implemented"
+            )
 
     @property
     def xyz(self):
