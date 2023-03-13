@@ -1,4 +1,15 @@
 import os
+from subt_proc_gen.tunnel import Tunnel, Spline3D, CaveNode, TunnelNetwork
+from subt_proc_gen.PARAMS import (
+    TUNNEL_AVG_RADIUS,
+    MIN_DIST_OF_MESH_POINTS,
+    N_ANGLES_PER_CIRCLE,
+    INTERSECTION_DISTANCE,
+)
+from subt_proc_gen.helper_functions import (
+    get_indices_close_to_point,
+    get_two_perpendicular_vectors_to_vector,
+)
 import math
 import numpy as np
 from perlin_noise import PerlinNoise
@@ -105,14 +116,21 @@ class TunnelNoiseGenerator:
         return output
 
 
-class TunnelMeshingParams:
-    def __init__(
-        self, radius=None, roughness=None, flatten_floor=None, fta_distance=None
-    ):
-        assert not radius is None
-        assert not roughness is None
-        assert not flatten_floor is None
-        assert not fta_distance is None
+class TunnelMeshingParams(dict):
+    def __init__(self, params=None, random=False):
+        super().__init__()
+        if random:
+            self.random()
+        else:
+            self["roughness"] = 0.15
+            self["flatten_floor"] = True
+            self["floor_to_axis_distance"] = 1
+            self["radius"] = TUNNEL_AVG_RADIUS
+
+        if not params is None:
+            assert isinstance(params, dict)
+            for key in params.keys():
+                self[key] = params[key]
 
     def random(self):
         self["roughness"] = np.random.uniform(0, 0.3)
