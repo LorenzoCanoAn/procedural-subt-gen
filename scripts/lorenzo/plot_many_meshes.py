@@ -7,7 +7,7 @@ from subt_proc_gen.mesh_generation import (
     TunnelMeshingParams,
     TunnelWithMesh,
 )
-from subt_proc_gen.spline import Spline3D
+from subt_proc_gen.geometry import Spline3D
 import imageio
 import pygifsicle
 import cv2
