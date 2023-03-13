@@ -20,6 +20,23 @@ def plot_edge(plotter: pv.Plotter, edge: Edge, radius=0.1, color="b"):
     )
 
 
+def plot_xyz_axis(plotter: pv.Plotter):
+    pxa, pxb = (0, 0, 0), (50, 0, 0)
+    pya, pyb = (0, 0, 0), (0, 50, 0)
+    pza, pzb = (0, 0, 0), (0, 0, 50)
+    actors = []
+    actors.append(
+        plotter.add_mesh(pv.Tube(pointa=pxa, pointb=pxb, radius=0.5), color="r")
+    )
+    actors.append(
+        plotter.add_mesh(pv.Tube(pointa=pya, pointb=pyb, radius=0.5), color="g")
+    )
+    actors.append(
+        plotter.add_mesh(pv.Tube(pointa=pza, pointb=pzb, radius=0.5), color="b")
+    )
+    return actors
+
+
 def plot_nodes(
     plotter: pv.Plotter,
     nodes: list[Node] | set[Node] | tuple[Node],
