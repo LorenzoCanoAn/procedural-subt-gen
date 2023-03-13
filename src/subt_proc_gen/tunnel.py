@@ -57,11 +57,9 @@ class ConnectorTunnelGenerationParams:
         node_position_horizontal_noise=None,
         node_position_vertical_noise=None,
     ):
-        assert (
-            not segment_length is None
-            and not node_position_horizontal_noise is None
-            and not node_position_vertical_noise is None
-        )
+        assert not segment_length is None
+        assert not node_position_horizontal_noise is None
+        assert not node_position_vertical_noise is None
         self.first_segment_vector = first_segment_vector
         self.last_segment_vector = last_segment_vector
         self.segment_length = segment_length
@@ -82,6 +80,7 @@ class ConnectorTunnelGenerationParams:
 
 
 class GrownTunnelGenerationParams:
+    # Default params
     _default_distance = 100
     _default_initial_direction = Vector3D((1, 0, 0))
     _default_horizontal_tendency_rad = 0
@@ -90,7 +89,7 @@ class GrownTunnelGenerationParams:
     _default_vertical_noise_rad = np.deg2rad(5)
     _default_min_segment_length = 10
     _default_max_segment_lenght = 20
-
+    # Random params
     _random_distance_range = (50, 300)
     _random_intial_inclination_range_deg = (-20, 20)
     _random_horizontal_tendency_range_deg = (-30, 30)
@@ -119,21 +118,18 @@ class GrownTunnelGenerationParams:
             cls._random_distance_range[0],
             cls._random_distance_range[1],
         )
-
         horizontal_tendency_rad = np.deg2rad(
             np.random.uniform(
                 cls._random_horizontal_tendency_range_deg[0],
                 cls._random_horizontal_tendency_range_deg[1],
             )
         )
-
         vertical_tendency_rad = np.deg2rad(
             np.random.uniform(
                 cls._random_vertical_tendency_range_deg[0],
                 cls._random_vertical_tendency_range_deg[1],
             )
         )
-
         horizontal_noise_rad = np.deg2rad(
             np.random.uniform(
                 cls._random_horizontal_noise_range_deg[0],
@@ -177,16 +173,14 @@ class GrownTunnelGenerationParams:
         min_segment_length=None,
         max_segment_length=None,
     ):
-        assert (
-            not distance is None
-            and not initial_direction is None
-            and not horizontal_tendency_rad is None
-            and not vertical_tendency_rad is None
-            and not horizontal_noise_rad is None
-            and not vertical_noise_rad is None
-            and not min_segment_length is None
-            and not max_segment_length is None
-        )
+        assert not distance is None
+        assert not initial_direction is None
+        assert not horizontal_tendency_rad is None
+        assert not vertical_tendency_rad is None
+        assert not horizontal_noise_rad is None
+        assert not vertical_noise_rad is None
+        assert not min_segment_length is None
+        assert not max_segment_length is None
         self.distance = distance
         self.starting_direction = initial_direction
         self.horizontal_tendency = horizontal_tendency_rad
