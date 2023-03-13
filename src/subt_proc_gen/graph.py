@@ -12,8 +12,12 @@ class Node:
         cls._global_counter += 1
         return id
 
+    @classmethod
+    def set_global_counter(cls, global_counter):
+        cls._global_counter = global_counter
+
     def __init__(self, coords):
-        self._id = self._get_next_id()
+        self._id = None
         self._pose = Point3D(coords)
 
     def __str__(self):
@@ -26,6 +30,21 @@ class Node:
             raise NotImplemented(
                 f"Adding a {type(other)} to a {type(self)} not implemented"
             )
+
+    def __sub__(self, other):
+        if isinstance(other, Vector3D):
+            return Node(self._pose - other)
+        elif isinstance(other, Point3D):
+            return self._pose - other
+        elif isinstance(other, Node):
+            return self._pose - other._pose
+        else:
+            raise NotImplemented(
+                f"Adding a {type(other)} to a {type(self)} not implemented"
+            )
+
+    def set_id(self, id):
+        self._id = id
 
     @property
     def xyz(self):
@@ -42,6 +61,12 @@ class Node:
     @property
     def z(self):
         return self._pose.z
+
+    @property
+    def id(self):
+        if self._id is None:
+            self._id = self._get_next_id()
+        return self._id
 
 
 class Edge:
@@ -111,7 +136,7 @@ class Graph:
         return node2 in self._adj_list[node1]
 
     @property
-    def nodes(self):
+    def nodes(self) -> set[Node]:
         return self._nodes
 
     @property

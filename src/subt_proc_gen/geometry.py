@@ -107,7 +107,7 @@ class Vector3D:
     def __set_cartesian(self, coords):
         self._cartesian = coords
         self._length = np.linalg.norm(self._cartesian, axis=1)
-        self._unit_vector = self._cartesian / self.length
+        self._unit_cartesian_vector = self._cartesian / self.length
         self._spherical = np.reshape(
             np.array(
                 (
@@ -141,8 +141,8 @@ class Vector3D:
         return self._length.item()
 
     @property
-    def unitary(self):
-        return self._unit_vector
+    def cartesian_unitary(self):
+        return self._unit_cartesian_vector
 
     @property
     def x(self):
