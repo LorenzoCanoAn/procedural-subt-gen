@@ -61,7 +61,7 @@ def pc_from_graph(
     if True:
 
         if meshing_params is None:
-            meshing_params = TunnelMeshingParams(
+            meshing_params = TunnelPTCLGenParams(
                 {
                     "roughness": roughness,
                     "radius": radius,
@@ -71,7 +71,7 @@ def pc_from_graph(
 
         tunnel_network_with_mesh = TunnelNetworkWithMesh(
             tunnel_network,
-            i_meshing_params=TunnelMeshingParams(meshing_params),
+            i_meshing_params=TunnelPTCLGenParams(meshing_params),
         )
 
         tunnel_network_with_mesh.clean_intersections()

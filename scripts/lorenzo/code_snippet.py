@@ -1,5 +1,5 @@
 from subt_proc_gen.tunnel import TunnelNetwork
-from subt_proc_gen.mesh_generation import TunnelNetworkWithMesh, TunnelMeshingParams
+from subt_proc_gen.mesh_generation import TunnelNetworkWithMesh, TunnelPTCLGenParams
 import pickle
 import pathlib, os, pickle
 import open3d as o3d

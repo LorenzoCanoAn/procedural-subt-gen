@@ -4,7 +4,7 @@ import numpy as np
 from subt_proc_gen.tunnel import TunnelNetwork, Tunnel, CaveNode
 from subt_proc_gen.mesh_generation import (
     TunnelNetworkWithMesh,
-    TunnelMeshingParams,
+    TunnelPTCLGenParams,
     TunnelWithMesh,
 )
 from subt_proc_gen.geometry import Spline3D

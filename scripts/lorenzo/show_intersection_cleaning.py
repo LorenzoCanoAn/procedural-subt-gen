@@ -4,7 +4,7 @@ from subt_proc_gen.tunnel import TunnelParams, Tunnel, TunnelNetwork
 from subt_proc_gen.graph import Node
 from subt_proc_gen.tunnel import *
 from subt_proc_gen.PARAMS import N_ANGLES_PER_CIRCLE
-from subt_proc_gen.mesh_generation import TunnelWithMesh, TunnelMeshingParams
+from subt_proc_gen.mesh_generation import TunnelWithMesh, TunnelPTCLGenParams
 import matplotlib
 import pickle
 
@@ -107,7 +107,7 @@ def main():
     # 	Plot the pointcloud
     ####################################################################################################################################
     if plot_pointcloud_without_noise:
-        params = TunnelMeshingParams(
+        params = TunnelPTCLGenParams(
             {
                 "roughness": noise,
                 "flatten_floor": flatten_floor,

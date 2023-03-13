@@ -1,5 +1,5 @@
 from subt_proc_gen.tunnel import TunnelNetwork
-from subt_proc_gen.mesh_generation import TunnelNetworkWithMesh, TunnelMeshingParams
+from subt_proc_gen.mesh_generation import TunnelNetworkWithMesh, TunnelPTCLGenParams
 import pickle
 import pathlib, os, pickle
 
@@ -19,7 +19,7 @@ def main():
     params["flatten_floor"] = False
     params["floor_to_axis_distance"] = 1
     params["radius"] = 3
-    params = TunnelMeshingParams(params=params)
+    params = TunnelPTCLGenParams(params=params)
     with_mesh_1 = TunnelNetworkWithMesh(tunnel_network, i_meshing_params=params)
     params["roughness"] = 0.15
     with_mesh_2 = TunnelNetworkWithMesh(tunnel_network, i_meshing_params=params)

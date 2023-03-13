@@ -6,7 +6,7 @@ from subt_proc_gen.tunnel import TunnelParams, Tunnel, TunnelNetwork
 from subt_proc_gen.graph import Node
 from subt_proc_gen.display_functions import debug_plot, plot_spline_2d
 from subt_proc_gen.tunnel import *
-from subt_proc_gen.mesh_generation import TunnelNetworkWithMesh, TunnelMeshingParams
+from subt_proc_gen.mesh_generation import TunnelNetworkWithMesh, TunnelPTCLGenParams
 import random
 from subt_proc_gen.helper_functions import what_points_are_close
 import matplotlib
@@ -57,7 +57,7 @@ def main():
             node4 = CaveNode(np.array((10, 0, 0)))
             t1 = Tunnel(graph, params=tunnel_params)
             t1.set_nodes([central_node, node2, node3, node4, central_node])
-            tnwm = TunnelNetworkWithMesh(graph, meshing_params=TunnelMeshingParams())
+            tnwm = TunnelNetworkWithMesh(graph, meshing_params=TunnelPTCLGenParams())
             plotter = pv.Plotter()
             ptcl = pv.PolyData(tnwm.mesh_points_and_normals()[0])
             plotter.add_mesh(ptcl)
