@@ -1,6 +1,7 @@
 from subt_proc_gen.graph import Node, Edge, Graph
 from subt_proc_gen.geometry import Point3D, Vector3D, Spline3D
 from enum import Enum
+import numpy as np
 
 
 class ConnectorTunnelGenerationParams:
@@ -25,35 +26,153 @@ class ConnectorTunnelGenerationParams:
 
 
 class GrownTunnelGenerationParams:
+    default_distance = 100
+    default_initial_direction = Vector3D((1, 0, 0))
+    default_horizontal_tendency_rad = 0
+    default_vertical_tendency_rad = 0
+    default_horizontal_noise_rad = np.deg2rad(10)
+    default_vertical_noise_rad = np.deg2rad(5)
+    default_min_segment_length = 10
+    default_max_segment_lenght = 20
+
+    random_distance_range = (50, 300)
+    random_intial_inclination_range_deg = (-20, 20)
+    random_horizontal_tendency_range_deg = (-30, 30)
+    random_vertical_tendency_range_deg = (-20, 20)
+    random_horizontal_noise_range_deg = (0, 20)
+    random_vertical_noise_range_deg = (0, 10)
+
+    @classmethod
+    def from_defaults(cls, initial_direction=None):
+        if initial_direction is None:
+            initial_direction = cls.default_initial_direction
+        return GrownTunnelGenerationParams(
+            cls.default_distance,
+            cls.default_initial_direction,
+            cls.default_horizontal_tendency_rad,
+            cls.default_vertical_tendency_rad,
+            cls.default_horizontal_noise_rad,
+            cls.default_vertical_noise_rad,
+            cls.default_min_segment_length,
+            cls.default_max_segment_lenght,
+        )
+
+    @classmethod
+    def random(cls, initial_direction=None):
+        distance = np.random.uniform(
+            cls.random_distance_range[0],
+            cls.random_distance_range[1],
+        )
+
+        horizontal_tendency_rad = np.deg2rad(
+            np.random.uniform(
+                cls.random_horizontal_tendency_range_deg[0],
+                cls.random_horizontal_tendency_range_deg[1],
+            )
+        )
+
+        vertical_tendency_rad = np.deg2rad(
+            np.random.uniform(
+                cls.random_vertical_tendency_range_deg[0],
+                cls.random_vertical_tendency_range_deg[1],
+            )
+        )
+
+        horizontal_noise_rad = np.deg2rad(
+            np.random.uniform(
+                cls.random_horizontal_noise_range_deg[0],
+                cls.random_horizontal_noise_range_deg[1],
+            )
+        )
+        vertical_noise_rad = np.deg2rad(
+            np.random.uniform(
+                cls.random_vertical_noise_range_deg[0],
+                cls.random_vertical_noise_range_deg[1],
+            )
+        )
+        initial_inclination_rad = np.deg2rad(
+            np.random.uniform(
+                cls.random_intial_inclination_range_deg[0],
+                cls.random_intial_inclination_range_deg[1],
+            )
+        )
+        initial_yaw = np.random.uniform(0, np.pi * 2)
+        return GrownTunnelGenerationParams(
+            distance=distance,
+            initial_direction=Vector3D.from_inclination_yaw_length(
+                initial_inclination_rad, initial_yaw, 1
+            ),
+            horizontal_tendency_rad=horizontal_tendency_rad,
+            vertical_tendency_rad=vertical_tendency_rad,
+            horizontal_noise_rad=horizontal_noise_rad,
+            vertical_noise_rad=vertical_noise_rad,
+            min_segment_length=distance * 0.1,
+            max_segment_length=distance * 0.4,
+        )
+
     def __init__(
         self,
         distance=None,
-        starting_direction=None,
-        horizontal_tendency=None,
-        vertical_tendency=None,
-        horizontal_noise=None,
-        vertical_noise=None,
-        segment_length=None,
-        segment_length_noise=None,
+        initial_direction=None,
+        horizontal_tendency_rad=None,
+        vertical_tendency_rad=None,
+        horizontal_noise_rad=None,
+        vertical_noise_rad=None,
+        min_segment_length=None,
+        max_segment_length=None,
     ):
         assert (
             not distance is None
-            and not starting_direction is None
-            and not horizontal_tendency is None
-            and not vertical_tendency is None
-            and not horizontal_noise is None
-            and not vertical_noise is None
-            and not segment_length is None
-            and not segment_length_noise is None
+            and not initial_direction is None
+            and not horizontal_tendency_rad is None
+            and not vertical_tendency_rad is None
+            and not horizontal_noise_rad is None
+            and not vertical_noise_rad is None
+            and not min_segment_length is None
+            and not max_segment_length is None
         )
         self.distance = distance
-        self.starting_direction = starting_direction
-        self.horizontal_tendency = horizontal_tendency
-        self.vertical_tendency = vertical_tendency
-        self.horizontal_noise = horizontal_noise
-        self.vertical_noise = vertical_noise
-        self.segment_length = segment_length
-        self.segment_length_noise = segment_length_noise
+        self.starting_direction = initial_direction
+        self.horizontal_tendency = horizontal_tendency_rad
+        self.vertical_tendency = vertical_tendency_rad
+        self.horizontal_noise = horizontal_noise_rad
+        self.vertical_noise = vertical_noise_rad
+        self.min_segment_length = min_segment_length
+        self.max_segment_length = max_segment_length
+
+    def __str__(self):
+        return f"""distance: {self.distance}
+starting_direction: {self.starting_direction}
+horizontal_tendency: {self.horizontal_tendency}
+vertical_tendency: {self.vertical_tendency}
+horizontal_noise: {self.horizontal_noise}
+vertical_noise: {self.vertical_noise}
+min_segment_length: {self.min_segment_length}
+max_segment_length: {self.max_segment_length}"""
+
+    def get_segment_length(self):
+        return np.random.uniform(self.min_segment_length, self.max_segment_length)
+
+    def get_inclination_angle(self):
+        return np.random.uniform(
+            self.vertical_tendency - self.vertical_noise,
+            self.vertical_tendency + self.vertical_noise,
+        )
+
+    def get_horizontal_angle(self):
+        return np.random.uniform(
+            self.horizontal_tendency - self.horizontal_noise,
+            self.horizontal_tendency + self.horizontal_noise,
+        )
+
+    def get_new_direction(self, prev_dir: Vector3D) -> Vector3D:
+        prev_yaw = prev_dir.theta
+        new_yaw = prev_yaw + self.get_horizontal_angle()
+        new_inclination = self.get_inclination_angle()
+        new_length = self.get_segment_length()
+        return Vector3D.from_inclination_yaw_length(
+            new_inclination, new_yaw, new_length
+        )
 
 
 class TunnelType(Enum):
@@ -69,10 +188,14 @@ class Tunnel:
     def grown(cls, i_node: Node, params: GrownTunnelGenerationParams):
         nodes = [i_node]
         prev_direction = Vector3D(params.starting_direction)
-        nodes.append(Node(nodes[-1]._pose + prev_direction))
-        d = 0
+        prev_direction.set_distance(params.get_segment_length())
+        d = prev_direction.length
+        nodes.append(nodes[-1] + prev_direction)
         while d < params.distance:
-            TODO
+            new_dir = params.get_new_direction(prev_direction)
+            nodes.append(nodes[-1] + new_dir)
+            d += new_dir.length
+        return Tunnel(nodes)
 
     @classmethod
     def connector(
@@ -101,7 +224,7 @@ class Tunnel:
         return False
 
     def __iter__(self):
-        return self._nodes
+        return self._nodes.__iter__()
 
     def __getitem__(self, index):
         return self._nodes[index]
@@ -135,7 +258,7 @@ class TunnelNetwork(Graph):
         super().remove_node(node)
         del self._tunnels_of_node[node]
 
-    def _add_tunnel(self, tunnel: Tunnel):
+    def add_tunnel(self, tunnel: Tunnel):
         self._tunnels.add(tunnel)
         for node in tunnel:
             self.add_node(node)
@@ -143,7 +266,7 @@ class TunnelNetwork(Graph):
         for ni, nj in zip(tunnel[:-1], tunnel[1:]):
             self.connect(ni, nj)
 
-    def _remove_tunnel(self, tunnel: Tunnel):
+    def remove_tunnel(self, tunnel: Tunnel):
         for node in tunnel:
             self._tunnels_of_node[node].remove(tunnel)
             if len(self._tunnels_of_node[node] == 0):
