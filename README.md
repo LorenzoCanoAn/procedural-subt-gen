@@ -2,6 +2,7 @@
 ## Overview
 This package contains a simple API and a GUI tool to generate underground environments in a procedural way. It was created with robotic testing in mind, so the final product is an `.obj` file.
 
+![Sketch Tab](/README_images/example_1.png)
 ## Instalation
 After cloning the repository, move to it and run:
 ```
