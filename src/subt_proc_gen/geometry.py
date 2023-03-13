@@ -60,15 +60,20 @@ class Point3D:
 
 class Vector3D:
     @classmethod
-    def from_inclination_yaw_distance(cls, inclination, yaw, distance):
+    def from_inclination_yaw_length(cls, inclination, yaw, length):
         phi = inclination_to_phi(inclination)
-        return Vector3D((distance, yaw, phi))
+        return Vector3D((length, yaw, phi), spherical_coords=True)
 
     def __init__(self, coords, spherical_coords=False):
-        if spherical_coords:
-            self.__set_spherical(coords)
+        if isinstance(coords, Vector3D):
+            self.__set_cartesian(coords.xyz)
         else:
-            self.__set_cartesian(coords)
+            if spherical_coords:
+                coords = format_coords(coords)
+                self.__set_spherical(coords)
+            else:
+                coords = format_coords(coords)
+                self.__set_cartesian(coords)
 
     def __abs__(self):
         return self._length
@@ -90,6 +95,9 @@ class Vector3D:
             raise NotImplementedError(
                 f"Vector does not support subtracting {type(other)}"
             )
+
+    def __str__(self):
+        return f"[{self.x},{self.x},{self.z}]"
 
     def __eq__(self, other):
         if isinstance(other, Vector3D):
@@ -124,6 +132,9 @@ class Vector3D:
             ),
             (1, 3),
         )
+
+    def set_distance(self, new_length):
+        self.__set_cartesian(self.xyz / self.length * new_length)
 
     @property
     def length(self):
@@ -286,6 +297,23 @@ def phi_to_inclination(phi):
 
 def inclination_to_phi(inclination):
     return -inclination + m.pi / 2
+
+
+def format_coords(coords):
+    if isinstance(coords, np.ndarray):
+        if coords.shape == (1, 3):
+            return coords
+        else:
+            assert coords.size == 3
+            return np.reshape(coords, (1, 3)).astype(np.double)
+    if (
+        isinstance(coords, list)
+        or isinstance(coords, tuple)
+        or isinstance(coords, set)
+        or isinstance(coords, frozenset)
+    ):
+        assert len(coords) == 3
+        return np.reshape(np.array(coords, dtype=np.double), (1, 3))
 
 
 ###############################################################
