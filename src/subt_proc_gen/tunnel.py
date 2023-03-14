@@ -276,9 +276,12 @@ class Tunnel:
             tunnel_type=TunnelType.connector,
         )
 
-    def __init__(self, nodes: list[Node], tunnel_type=TunnelType.from_nodes):
+    def __init__(
+        self, nodes: list[Node] | tuple[Node], tunnel_type=TunnelType.from_nodes
+    ):
         if isinstance(nodes, list):
             nodes = tuple(nodes)
+        assert len(nodes) > 1
         for node in nodes:
             assert isinstance(node, Node)
         self._nodes = nodes
@@ -323,6 +326,25 @@ class Tunnel:
         return self._nodes
 
 
+class NodeType(Enum):
+    tunnel_node = 1
+    multi_tunnel_intersection = 2
+    self_intersection = 3
+    self_loop_closing = 4
+    end_of_tunnel = 5
+    floating_node = 6
+    tunnel_continuation_intersection = 7
+
+    @property
+    def inter_types(self):
+        return [
+            NodeType.multi_tunnel_intersection,
+            NodeType.self_intersection,
+            NodeType.self_loop_closing,
+            NodeType.tunnel_continuation_intersection,
+        ]
+
+
 class TunnelNetwork(Graph):
     def __init__(self):
         super().__init__()
@@ -330,7 +352,8 @@ class TunnelNetwork(Graph):
         # Tracks the tunnels to which a node belongs
         self._tunnels_of_node = dict()
         # Tracks which tunnels are connected to each other
-        self._tunnel_connections = dict()
+        self._node_types = dict()
+        self._intersection_connectivity = dict()
 
     def add_node(self, node: Node):
         """IMPORTANT: This should only be called by _add_tunnel"""
@@ -342,6 +365,54 @@ class TunnelNetwork(Graph):
         """IMPORTANT: This should only be called by _remove_tunnel"""
         super().remove_node(node)
         del self._tunnels_of_node[node]
+
+    def _compute_node_type(self, node: Node):
+        """A node is an intersection if either:
+        1. It belongs to more than one tunnel
+        2. If, being part of only one tunnel but:
+            2.1 It connects with three nodes of said tunnel
+            2.2 It is the first node of the tunnel and is connected with the last"""
+        assert isinstance(node, Node)
+        if len(self._tunnels_of_node[node]) > 1:
+            if len(self.connected_nodes(node)) == 2:
+                return NodeType.tunnel_continuation_intersection
+            else:
+                return NodeType.multi_tunnel_intersection
+        elif len(self._tunnels_of_node[node]) == 1:
+            if len(self.connected_nodes(node)) == 1:
+                return NodeType.end_of_tunnel
+            if len(self.connected_nodes(node)) > 2:
+                return NodeType.self_intersection
+            if len(self.connected_nodes(node)) == 2:
+                position_in_tunnel = list(self._tunnels_of_node[node])[0].nodes.index(
+                    node
+                )
+                if position_in_tunnel == 0:
+                    return NodeType.self_loop_closing
+                else:
+                    return NodeType.tunnel_node
+        else:
+            return NodeType.floating_node
+
+    def compute_node_types(self):
+        for node in self.nodes:
+            self._node_types[node] = self._compute_node_type(node)
+
+    def compute_intersection_connections(self):
+        for intersection in self.intersections:
+            self._intersection_connectivity[intersection] = set()
+            # Craw node by node along each of the connected nodes
+            # until reaching next intersection node
+            for node in self.connected_nodes(intersection):
+                new_intersection_reached = False
+                prev_node = intersection
+                current_node = node
+                while not new_intersection_reached:
+                    if TODO:
+                        pass
+                    connected_to_current = list(self.connected_nodes(current_node))
+                    connected_to_current.remove(prev_node)
+                    nex_node = connected_to_current[0]
 
     def add_tunnel(self, tunnel: Tunnel):
         self._tunnels.add(tunnel)
@@ -379,7 +450,6 @@ class TunnelNetwork(Graph):
         with open(file, "r") as f:
             yaml_data = yaml.safe_load(f)
         nodes = {}
-        yaml_nodes = yaml_data["nodes"]
         for node_id in yaml_data["nodes"]:
             nodes[node_id] = Node(yaml_data["nodes"][node_id])
         for tunnel in yaml_data["tunnels"]:
@@ -393,3 +463,12 @@ class TunnelNetwork(Graph):
     @property
     def tunnels(self) -> set[Tunnel]:
         return self._tunnels
+
+    @property
+    def intersections(self) -> set[Node]:
+        self.compute_node_types()
+        intersections = set()
+        for node in self._nodes:
+            if self._node_types(node) in NodeType.inter_types:
+                intersections.add(node)
+        return intersections

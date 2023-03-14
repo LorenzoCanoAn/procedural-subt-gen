@@ -135,6 +135,9 @@ class Graph:
     def are_connected(self, node1: Node, node2: Node):
         return node2 in self._adj_list[node1]
 
+    def connected_nodes(self, node: Node) -> set[Node]:
+        return self._adj_list[node]
+
     @property
     def nodes(self) -> set[Node]:
         return self._nodes

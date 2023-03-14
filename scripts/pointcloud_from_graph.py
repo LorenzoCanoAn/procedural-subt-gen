@@ -1,35 +1,30 @@
-import sys
-
-sys.path.insert(0, "src")
-import sys
-
-# Setting the Qt bindings for QtPy
-import os
-
-os.environ["QT_API"] = "pyqt5"
-
-from qtpy import QtWidgets
-
-import numpy as np
-
-import pyvista as pv
-from pyvistaqt import QtInteractor, MainWindow
-import pickle
-from subt_proc_gen.mesh_generation import *
-import pyvista as pv
-from subt_proc_gen.PARAMS import *
-from time import time_ns as ns
-from subt_proc_gen.tunnel import Tunnel, TunnelNetwork
+import matplotlib.pyplot as plt
+import shutil
+import open3d as o3d
 from subt_proc_gen.helper_functions import (
     gen_cylinder_around_point,
     get_indices_of_points_below_cylinder,
 )
-import open3d as o3d
-import shutil
+from subt_proc_gen.tunnel import Tunnel, TunnelNetwork
+from time import time_ns as ns
+from subt_proc_gen.PARAMS import *
+from subt_proc_gen.mesh_generation import *
+import pickle
+from pyvistaqt import QtInteractor, MainWindow
+import pyvista as pv
+import numpy as np
+from qtpy import QtWidgets
+import os
+import sys
+
+sys.path.insert(0, "src")
+
+# Setting the Qt bindings for QtPy
+
+os.environ["QT_API"] = "pyqt5"
+
 
 MESH_FOLDER = "meshes"
-import matplotlib.pyplot as plt
-import pyvista as pv
 
 
 def tunnel_interesects_with_list(tunnel: Tunnel, list_of_tunnels):
@@ -61,7 +56,7 @@ def pc_from_graph(
     if True:
 
         if meshing_params is None:
-            meshing_params = TunnelPTCLGenParams(
+            meshing_params = TunnelPtClGenParams(
                 {
                     "roughness": roughness,
                     "radius": radius,
@@ -71,7 +66,7 @@ def pc_from_graph(
 
         tunnel_network_with_mesh = TunnelNetworkWithMesh(
             tunnel_network,
-            i_meshing_params=TunnelPTCLGenParams(meshing_params),
+            i_meshing_params=TunnelPtClGenParams(meshing_params),
         )
 
         tunnel_network_with_mesh.clean_intersections()
@@ -79,7 +74,8 @@ def pc_from_graph(
         # plotter = pv.Plotter()
         for i, mesh in enumerate(tunnel_network_with_mesh._tunnels_with_mesh):
             print(i)
-            plotter.add_mesh(pv.PolyData(mesh.all_selected_points), color=COLORS[i])
+            plotter.add_mesh(pv.PolyData(
+                mesh.all_selected_points), color=COLORS[i])
         # plotter.show()
         for i, tunnel in enumerate(tunnel_network_with_mesh._tunnels_with_mesh):
             if i == 0:

@@ -1,10 +1,12 @@
-import os, pathlib, pickle
+import os
+import pathlib
+import pickle
 import pyvista as pv
 import numpy as np
 from subt_proc_gen.tunnel import TunnelNetwork, Tunnel, CaveNode
 from subt_proc_gen.mesh_generation import (
     TunnelNetworkWithMesh,
-    TunnelPTCLGenParams,
+    TunnelPtClGenParams,
     TunnelWithMesh,
 )
 from subt_proc_gen.spline import Spline3D
@@ -66,7 +68,8 @@ class MyPlotter:
         self.plotter.set_background(color="white")
         self.n_image = 0
         self.n_trial = len(os.listdir(base_video_folder))
-        self.images_folder = os.path.join(base_video_folder, f"trial_n_{self.n_trial}")
+        self.images_folder = os.path.join(
+            base_video_folder, f"trial_n_{self.n_trial}")
         print(self.images_folder)
         os.mkdir(self.images_folder)
         self.set_camera_params()
@@ -114,7 +117,8 @@ class MyPlotter:
         node_actors = []
         for n_node, node in enumerate(tunnel.nodes):
             node_actors.append(
-                self.plot_node(node, color=color, capture_at_end=capture_at_end)
+                self.plot_node(node, color=color,
+                               capture_at_end=capture_at_end)
             )
         return node_actors
 
@@ -125,7 +129,8 @@ class MyPlotter:
         edge_actors = []
         for n_node, node in enumerate(tunnel.nodes):
             node_actors.append(
-                self.plot_node(node, color=color, capture_at_end=capture_at_end)
+                self.plot_node(node, color=color,
+                               capture_at_end=capture_at_end)
             )
             if n_node < n_nodes - 1:
                 edge_actors.append(
@@ -172,7 +177,8 @@ class MyPlotter:
 
     def print_camera_params(self):
         print(f"self.plotter.camera.position = {self.plotter.camera.position}")
-        print(f"self.plotter.camera.focal_point= {self.plotter.camera.focal_point}")
+        print(
+            f"self.plotter.camera.focal_point= {self.plotter.camera.focal_point}")
         print(f"self.plotter.camera.roll = {self.plotter.camera.roll}")
 
     def set_camera_params(self):
@@ -203,7 +209,8 @@ class MyPlotter:
         logging.info("Creating Video")
         path_to_video_file = os.path.join(self.images_folder, "video.avi")
         height, width, layers = self.images[0].shape
-        self.video_writer = cv2.VideoWriter(path_to_video_file, 0, 24, (width, height))
+        self.video_writer = cv2.VideoWriter(
+            path_to_video_file, 0, 24, (width, height))
         for frame in self.images:
             self.video_writer.write(frame)
         cv2.destroyAllWindows()
@@ -252,7 +259,8 @@ def main():
         my_plotter.plot_tunnel_nodes(tunnel, color, capture_at_end=False)
         my_plotter.plot_tunnel_spline(tunnel, color)
     print("")
-    _ = [my_plotter.save_capture() for _ in range(my_plotter.n_captures_per_change)]
+    _ = [my_plotter.save_capture()
+         for _ in range(my_plotter.n_captures_per_change)]
     my_plotter.elevation_increment = 0
     print("Tunnels with no noise")
     points_with_no_noise_actors = []
@@ -283,7 +291,8 @@ def main():
             idx = tnn_n._tunnels_with_mesh.index(twm)
             color = colors[idx]
             my_plotter.remove_actors(points_with_noise_actors[idx])
-            points_with_noise_actors[idx] = my_plotter.plot_points_of_tunnel(twm, color)
+            points_with_noise_actors[idx] = my_plotter.plot_points_of_tunnel(
+                twm, color)
     my_plotter.elevation_increment = -1
     for _ in range(40):
         my_plotter.save_capture()

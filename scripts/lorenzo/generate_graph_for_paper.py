@@ -1,3 +1,5 @@
+import pyvista as pv
+import matplotlib.pyplot as plt
 import numpy as np
 
 from subt_proc_gen.helper_functions import *
@@ -6,14 +8,12 @@ from subt_proc_gen.tunnel import TunnelParams, Tunnel, TunnelNetwork
 from subt_proc_gen.graph import Node
 from subt_proc_gen.display_functions import debug_plot, plot_spline_2d
 from subt_proc_gen.tunnel import *
-from subt_proc_gen.mesh_generation import TunnelNetworkWithMesh, TunnelPTCLGenParams
+from subt_proc_gen.mesh_generation import TunnelNetworkWithMesh, TunnelPtClGenParams
 import random
 from subt_proc_gen.helper_functions import what_points_are_close
 import matplotlib
 
 matplotlib.rcParams.update({"font.size": 25})
-import matplotlib.pyplot as plt
-import pyvista as pv
 
 show_grow_tunnel = False
 spline_color = "b"
@@ -57,7 +57,8 @@ def main():
             node4 = CaveNode(np.array((10, 0, 0)))
             t1 = Tunnel(graph, params=tunnel_params)
             t1.set_nodes([central_node, node2, node3, node4, central_node])
-            tnwm = TunnelNetworkWithMesh(graph, meshing_params=TunnelPTCLGenParams())
+            tnwm = TunnelNetworkWithMesh(
+                graph, meshing_params=TunnelPtClGenParams())
             plotter = pv.Plotter()
             ptcl = pv.PolyData(tnwm.mesh_points_and_normals()[0])
             plotter.add_mesh(ptcl)

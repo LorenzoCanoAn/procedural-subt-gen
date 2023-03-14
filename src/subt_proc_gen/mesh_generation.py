@@ -2,13 +2,13 @@ import os
 import math
 import numpy as np
 from perlin_noise import PerlinNoise
-from subt_proc_gen.tunnel import TunnelNetwork, Tunnel
+from subt_proc_gen.tunnel import TunnelNetwork, Tunnel, Intersection
 import open3d as o3d
 from time import time_ns as ns
 import random
 
 
-class TunnelPTCLGenParams:
+class TunnelPtClGenParams:
     # Default params
     _default_radius = 4
     _default_noise_freq = 0.1
@@ -24,7 +24,7 @@ class TunnelPTCLGenParams:
 
     @classmethod
     def from_defaults(cls):
-        return TunnelPTCLGenParams(
+        return TunnelPtClGenParams(
             radius=cls._default_radius,
             noise_freq=cls._default_noise_freq,
             noise_magn=cls._default_noise_magn,
@@ -51,7 +51,7 @@ class TunnelPTCLGenParams:
             cls._random_noise_relative_magn_interval[0],
             cls._random_noise_relative_magn_interval[1],
         )
-        return TunnelPTCLGenParams(
+        return TunnelPtClGenParams(
             radius=radius,
             noise_freq=noise_freq,
             noise_magn=noise_magn,
@@ -78,27 +78,66 @@ class TunnelPTCLGenParams:
         self.fta_distance = fta_distance
 
 
-class TunnelNetworkMeshingParams:
-    pass
+class IntersectionPtClGenParams:
+    """Params that control how the pointcloud of an intersection is generated"""
+
+
+class TunnelNetworkPtClGenParams:
+    """Params that control the the overall generation of the pointcloud of the
+    complete tunnel network"""
+
+
+class TunnelNetworkMeshGenParams:
+    """Params that control how the mesh is generated from the ptcl"""
 
 
 class TunnelNewtorkMeshGenerator:
     def __init__(
-        self, tunnel_network: TunnelNetwork, meshing_params: TunnelNetworkMeshingParams
+        self,
+        tunnel_network: TunnelNetwork,
+        meshing_params: TunnelNetworkMeshGenParams,
     ):
         self._tunnel_network = tunnel_network
         self._ptcl_of_tunnel = dict()
         self._ptcl_of_intersections = dict()
 
-    def compute_tunnel_ptcl(self):
-        TODO
+    def _compute_tunnel_ptcl(
+        self,
+        tunnel: Tunnel,
+        ptcl_gen_params: TunnelPtClGenParams,
+    ):
+        raise NotImplementedError()
 
-    def compute_intersection_ptcl(self):
-        TODO
+    def _compute_intersection_ptcl(
+        self,
+        intersection: Intersection,
+        ptcl_gen_params: IntersectionPtClGenParams,
+    ):
+        raise NotImplementedError()
+
+    def _compute_all_tunnels_ptcl(
+        self,
+        ptcl_gen_params: TunnelNetworkPtClGenParams,
+    ):
+        raise NotImplementedError()
+
+    def _compute_all_intersections_ptcl(self):
+        raise NotImplementedError()
+
+    def compute_all(
+        self,
+        ptcl_gen_params: TunnelNetworkPtClGenParams,
+        mesh_gen_params: TunnelNetworkMeshGenParams,
+    ):
+        self.compute_all_tunnel_ptcl(ptcl_gen_params)
+        self.compute_all_intersection_ptcl(ptcl_gen_params)
+        self.compute_mesh(mesh_gen_params)
 
 
 #########################################################################################################################
 # Functions
 #########################################################################################################################
-def ptcl_from_tunnel(tunnel: Tunnel, params: TunnelPTCLGenParams):
+
+
+def ptcl_from_tunnel(tunnel: Tunnel, params: TunnelPtClGenParams):
     TODO

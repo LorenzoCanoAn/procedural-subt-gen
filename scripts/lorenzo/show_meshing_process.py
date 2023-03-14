@@ -1,17 +1,17 @@
+import os
+import pyvista as pv
+import matplotlib.pyplot as plt
 import numpy as np
 from subt_proc_gen.helper_functions import *
 from subt_proc_gen.tunnel import TunnelParams, Tunnel, TunnelNetwork
 from subt_proc_gen.graph import Node
 from subt_proc_gen.tunnel import *
 from subt_proc_gen.PARAMS import N_ANGLES_PER_CIRCLE
-from subt_proc_gen.mesh_generation import TunnelWithMesh, TunnelPTCLGenParams
+from subt_proc_gen.mesh_generation import TunnelWithMesh, TunnelPtClGenParams
 import matplotlib
 import pickle
 
 matplotlib.rcParams.update({"font.size": 25})
-import matplotlib.pyplot as plt
-import pyvista as pv
-import os
 
 interactive = False
 save_file_name = "mesh_generation_4"
@@ -99,7 +99,7 @@ def main():
     # 	Plot the pointcloud
     ####################################################################################################################################
     if plot_pointcloud_without_noise:
-        params = TunnelPTCLGenParams(
+        params = TunnelPtClGenParams(
             {
                 "roughness": noise,
                 "flatten_floor": flatten_floor,
@@ -162,7 +162,8 @@ def main():
         plotter.camera.position = cpos1
         plotter.camera.focal_point = cfpt1
         plotter.camera.roll = cr1
-        plotter.show(screenshot=save_path_1, window_size=window_size, auto_close=False)
+        plotter.show(screenshot=save_path_1,
+                     window_size=window_size, auto_close=False)
         plotter.camera.position = cpos2
         plotter.camera.focal_point = cfpt2
         plotter.camera.roll = cr2

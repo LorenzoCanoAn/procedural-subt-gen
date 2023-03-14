@@ -1,7 +1,9 @@
 from subt_proc_gen.tunnel import TunnelNetwork
-from subt_proc_gen.mesh_generation import TunnelNetworkWithMesh, TunnelPTCLGenParams
+from subt_proc_gen.mesh_generation import TunnelNetworkWithMesh, TunnelPtClGenParams
 import pickle
-import pathlib, os, pickle
+import pathlib
+import os
+import pickle
 import open3d as o3d
 import numpy as np
 
@@ -19,7 +21,8 @@ def main():
     for _ in range(n_grown_tunnels):
         tunnel_network.add_random_tunnel_from_initial_node(trial_limit=200)
     for _ in range(n_connecting_tunnels):
-        tunnel_network.add_random_tunnel_from_initial_to_final_node(trial_limit=200)
+        tunnel_network.add_random_tunnel_from_initial_to_final_node(
+            trial_limit=200)
     for n_mesh in range(72):
         tnm = TunnelNetworkWithMesh(tunnel_network, i_meshing_params="random")
         tnm.clean_intersections()

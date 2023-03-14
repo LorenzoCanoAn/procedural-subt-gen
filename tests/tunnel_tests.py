@@ -11,6 +11,15 @@ import numpy as np
 import pyvista as pv
 import os
 import pathlib
+from time import perf_counter_ns
+
+
+def timeit(function):
+    start = perf_counter_ns()
+    function()
+    end = perf_counter_ns()
+    elapsed = (end - start) * 1e-9
+    print(f"{function.__name__} took {elapsed:.5f} secs")
 
 
 def test1():
@@ -94,17 +103,52 @@ def test4():
         params=ConnectorTunnelGenerationParams.from_defaults(),
     )
     tunnel_network.add_tunnel(third_tunnel)
-    tunnel_network.to_yaml(os.path.join(pathlib.Path.home(), "test.yaml"))
+    path_to_save_file = os.path.join(pathlib.Path.home(), "test.yaml")
+    tunnel_network.to_yaml(path_to_save_file)
     del tunnel_network
     tunnel_network = TunnelNetwork()
-    tunnel_network.load_yaml(os.path.join(pathlib.Path.home(), "test.yaml"))
+    tunnel_network.load_yaml(path_to_save_file)
+    os.remove(path_to_save_file)
+
+
+def test5():
+    tunnel_network = TunnelNetwork()
+    first_node = Node((0, 0, 0))
+    tunnel_network.add_node(first_node)
+    first_tunnel = Tunnel.grown(
+        i_node=first_node,
+        params=GrownTunnelGenerationParams.from_defaults(
+            initial_direction=Vector3D.from_inclination_yaw_length(
+                inclination=0, yaw=np.deg2rad(0), length=30
+            )
+        ),
+    )
+    tunnel_network.add_tunnel(first_tunnel)
+    second_tunnel = Tunnel.grown(
+        i_node=first_node,
+        params=GrownTunnelGenerationParams.from_defaults(
+            initial_direction=Vector3D.from_inclination_yaw_length(
+                inclination=0, yaw=np.deg2rad(90), length=30
+            )
+        ),
+    )
+    tunnel_network.add_tunnel(second_tunnel)
+    third_tunnel = Tunnel.connector(
+        i_node=first_tunnel[-2],
+        f_node=second_tunnel[-2],
+        params=ConnectorTunnelGenerationParams.from_defaults(),
+    )
+    tunnel_network.add_tunnel(third_tunnel)
+    tunnel_network.compute_node_types()
 
 
 def main():
-    test1()
-    test2()
-    test3()
-    test4()
+    tests = [test1, test2, test3, test4, test5]
+    for test in tests:
+        try:
+            timeit(test)
+        except:
+            print(f"{test.__name__} failed")
 
 
 if __name__ == "__main__":
