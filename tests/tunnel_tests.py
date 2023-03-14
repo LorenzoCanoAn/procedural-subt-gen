@@ -98,11 +98,6 @@ def test4():
     del tunnel_network
     tunnel_network = TunnelNetwork()
     tunnel_network.load_yaml(os.path.join(pathlib.Path.home(), "test.yaml"))
-    plotter = pv.Plotter()
-    plot_nodes(plotter, tunnel_network.nodes, color="r")
-    plot_edges(plotter, tunnel_network.edges, color="b")
-    plot_xyz_axis(plotter)
-    plotter.show()
 
 
 def main():
