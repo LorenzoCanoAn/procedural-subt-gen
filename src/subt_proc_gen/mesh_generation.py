@@ -277,8 +277,11 @@ class TunnelNetworkWithMesh:
     and implements the intersection-cleaning functions (to remove the interior points in each of the
     """
 
-    def __init__(self, tunnel_network: TunnelNetwork, i_meshing_params):
+    def __init__(
+        self, tunnel_network: TunnelNetwork, i_meshing_params=None, roughness=None
+    ):
         assert isinstance(tunnel_network, TunnelNetwork)
+
         self.tunnel_to_tunnel_with_mesh = {}
         self._tunnel_network = tunnel_network
         self._tunnels_with_mesh = list()
@@ -288,7 +291,11 @@ class TunnelNetworkWithMesh:
                 end=" // ",
             )
             start = ns()
-            if i_meshing_params == "random":
+            if i_meshing_params is None:
+                meshing_params = TunnelMeshingParams(random=True)
+                if not roughness is None:
+                    meshing_params["roughness"] = roughness
+            elif i_meshing_params == "random":
                 meshing_params = TunnelMeshingParams(random=True)
             else:
                 assert isinstance(i_meshing_params, TunnelMeshingParams)

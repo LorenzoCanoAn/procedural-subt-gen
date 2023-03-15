@@ -13,7 +13,7 @@ from subt_proc_gen.helper_functions import (
     angles_to_vector,
     angle_between_angles,
 )
-import math
+import random
 
 
 def add_noise_to_direction(
@@ -99,7 +99,7 @@ class TunnelParams(dict):
             self["horizontal_noise"] = 0
             self["vertical_tendency"] = 0
             self["vertical_noise"] = 0
-            self["segment_length"] = 10
+            self["segment_length"] = 20
             self["segment_length_noise"] = 15
             # Params for a tunnel between two nodes
             self["node_position_noise"] = 5
@@ -150,23 +150,34 @@ class CaveNode(Node):
 
 
 class Tunnel:
-    def __init__(self, parent, params=TunnelParams()):
+    def __init__(
+        self,
+        parent=None,
+        params=TunnelParams(random=True),
+        initial_pose=None,
+        inode=None,
+        fnode=None,
+    ):
         """A tunnel can be started from three different seeds:
         - If the seed is a CaveNode: The tunnel grows from said node according to its parameters
         - If the seed is an np.ndarray representing a point, a CaveNode is created in that position, and a tunnel is grown from it
         - If teh seed is a list of CaveNodes, they are set as the Tunnel nodes
         """
-        assert isinstance(parent, TunnelNetwork)
-        self._parent = parent
-        self._params = params
-
-        self._parent.add_tunnel(self)
-        self.tunnel_type = None
-        # Internal variables that should be accessed from functions
-        self._nodes = list()
-        self._spline = None
-        successful_growth = True
-        reson = None
+        if not parent is None:
+            assert isinstance(parent, TunnelNetwork)
+            self._parent = parent
+            self._params = params
+            self._parent.add_tunnel(self)
+            self.tunnel_type = None
+            # Internal variables that should be accessed from functions
+            self._nodes = list()
+            self._spline = None
+        else:
+            self._parent = parent
+            self._params = params
+            self._initial_pose = initial_pose
+            self._inode = inode
+            self._fnode = fnode
 
     def compute(self, initial_node, final_node=None, do_checks=True):
         if isinstance(initial_node, CaveNode):
@@ -194,7 +205,6 @@ class Tunnel:
 
         parent = None
         for n in list_of_poses:
-
             self.add_node(n)
             # self._nodes.append()
             if parent is not None:
@@ -415,7 +425,7 @@ class Tunnel:
             indices = np.array(np.where(norms < min_dist))
             if np.max(np.abs(indices - n)) > min_dist / res + 1:
                 return False
-        return True, None
+        return True
 
     @property
     def nodes(self):
@@ -452,7 +462,29 @@ class TunnelNetwork(Graph):
         self._tunnels.remove(tunnel)
 
     def add_tunnel(self, tunnel: Tunnel):
-        self._tunnels.append(tunnel)
+        if not tunnel._parent is None:
+            self._tunnels.append(tunnel)
+        else:
+            if not tunnel._initial_pose is None:
+                new_tunnel = Tunnel(parent=self, params=tunnel._params)
+                new_tunnel.compute(initial_node=CaveNode(tunnel._initial_pose))
+            elif not tunnel._inode is None and tunnel._fnode is None:
+                new_tunnel = Tunnel(parent=self, params=tunnel._params)
+                new_tunnel.compute(initial_node=tunnel._inode)
+            elif not tunnel._inode is None and not tunnel._fnode is None:
+                new_tunnel = Tunnel(parent=self, params=tunnel._params)
+                new_tunnel.compute(initial_node=tunnel._inode, final_node=tunnel._fnode)
+
+    def num_of_tunnels(self):
+        return len(self._tunnels)
+
+    def get_random_node(self, num_of_nodes=1):
+        nodes = []
+        while len(nodes) < num_of_nodes:
+            candidate = random.choice(self.nodes)
+            if not candidate in nodes:
+                nodes.append(candidate)
+        return nodes
 
     @property
     def tunnels(self):
