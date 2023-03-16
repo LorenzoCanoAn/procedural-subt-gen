@@ -1,6 +1,7 @@
 # Config
 /*.yaml
 .vscode
+.obj
 # Visualization files
 screenshots/**
 datafiles/**
