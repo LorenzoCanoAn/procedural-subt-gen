@@ -1,11 +1,100 @@
-import os
-import math
 import numpy as np
 from perlin_noise import PerlinNoise
 from subt_proc_gen.tunnel import TunnelNetwork, Tunnel, Intersection
-import open3d as o3d
-from time import time_ns as ns
+from enum import Enum
 import random
+
+
+class OctaveToMagnitudeScalingTypes(Enum):
+    inverse = 1  # M = 1/O * c1
+    linear = 2  # M = O*c1
+    inverse_squared = 3  # M = 1/sqrt(O) * c1
+    constant = 4  # M = Ms[idx_of(O)]
+    exponential = 5  # M = (c2)^(idx_of_(O)) * c1
+
+
+class OctaveProgressionType(Enum):
+    exponential = 1
+
+
+class CylindricalPerlinNoiseMapperParms:
+    _default_roughness = 0.3
+    _default_n_layers = 3
+    _default_octave_progression = OctaveProgressionType.exponential
+    _default_octave_progression_consts = (0.5,)
+    _default_octave_to_magnitude_scaling = OctaveToMagnitudeScalingTypes.inverse
+    _default_octave_to_magnitude_consts = (1, 0.5)
+
+    _random_roughness_range = (0.3, 0.0001)
+    _random_n_layers_range = (1, 6)
+    _random_octave_progression_types = OctaveProgressionType.exponential
+    _random_octave_progression_const_ranges = ((0.5, 0.5),)
+    _random_octave_to_magnitude_scaling_types = (OctaveToMagnitudeScalingTypes.inverse,)
+    _random_octave_to_magnitude_const_ranges = ((1, 1), (0.5, 0.5))
+
+    @classmethod
+    def from_defaults(cls):
+        return cls(
+            roughness=cls._default_roughness,
+            n_layers=cls._default_n_layers,
+            magnitude_scaling=cls._default_octave_to_magnitude_scaling,
+        )
+
+    @classmethod
+    def random(cls):
+        return cls(
+            roughness=np.random.uniform(
+                cls._random_roughness_range[0],
+                cls._random_roughness_range[1],
+            ),
+            n_layers=np.random.random_integers(
+                low=cls._random_n_layers_range[0],
+                high=cls._random_n_layers_range[1],
+            ),
+            magnitude_scaling=random.choice(
+                cls._random_octave_to_magnitude_scaling_types
+            ),
+        )
+
+    def __init__(
+        self,
+        roughness,
+        n_layers,
+        octave_progression,
+        octave_progression_consts,
+        octave_to_magnitude_scaling,
+        octave_to_magnitude_consts,
+    ):
+        self.roughness = roughness
+        self.n_layers = n_layers
+        self.octave_progression = octave_progression
+        self.octave_progression_consts = octave_progression_consts
+        self.octave_to_magnitude_scaling = octave_to_magnitude_scaling
+        self.octave_to_magnitude_consts = octave_to_magnitude_consts
+
+
+class CylindricalPerlinNoiseMapper:
+    def __init__(self, sampling_scale, params: CylindricalPerlinNoiseMapperParms):
+        self._noise_generators = []
+        self._params = params
+        self._sampling_scale = sampling_scale
+
+    def calculate_noise_generators(
+        self, sampling_scale, params: CylindricalPerlinNoiseMapperParms
+    ):
+        pass
+
+    def _inverse_scaling_coefs(self, n, constant):
+        raise NotImplementedError()
+
+    def _linear_scaling_coefs(self, n, constant):
+        raise NotImplementedError()
+
+    def _exponential_scaling_coeffs(self, n, constant):
+        coeffs = [constant]
+        for i in range(1, n):
+            coeffs.append(coeffs[-1] * constant)
+        return coeffs
 
 
 class TunnelPtClGenParams:
