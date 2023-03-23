@@ -1,14 +1,14 @@
 import numpy as np
 from perlin_noise import PerlinNoise
-from subt_proc_gen.tunnel import TunnelNetwork, Tunnel, Intersection
+from subt_proc_gen.tunnel import TunnelNetwork, Tunnel
 from enum import Enum
-import random
+import time
 
 
 class OctaveToMagnitudeScalingTypes(Enum):
     inverse = 1  # M = 1/O * c1
     linear = 2  # M = O*c1
-    inverse_squared = 3  # M = 1/sqrt(O) * c1
+    inverse_root = 3  # M = 1/sqrt(O) * c1
     constant = 4  # M = Ms[idx_of(O)]
     exponential = 5  # M = (c2)^(idx_of_(O)) * c1
 
@@ -18,26 +18,29 @@ class OctaveProgressionType(Enum):
 
 
 class CylindricalPerlinNoiseMapperParms:
-    _default_roughness = 0.3
-    _default_n_layers = 3
+    _default_roughness = 0.01
+    _default_n_layers = 5
     _default_octave_progression = OctaveProgressionType.exponential
-    _default_octave_progression_consts = (0.5,)
-    _default_octave_to_magnitude_scaling = OctaveToMagnitudeScalingTypes.inverse
-    _default_octave_to_magnitude_consts = (1, 0.5)
+    _default_octave_progression_consts = (2,)
+    _default_octave_to_magnitude_scaling = OctaveToMagnitudeScalingTypes.inverse_root
+    _default_octave_to_magnitude_consts = (1.0,)
 
     _random_roughness_range = (0.3, 0.0001)
     _random_n_layers_range = (1, 6)
-    _random_octave_progression_types = OctaveProgressionType.exponential
+    _random_octave_progression_types = (OctaveProgressionType.exponential,)
     _random_octave_progression_const_ranges = ((0.5, 0.5),)
     _random_octave_to_magnitude_scaling_types = (OctaveToMagnitudeScalingTypes.inverse,)
-    _random_octave_to_magnitude_const_ranges = ((1, 1), (0.5, 0.5))
+    _random_octave_to_magnitude_const_ranges = ((1, 1),)
 
     @classmethod
     def from_defaults(cls):
         return cls(
             roughness=cls._default_roughness,
             n_layers=cls._default_n_layers,
-            magnitude_scaling=cls._default_octave_to_magnitude_scaling,
+            octave_progression=cls._default_octave_progression,
+            octave_progression_consts=cls._default_octave_progression_consts,
+            octave_to_magnitude_scaling=cls._default_octave_to_magnitude_scaling,
+            octave_to_magnitude_consts=cls._default_octave_to_magnitude_consts,
         )
 
     @classmethod
@@ -48,11 +51,24 @@ class CylindricalPerlinNoiseMapperParms:
                 cls._random_roughness_range[1],
             ),
             n_layers=np.random.random_integers(
-                low=cls._random_n_layers_range[0],
-                high=cls._random_n_layers_range[1],
+                cls._random_n_layers_range[0],
+                cls._random_n_layers_range[1],
             ),
-            magnitude_scaling=random.choice(
+            octave_progression=np.random.choice(cls._random_octave_progression_types),
+            octave_progression_consts=tuple(
+                [
+                    np.random.uniform(p[0], p[1])
+                    for p in cls._random_octave_progression_const_ranges
+                ]
+            ),
+            octave_to_magnitude_scaling=np.random.choice(
                 cls._random_octave_to_magnitude_scaling_types
+            ),
+            octave_to_magnitude_consts=tuple(
+                [
+                    np.random.uniform(p[0], p[1])
+                    for p in cls._random_octave_to_magnitude_const_ranges
+                ]
             ),
         )
 
@@ -73,28 +89,86 @@ class CylindricalPerlinNoiseMapperParms:
         self.octave_to_magnitude_consts = octave_to_magnitude_consts
 
 
+class OctaveProgressionGenerator:
+    def __init__(self, type: OctaveProgressionType, constants):
+        self._generation_type = type
+        self._constants = constants
+
+    def __call__(self, n_octaves):
+        # This should alwas return a decreasing set of floats starting at 1.0
+        if self._generation_type == OctaveProgressionType.exponential:
+            return self._exponential(n_octaves)
+
+    def _exponential(self, n_octaves):
+        assert len(self._constants) == 1
+        base = self._constants[0]
+        octaves = []
+        for exp in range(0, n_octaves):
+            octaves.append(base**exp)
+        return octaves
+
+
+class MagnitudesGenerator:
+    def __init__(self, type: OctaveProgressionType, constants):
+        self._generation_type = type
+        self._constants = constants
+
+    def __call__(self, octaves):
+        if self._generation_type == OctaveToMagnitudeScalingTypes.inverse:
+            return [
+                self._inverse(n_octave, octave)
+                for n_octave, octave in enumerate(octaves)
+            ]
+        elif self._generation_type == OctaveToMagnitudeScalingTypes.inverse_root:
+            return [
+                self._inverse_root(n_octave, octave)
+                for n_octave, octave in enumerate(octaves)
+            ]
+
+    def _inverse(self, n_octave, octave):
+        assert len(self._constants) == 1
+        mult = self._constants[0]
+        return 1 / octave * mult
+
+    def _inverse_root(self, n_octave, octave):
+        assert len(self._constants) == 1
+        mult = self._constants[0]
+        print(octave)
+        return (1 / octave**0.5) * mult
+
+
 class CylindricalPerlinNoiseMapper:
-    def __init__(self, sampling_scale, params: CylindricalPerlinNoiseMapperParms):
-        self._noise_generators = []
+    def __init__(
+        self, sampling_scale, params: CylindricalPerlinNoiseMapperParms, seed=None
+    ):
+        if seed is None:
+            self._seed = time.time_ns()
         self._params = params
         self._sampling_scale = sampling_scale
+        self._octave_progression = OctaveProgressionGenerator(
+            type=self._params.octave_progression,
+            constants=self._params.octave_progression_consts,
+        )(self._params.n_layers)
+        self._octaves = [
+            base_octave * self._sampling_scale * self._params.roughness
+            for base_octave in self._octave_progression
+        ]
+        self._magnitudes = MagnitudesGenerator(
+            self._params.octave_to_magnitude_scaling,
+            self._params.octave_to_magnitude_consts,
+        )(self._octave_progression)
+        self._noise_generators = [
+            PerlinNoise(octaves=octave, seed=seed) for octave in self._octaves
+        ]
 
-    def calculate_noise_generators(
-        self, sampling_scale, params: CylindricalPerlinNoiseMapperParms
-    ):
-        pass
-
-    def _inverse_scaling_coefs(self, n, constant):
-        raise NotImplementedError()
-
-    def _linear_scaling_coefs(self, n, constant):
-        raise NotImplementedError()
-
-    def _exponential_scaling_coeffs(self, n, constant):
-        coeffs = [constant]
-        for i in range(1, n):
-            coeffs.append(coeffs[-1] * constant)
-        return coeffs
+    def __call__(self, coords):
+        scaled_coords = coords / self._sampling_scale
+        return sum(
+            [
+                noise(scaled_coords) * mag
+                for noise, mag in zip(self._noise_generators, self._magnitudes)
+            ]
+        )
 
 
 class TunnelPtClGenParams:
@@ -199,7 +273,6 @@ class TunnelNewtorkMeshGenerator:
 
     def _compute_intersection_ptcl(
         self,
-        intersection: Intersection,
         ptcl_gen_params: IntersectionPtClGenParams,
     ):
         raise NotImplementedError()
