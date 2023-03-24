@@ -3,6 +3,7 @@ from perlin_noise import PerlinNoise
 from subt_proc_gen.tunnel import TunnelNetwork, Tunnel
 from enum import Enum
 import time
+from multiprocessing.pool import Pool
 
 
 class OctaveToMagnitudeScalingTypes(Enum):
@@ -133,7 +134,6 @@ class MagnitudesGenerator:
     def _inverse_root(self, n_octave, octave):
         assert len(self._constants) == 1
         mult = self._constants[0]
-        print(octave)
         return (1 / octave**0.5) * mult
 
 
@@ -161,14 +161,22 @@ class CylindricalPerlinNoiseMapper:
             PerlinNoise(octaves=octave, seed=seed) for octave in self._octaves
         ]
 
-    def __call__(self, coords):
-        scaled_coords = coords / self._sampling_scale
+    def _noise_of_scaled_coords(self, scaled_coords):
         return sum(
             [
                 noise(scaled_coords) * mag
                 for noise, mag in zip(self._noise_generators, self._magnitudes)
             ]
         )
+
+    def __call__(self, coords):
+        if type(coords) in [tuple, list]:
+            coords = np.array(coords)
+        scaled_coords = coords / self._sampling_scale
+        pool = Pool()
+        noises = pool.map(self._noise_of_scaled_coords, scaled_coords)
+        pool.close()
+        return np.array(noises)
 
 
 class TunnelPtClGenParams:
