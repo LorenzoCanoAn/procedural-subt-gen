@@ -353,7 +353,6 @@ class TunnelNetwork(Graph):
         self._tunnels_of_node = dict()
         # Tracks which tunnels are connected to each other
         self._node_types = dict()
-        self._intersection_connectivity = dict()
 
     def add_node(self, node: Node):
         """IMPORTANT: This should only be called by _add_tunnel"""
@@ -376,8 +375,12 @@ class TunnelNetwork(Graph):
         if len(self._tunnels_of_node[node]) > 1:
             if len(self.connected_nodes(node)) == 2:
                 return NodeType.tunnel_continuation_intersection
-            else:
+            elif len(self.connected_nodes(node)) > 2:
                 return NodeType.multi_tunnel_intersection
+            else:
+                raise Exception(
+                    f"Node {node} has multiple tunnels but less than one connection"
+                )
         elif len(self._tunnels_of_node[node]) == 1:
             if len(self.connected_nodes(node)) == 1:
                 return NodeType.end_of_tunnel
@@ -399,20 +402,28 @@ class TunnelNetwork(Graph):
             self._node_types[node] = self._compute_node_type(node)
 
     def compute_intersection_connections(self):
+        intersection_connectivity = dict()
         for intersection in self.intersections:
-            self._intersection_connectivity[intersection] = set()
+            intersection_connectivity[intersection] = set()
             # Craw node by node along each of the connected nodes
             # until reaching next intersection node
             for node in self.connected_nodes(intersection):
+                current_node = intersection
+                next_node = node
                 new_intersection_reached = False
-                prev_node = intersection
-                current_node = node
                 while not new_intersection_reached:
-                    if TODO:
-                        pass
-                    connected_to_current = list(self.connected_nodes(current_node))
-                    connected_to_current.remove(prev_node)
-                    nex_node = connected_to_current[0]
+                    if self._node_types[next_node] in NodeType.inter_types:
+                        intersection_connectivity[intersection].add(next_node)
+                        new_intersection_reached = True
+                    else:
+                        nodes_connected_to_next_node = list(
+                            self.connected_nodes(next_node)
+                        )
+                        nodes_connected_to_next_node.remove(current_node)
+                        assert len(nodes_connected_to_next_node) == 1
+                        current_node = next_node
+                        next_node = nodes_connected_to_next_node[0]
+        return intersection_connectivity
 
     def add_tunnel(self, tunnel: Tunnel):
         self._tunnels.add(tunnel)
