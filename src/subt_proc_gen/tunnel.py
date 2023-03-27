@@ -323,7 +323,7 @@ class NodeType(Enum):
     floating_node = 6
     tunnel_continuation_intersection = 7
 
-    @property
+    @classmethod
     def inter_types(self):
         return [
             NodeType.multi_tunnel_intersection,
@@ -389,10 +389,10 @@ class TunnelNetwork(Graph):
         for node in self.nodes:
             self._node_types[node] = self._compute_node_type(node)
 
-    def compute_intersection_connections(self):
-        intersection_connectivity = dict()
+    def compute_intersection_connectivity_graph(self) -> Graph:
+        intersection_connectivity_graph = Graph()
         for intersection in self.intersections:
-            intersection_connectivity[intersection] = set()
+            intersection_connectivity_graph.add_node(intersection)
             # Craw node by node along each of the connected nodes
             # until reaching next intersection node
             for node in self.connected_nodes(intersection):
@@ -400,8 +400,12 @@ class TunnelNetwork(Graph):
                 next_node = node
                 new_intersection_reached = False
                 while not new_intersection_reached:
-                    if self._node_types[next_node] in NodeType.inter_types:
-                        intersection_connectivity[intersection].add(next_node)
+                    if (
+                        self._node_types[next_node] in NodeType.inter_types()
+                        or self._node_types[next_node] == NodeType.end_of_tunnel
+                    ):
+                        intersection_connectivity_graph.add_node(next_node)
+                        intersection_connectivity_graph.connect(intersection, next_node)
                         new_intersection_reached = True
                     else:
                         nodes_connected_to_next_node = list(
@@ -411,7 +415,7 @@ class TunnelNetwork(Graph):
                         assert len(nodes_connected_to_next_node) == 1
                         current_node = next_node
                         next_node = nodes_connected_to_next_node[0]
-        return intersection_connectivity
+        return intersection_connectivity_graph
 
     def add_tunnel(self, tunnel: Tunnel):
         self._tunnels.add(tunnel)
@@ -468,6 +472,6 @@ class TunnelNetwork(Graph):
         self.compute_node_types()
         intersections = set()
         for node in self._nodes:
-            if self._node_types(node) in NodeType.inter_types:
+            if self._node_types[node] in NodeType.inter_types():
                 intersections.add(node)
         return intersections

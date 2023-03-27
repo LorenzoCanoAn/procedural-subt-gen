@@ -86,6 +86,7 @@ def test3():
 
 
 def test4():
+    """Tests the serializtion and deserialization from yaml"""
     tunnel_network = TunnelNetwork()
     first_node = Node((0, 0, 0))
     tunnel_network.add_node(first_node)
@@ -120,6 +121,7 @@ def test4():
 
 
 def test5():
+    """Tests the node classification"""
     tunnel_network = TunnelNetwork()
     first_node = Node((0, 0, 0))
     tunnel_network.add_node(first_node)
@@ -148,8 +150,38 @@ def test5():
     tunnel_network.compute_node_types()
 
 
+def test6():
+    """Tests the intersection connections"""
+    tunnel_network = TunnelNetwork()
+    first_node = Node((0, 0, 0))
+    tunnel_network.add_node(first_node)
+    first_tunnel = Tunnel.grown(
+        i_node=first_node,
+        i_direction=Vector3D.from_inclination_yaw_length(
+            inclination=0, yaw=np.deg2rad(0), length=30
+        ),
+        params=GrownTunnelGenerationParams.from_defaults(),
+    )
+    tunnel_network.add_tunnel(first_tunnel)
+    second_tunnel = Tunnel.grown(
+        i_node=first_node,
+        i_direction=Vector3D.from_inclination_yaw_length(
+            inclination=0, yaw=np.deg2rad(90), length=30
+        ),
+        params=GrownTunnelGenerationParams.from_defaults(),
+    )
+    tunnel_network.add_tunnel(second_tunnel)
+    third_tunnel = Tunnel.connector(
+        i_node=first_tunnel[-2],
+        f_node=second_tunnel[-2],
+        params=ConnectorTunnelGenerationParams.from_defaults(),
+    )
+    tunnel_network.add_tunnel(third_tunnel)
+    intersection_connections = tunnel_network.compute_intersection_connectivity_graph()
+
+
 def main():
-    tests = [test1, test2, test3, test4, test5]
+    tests = [test1, test2, test3, test4, test5, test6]
     for test in tests:
         try:
             timeit(test)
