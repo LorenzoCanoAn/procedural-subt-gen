@@ -7,8 +7,6 @@ import yaml
 
 
 class ConnectorTunnelGenerationParams:
-    _default_first_segment_vector = None
-    _default_last_segment_vector = None
     _default_segment_length = 20
     _default_node_position_horizontal_noise = 7
     _default_node_position_vertical_noise = 5
@@ -18,17 +16,15 @@ class ConnectorTunnelGenerationParams:
     _random_node_position_vertical_noise_interval = (0, 10)
 
     @classmethod
-    def from_defaults(cls, first_segment_vector=None, last_segment_vector=None):
+    def from_defaults(cls):
         return ConnectorTunnelGenerationParams(
-            first_segment_vector=first_segment_vector,
-            last_segment_vector=last_segment_vector,
             segment_length=cls._default_segment_length,
             node_position_horizontal_noise=cls._default_node_position_horizontal_noise,
             node_position_vertical_noise=cls._default_node_position_vertical_noise,
         )
 
     @classmethod
-    def random(cls, first_segment_vector=None, last_segment_vector=None):
+    def random(cls):
         min_segment_length = np.random.uniform(
             low=cls._random_segment_length_interval[0],
             high=cls._random_segment_length_interval[1],
@@ -42,8 +38,6 @@ class ConnectorTunnelGenerationParams:
             high=cls._random_node_position_vertical_noise_interval[1],
         )
         return ConnectorTunnelGenerationParams(
-            first_segment_vector=first_segment_vector,
-            last_segment_vector=last_segment_vector,
             segment_length=min_segment_length,
             node_position_horizontal_noise=node_position_horizontal_noise,
             node_position_vertical_noise=node_position_vertical_noise,
@@ -51,8 +45,6 @@ class ConnectorTunnelGenerationParams:
 
     def __init__(
         self,
-        first_segment_vector=None,
-        last_segment_vector=None,
         segment_length=None,
         node_position_horizontal_noise=None,
         node_position_vertical_noise=None,
@@ -60,8 +52,6 @@ class ConnectorTunnelGenerationParams:
         assert not segment_length is None
         assert not node_position_horizontal_noise is None
         assert not node_position_vertical_noise is None
-        self.first_segment_vector = first_segment_vector
-        self.last_segment_vector = last_segment_vector
         self.segment_length = segment_length
         self.node_position_horizontal_noise = node_position_horizontal_noise
         self.node_position_vertical_noise = node_position_horizontal_noise
@@ -82,7 +72,6 @@ class ConnectorTunnelGenerationParams:
 class GrownTunnelGenerationParams:
     # Default params
     _default_distance = 100
-    _default_initial_direction = Vector3D((1, 0, 0))
     _default_horizontal_tendency_rad = 0
     _default_vertical_tendency_rad = 0
     _default_horizontal_noise_rad = np.deg2rad(10)
@@ -91,19 +80,17 @@ class GrownTunnelGenerationParams:
     _default_max_segment_lenght = 20
     # Random params
     _random_distance_range = (50, 300)
-    _random_intial_inclination_range_deg = (-20, 20)
-    _random_horizontal_tendency_range_deg = (-30, 30)
     _random_vertical_tendency_range_deg = (-20, 20)
+    _random_horizontal_tendency_range_deg = (-40, 40)
     _random_horizontal_noise_range_deg = (0, 20)
     _random_vertical_noise_range_deg = (0, 10)
+    _random_min_segment_length_fraction_range = (0.05, 0.15)
+    _random_max_segment_length_fraction_range = (0.15, 0.30)
 
     @classmethod
-    def from_defaults(cls, initial_direction=None):
-        if initial_direction is None:
-            initial_direction = cls._default_initial_direction
+    def from_defaults(cls):
         return GrownTunnelGenerationParams(
             cls._default_distance,
-            initial_direction,
             cls._default_horizontal_tendency_rad,
             cls._default_vertical_tendency_rad,
             cls._default_horizontal_noise_rad,
@@ -113,7 +100,7 @@ class GrownTunnelGenerationParams:
         )
 
     @classmethod
-    def random(cls, initial_direction=None):
+    def random(cls):
         distance = np.random.uniform(
             cls._random_distance_range[0],
             cls._random_distance_range[1],
@@ -142,30 +129,27 @@ class GrownTunnelGenerationParams:
                 cls._random_vertical_noise_range_deg[1],
             )
         )
-        initial_inclination_rad = np.deg2rad(
-            np.random.uniform(
-                cls._random_intial_inclination_range_deg[0],
-                cls._random_intial_inclination_range_deg[1],
-            )
+        min_seg_length_frac = np.random.uniform(
+            cls._random_min_segment_length_fraction_range[0],
+            cls._random_min_segment_length_fraction_range[1],
         )
-        initial_yaw = np.random.uniform(0, np.pi * 2)
+        max_seg_length_frac = np.random.uniform(
+            cls._random_max_segment_length_fraction_range[0],
+            cls._random_max_segment_length_fraction_range[1],
+        )
         return GrownTunnelGenerationParams(
             distance=distance,
-            initial_direction=Vector3D.from_inclination_yaw_length(
-                initial_inclination_rad, initial_yaw, 1
-            ),
             horizontal_tendency_rad=horizontal_tendency_rad,
             vertical_tendency_rad=vertical_tendency_rad,
             horizontal_noise_rad=horizontal_noise_rad,
             vertical_noise_rad=vertical_noise_rad,
-            min_segment_length=distance * 0.1,
-            max_segment_length=distance * 0.4,
+            min_segment_length=distance * min_seg_length_frac,
+            max_segment_length=distance * max_seg_length_frac,
         )
 
     def __init__(
         self,
         distance=None,
-        initial_direction=None,
         horizontal_tendency_rad=None,
         vertical_tendency_rad=None,
         horizontal_noise_rad=None,
@@ -174,7 +158,6 @@ class GrownTunnelGenerationParams:
         max_segment_length=None,
     ):
         assert not distance is None
-        assert not initial_direction is None
         assert not horizontal_tendency_rad is None
         assert not vertical_tendency_rad is None
         assert not horizontal_noise_rad is None
@@ -182,7 +165,6 @@ class GrownTunnelGenerationParams:
         assert not min_segment_length is None
         assert not max_segment_length is None
         self.distance = distance
-        self.starting_direction = initial_direction
         self.horizontal_tendency = horizontal_tendency_rad
         self.vertical_tendency = vertical_tendency_rad
         self.horizontal_noise = horizontal_noise_rad
@@ -235,9 +217,11 @@ class Tunnel:
     """A tunnel only contains nodes"""
 
     @classmethod
-    def grown(cls, i_node: Node, params: GrownTunnelGenerationParams):
+    def grown(
+        cls, i_node: Node, i_direction: Vector3D, params: GrownTunnelGenerationParams
+    ):
         nodes = [i_node]
-        prev_direction = Vector3D(params.starting_direction)
+        prev_direction = Vector3D(i_direction)
         prev_direction.set_distance(params.get_segment_length())
         d = prev_direction.length
         nodes.append(nodes[-1] + prev_direction)
@@ -249,19 +233,23 @@ class Tunnel:
 
     @classmethod
     def connector(
-        cls, i_node: Node, f_node: Node, params: ConnectorTunnelGenerationParams
+        cls,
+        i_node: Node,
+        f_node: Node,
+        params: ConnectorTunnelGenerationParams,
+        i_vector: Vector3D = None,
+        f_vector: Vector3D = None,
     ):
-        if not params.first_segment_vector is None:
-            nodes = [i_node, i_node + Vector3D(params.first_segment_vector)]
+        if not i_vector is None:
+            nodes = [i_node, i_node + Vector3D(i_vector)]
         else:
             nodes = [i_node]
         start_node = nodes[-1]
-        if not params.last_segment_vector is None:
-            final_nodes = [f_node + Vector3D(params.last_segment_vector), f_node]
+        if not f_vector is None:
+            final_nodes = [f_node + Vector3D(f_vector), f_node]
         else:
             final_nodes = [f_node]
         finish_node = final_nodes[0]
-
         s_to_f_vector = finish_node - start_node
         n_segments = math.ceil(s_to_f_vector.length / params.segment_length)
         segment_length = s_to_f_vector.length / n_segments

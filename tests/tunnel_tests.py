@@ -8,10 +8,10 @@ from subt_proc_gen.graph import Node
 from subt_proc_gen.geometry import Vector3D
 from subt_proc_gen.display_functions import plot_nodes, plot_edges, plot_xyz_axis
 import numpy as np
-import pyvista as pv
 import os
 import pathlib
 from time import perf_counter_ns
+from traceback import print_exc
 
 
 def timeit(function):
@@ -37,11 +37,23 @@ def test2():
     tunnel_network.add_node(first_node)
     tunnel_network.add_tunnel(
         Tunnel.grown(
-            i_node=first_node, params=GrownTunnelGenerationParams.from_defaults()
+            i_node=first_node,
+            i_direction=Vector3D.from_inclination_yaw_length(
+                inclination=0, yaw=np.deg2rad(0), length=30
+            ),
+            params=GrownTunnelGenerationParams.from_defaults(),
         )
     )
     params = GrownTunnelGenerationParams.random()
-    tunnel_network.add_tunnel(Tunnel.grown(i_node=first_node, params=params))
+    tunnel_network.add_tunnel(
+        Tunnel.grown(
+            i_node=first_node,
+            i_direction=Vector3D.from_inclination_yaw_length(
+                inclination=0, yaw=np.deg2rad(0), length=30
+            ),
+            params=params,
+        )
+    )
 
 
 def test3():
@@ -50,20 +62,18 @@ def test3():
     tunnel_network.add_node(first_node)
     first_tunnel = Tunnel.grown(
         i_node=first_node,
-        params=GrownTunnelGenerationParams.from_defaults(
-            initial_direction=Vector3D.from_inclination_yaw_length(
-                inclination=0, yaw=np.deg2rad(0), length=30
-            )
+        i_direction=Vector3D.from_inclination_yaw_length(
+            inclination=0, yaw=np.deg2rad(0), length=30
         ),
+        params=GrownTunnelGenerationParams.from_defaults(),
     )
     tunnel_network.add_tunnel(first_tunnel)
     second_tunnel = Tunnel.grown(
         i_node=first_node,
-        params=GrownTunnelGenerationParams.from_defaults(
-            initial_direction=Vector3D.from_inclination_yaw_length(
-                inclination=0, yaw=np.deg2rad(90), length=30
-            )
+        i_direction=Vector3D.from_inclination_yaw_length(
+            inclination=0, yaw=np.deg2rad(90), length=30
         ),
+        params=GrownTunnelGenerationParams.from_defaults(),
     )
     tunnel_network.add_tunnel(second_tunnel)
     third_tunnel = Tunnel.connector(
@@ -81,20 +91,18 @@ def test4():
     tunnel_network.add_node(first_node)
     first_tunnel = Tunnel.grown(
         i_node=first_node,
-        params=GrownTunnelGenerationParams.from_defaults(
-            initial_direction=Vector3D.from_inclination_yaw_length(
-                inclination=0, yaw=np.deg2rad(0), length=30
-            )
+        i_direction=Vector3D.from_inclination_yaw_length(
+            inclination=0, yaw=np.deg2rad(0), length=30
         ),
+        params=GrownTunnelGenerationParams.from_defaults(),
     )
     tunnel_network.add_tunnel(first_tunnel)
     second_tunnel = Tunnel.grown(
         i_node=first_node,
-        params=GrownTunnelGenerationParams.from_defaults(
-            initial_direction=Vector3D.from_inclination_yaw_length(
-                inclination=0, yaw=np.deg2rad(90), length=30
-            )
+        i_direction=Vector3D.from_inclination_yaw_length(
+            inclination=0, yaw=np.deg2rad(90), length=30
         ),
+        params=GrownTunnelGenerationParams.from_defaults(),
     )
     tunnel_network.add_tunnel(second_tunnel)
     third_tunnel = Tunnel.connector(
@@ -117,20 +125,18 @@ def test5():
     tunnel_network.add_node(first_node)
     first_tunnel = Tunnel.grown(
         i_node=first_node,
-        params=GrownTunnelGenerationParams.from_defaults(
-            initial_direction=Vector3D.from_inclination_yaw_length(
-                inclination=0, yaw=np.deg2rad(0), length=30
-            )
+        i_direction=Vector3D.from_inclination_yaw_length(
+            inclination=0, yaw=np.deg2rad(0), length=30
         ),
+        params=GrownTunnelGenerationParams.from_defaults(),
     )
     tunnel_network.add_tunnel(first_tunnel)
     second_tunnel = Tunnel.grown(
         i_node=first_node,
-        params=GrownTunnelGenerationParams.from_defaults(
-            initial_direction=Vector3D.from_inclination_yaw_length(
-                inclination=0, yaw=np.deg2rad(90), length=30
-            )
+        i_direction=Vector3D.from_inclination_yaw_length(
+            inclination=0, yaw=np.deg2rad(90), length=30
         ),
+        params=GrownTunnelGenerationParams.from_defaults(),
     )
     tunnel_network.add_tunnel(second_tunnel)
     third_tunnel = Tunnel.connector(
@@ -149,6 +155,7 @@ def main():
             timeit(test)
         except:
             print(f"{test.__name__} failed")
+            print_exc()
 
 
 if __name__ == "__main__":
