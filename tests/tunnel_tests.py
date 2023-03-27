@@ -12,6 +12,7 @@ import os
 import pathlib
 from time import perf_counter_ns
 from traceback import print_exc
+import pyvista as pv
 
 
 def timeit(function):
@@ -178,6 +179,7 @@ def test6():
     )
     tunnel_network.add_tunnel(third_tunnel)
     intersection_connections = tunnel_network.compute_intersection_connectivity_graph()
+    plotter = pv.Plotter()
 
 
 def main():

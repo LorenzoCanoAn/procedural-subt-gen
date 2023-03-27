@@ -9,11 +9,19 @@ from subt_proc_gen.graph import Node, Edge
 import vtk
 
 
-def plot_node(plotter: pv.Plotter, node: Node, radius=0.3, color="b"):
+def plot_node(plotter: pv.Plotter, node: Node, radius=None, color=None):
+    if radius is None:
+        radius = 0.3
+    if color is None:
+        color = "b"
     return plotter.add_mesh(pv.Sphere(radius=radius, center=node.xyz), color=color)
 
 
-def plot_edge(plotter: pv.Plotter, edge: Edge, radius=0.1, color="b"):
+def plot_edge(plotter: pv.Plotter, edge: Edge, radius=None, color=None):
+    if radius is None:
+        radius = 0.1
+    if color is None:
+        color = "b"
     ni, nj = edge.nodes
     return plotter.add_mesh(
         pv.Tube(pointa=ni.xyz, pointb=nj.xyz, radius=radius), color=color
@@ -40,8 +48,8 @@ def plot_xyz_axis(plotter: pv.Plotter):
 def plot_nodes(
     plotter: pv.Plotter,
     nodes: list[Node] | set[Node] | tuple[Node],
-    radius=0.3,
-    color="b",
+    radius=None,
+    color=None,
 ):
     n_nodes = len(nodes)
     point_array = np.zeros([n_nodes, 3])
@@ -59,9 +67,22 @@ def plot_nodes(
 def plot_edges(
     plotter: pv.Plotter,
     edges: list[Edge] | set[Edge] | tuple[Edge],
-    radius=0.1,
-    color="b",
+    radius=None,
+    color=None,
 ):
     actors = []
     for edge in edges:
         actors.append(plot_edge(plotter, edge, radius=radius, color=color))
+
+
+def plot_graph(
+    plotter: pv.Plotter,
+    graph: Graph,
+    node_rad=None,
+    edge_rad=None,
+    node_color=None,
+    edge_color=None,
+):
+    node_actors = plot_nodes(plotter, graph.nodes, radius=node_rad, color=node_color)
+    edge_actors = plot_edges(plotter, graph.edges, radius=edge_rad, color=edge_color)
+    return node_actors + edge_actors
