@@ -2,7 +2,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-from subt_proc_gen.PARAMS import *
 import pyvista as pv
 from subt_proc_gen.tunnel import Tunnel, Graph, TunnelNetwork
 from subt_proc_gen.graph import Node, Edge
@@ -51,6 +50,10 @@ def plot_nodes(
     radius=None,
     color=None,
 ):
+    if radius is None:
+        radius = 0.3
+    if color is None:
+        color = "b"
     n_nodes = len(nodes)
     point_array = np.zeros([n_nodes, 3])
     for i, node in enumerate(nodes):
@@ -73,6 +76,7 @@ def plot_edges(
     actors = []
     for edge in edges:
         actors.append(plot_edge(plotter, edge, radius=radius, color=color))
+    return actors
 
 
 def plot_graph(
@@ -85,4 +89,4 @@ def plot_graph(
 ):
     node_actors = plot_nodes(plotter, graph.nodes, radius=node_rad, color=node_color)
     edge_actors = plot_edges(plotter, graph.edges, radius=edge_rad, color=edge_color)
-    return node_actors + edge_actors
+    return [node_actors] + edge_actors
