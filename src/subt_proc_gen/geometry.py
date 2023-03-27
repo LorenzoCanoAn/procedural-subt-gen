@@ -200,30 +200,28 @@ class Spline3D:
         self._points = list(points)
         self._len = len(self._points)
         self._point_array = np.zeros(shape=[self._len, 3], dtype=np.double)
-        self._dist_array = np.reshape(
-            np.array([0.0 for _ in range(len(self.points))]), [-1, 1]
-        )
+        self._dist_array = np.zeros(shape=[self._len, 1])
         for i, p in enumerate(self._points):
             self._point_array[i, :] = p.xyz
-        for i in range(len(points) - 1):
-            self._dist_array[i + 1] = self._dist_array[i] + np.linalg.norm(
-                points[i + 1] - points[i]
+        for i in range(1, len(points)):
+            self._dist_array[i, :] = self._dist_array[i - 1] + np.linalg.norm(
+                self._point_array[i, :] - self._point_array[i - 1, :]
             )
-        self._dist = self._dist_array[-1]
+        self._distance = self._dist_array[-1]
         self._degree = 3 if len(self._dist_array) > 3 else len(self._dist_array) - 1
         self.xspline = interpolate.splrep(
-            self._dist_array, self.points[:, 0], k=self._degree
+            self._dist_array, self._point_array[:, 0], k=self._degree
         )
         self.yspline = interpolate.splrep(
-            self._dist_array, self.points[:, 1], k=self._degree
+            self._dist_array, self._point_array[:, 1], k=self._degree
         )
         self.zspline = interpolate.splrep(
-            self._dist_array, self.points[:, 2], k=self._degree
+            self._dist_array, self._point_array[:, 2], k=self._degree
         )
         self._discretized = dict()
 
     def __call__(self, d):
-        assert d >= 0 and d <= self._dist
+        assert d >= 0 and d <= self._distance
         x = interpolate.splev(d, self.xspline)
         y = interpolate.splev(d, self.yspline)
         z = interpolate.splev(d, self.zspline)
@@ -237,17 +235,17 @@ class Spline3D:
         return p, v
 
     def discretize(self, precision):
-        if not precision in self._discretized.keys():
-            # number of sampling points
-            nd = int(np.ceil(self._dist / precision))
-            # sampling distances
-            ds = np.linspace(0, self._dist, nd)
-            # sampled points and directions
-            ps, vs = np.zeros([nd, 3]), np.zeros([nd, 3])
-            for n, d in enumerate(ds):
-                ps[n], vs[n] = self(d)
-            self._discretized[precision] = (ds, ps, vs)
-        return self._discretized[precision]
+        # number of sampling points
+        nd = int(np.ceil(self._distance / precision))
+        # sampling distances
+        ds = np.linspace(0, self._distance, nd)
+        # sampled points and directions
+        ps, vs = np.zeros([nd, 3]), np.zeros([nd, 3])
+        for n, d in enumerate(ds):
+            p, v = self(d)
+            ps[n, :] = np.reshape(p, -1)
+            vs[n, :] = np.reshape(v, -1)
+        return ds, ps, vs
 
     def get_most_perpendicular_point_in_spline(
         self, point, threshold_distance, discretization_precision

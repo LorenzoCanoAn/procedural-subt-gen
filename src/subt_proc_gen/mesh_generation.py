@@ -249,6 +249,12 @@ class TunnelPtClGenParams:
         self.fta_distance = fta_distance
 
 
+class IntersectionPtClType(Enum):
+    no_cavity = 1
+    cavity_along_one_tunnel = 2
+    spherical_cavity = 3
+
+
 class IntersectionPtClGenParams:
     """Params that control how the pointcloud of an intersection is generated"""
 
@@ -277,7 +283,7 @@ class TunnelNewtorkMeshGenerator:
         tunnel: Tunnel,
         ptcl_gen_params: TunnelPtClGenParams,
     ):
-        raise NotImplementedError()
+        spline = tunnel.spline
 
     def _compute_intersection_ptcl(
         self,
@@ -299,9 +305,9 @@ class TunnelNewtorkMeshGenerator:
         ptcl_gen_params: TunnelNetworkPtClGenParams,
         mesh_gen_params: TunnelNetworkMeshGenParams,
     ):
-        self.compute_all_tunnel_ptcl(ptcl_gen_params)
-        self.compute_all_intersection_ptcl(ptcl_gen_params)
-        self.compute_mesh(mesh_gen_params)
+        self._compute_all_tunnels_ptcl(ptcl_gen_params)
+        self._compute_all_intersections_ptcl(ptcl_gen_params)
+        self._compute_mesh(mesh_gen_params)
 
 
 #########################################################################################################################

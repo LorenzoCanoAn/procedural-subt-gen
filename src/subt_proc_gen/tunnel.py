@@ -308,6 +308,7 @@ class Tunnel:
     def spline(self):
         if self._spline is None:
             self._spline = Spline3D([nd._pose for nd in self._nodes])
+        return self._spline
 
     @property
     def nodes(self) -> list[Node]:

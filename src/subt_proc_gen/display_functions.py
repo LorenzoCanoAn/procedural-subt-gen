@@ -5,7 +5,19 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 import pyvista as pv
 from subt_proc_gen.tunnel import Tunnel, Graph, TunnelNetwork
 from subt_proc_gen.graph import Node, Edge
+from subt_proc_gen.geometry import Spline3D
 import vtk
+
+
+def lines_from_points(points):
+    """Given an array of points, make a line set"""
+    poly = pv.PolyData()
+    poly.points = points
+    cells = np.full((len(points) - 1, 3), 2, dtype=np.int_)
+    cells[:, 1] = np.arange(0, len(points) - 1, dtype=np.int_)
+    cells[:, 2] = np.arange(1, len(points), dtype=np.int_)
+    poly.lines = cells
+    return poly
 
 
 def plot_node(plotter: pv.Plotter, node: Node, radius=None, color=None):
@@ -77,6 +89,31 @@ def plot_edges(
     for edge in edges:
         actors.append(plot_edge(plotter, edge, radius=radius, color=color))
     return actors
+
+
+def plot_spline(
+    plotter: pv.Plotter,
+    spline: Spline3D,
+    radius=None,
+    color=None,
+):
+    if radius is None:
+        radius = 0.1
+    if color is None:
+        color = "r"
+    line = lines_from_points(points=spline.discretize(0.5)[1])
+    tube = line.tube(radius=radius)
+    return plotter.add_mesh(tube, color=color)
+
+
+def plot_splines(
+    plotter: pv.Plotter,
+    tunnel_network: TunnelNetwork,
+    radius=None,
+    color=None,
+):
+    for tunnel in tunnel_network.tunnels:
+        plot_spline(plotter=plotter, spline=tunnel.spline, radius=radius, color=color)
 
 
 def plot_graph(

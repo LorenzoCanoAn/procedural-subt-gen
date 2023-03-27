@@ -400,7 +400,7 @@ class Tunnel:
 
     def check_self_collissions(self, res=1, min_dist=6):
         spline = self.spline
-        length = spline._dist
+        length = spline._distance
         N = int(np.ceil(length / res))
         points = np.zeros((N, 3))
         ds = np.linspace(0, length, N)
@@ -422,7 +422,7 @@ class Tunnel:
 
     @property
     def distance(self):
-        return self.spline._dist
+        return self.spline._distance
 
     @property
     def spline(self):

@@ -11,6 +11,7 @@ from subt_proc_gen.display_functions import (
     plot_edges,
     plot_xyz_axis,
     plot_graph,
+    plot_splines,
 )
 import numpy as np
 import os
@@ -184,6 +185,12 @@ def test6():
     )
     tunnel_network.add_tunnel(third_tunnel)
     intersection_connections = tunnel_network.compute_intersection_connectivity_graph()
+    plotter = pv.Plotter()
+    plot_graph(plotter, tunnel_network, edge_color="g")
+    plot_splines(plotter, tunnel_network)
+    plot_graph(plotter, intersection_connections, edge_color="b")
+    plot_xyz_axis(plotter)
+    plotter.show()
 
 
 def main():
