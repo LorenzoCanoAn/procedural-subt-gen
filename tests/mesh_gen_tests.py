@@ -96,11 +96,11 @@ def test2():
         meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
     )
     mesh_generator.compute_all()
-    # plotter = pv.Plotter()
-    # plot_graph(plotter, tunnel_network)
-    # plot_tunnel_ptcls(plotter, mesh_generator, size=0.1)
-    # plot_intersection_ptcls(plotter, mesh_generator, size=0.1)
-    # plotter.show()
+    plotter = pv.Plotter()
+    plot_graph(plotter, tunnel_network)
+    plot_tunnel_ptcls(plotter, mesh_generator, size=0.1)
+    plot_intersection_ptcls(plotter, mesh_generator, size=0.1)
+    plotter.show()
 
 
 def main():

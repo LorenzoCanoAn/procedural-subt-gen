@@ -204,6 +204,13 @@ class CylindricalPerlinNoiseMapper:
         pool.close()
         return np.array(noises)
 
+    def call_no_multiprocessing(self, coords):
+        if type(coords) in [tuple, list]:
+            coords = np.array(coords)
+        coords = np.reshape(coords, -1)
+        scaled_coords = coords / self._sampling_scale
+        return self._noise_of_scaled_coords(scaled_coords)
+
 
 class TunnelPtClGenParams:
     """Contains parameters for the generarion of a pointcloud around a single tunnel"""
@@ -493,7 +500,7 @@ class TunnelNewtorkMeshGenerator:
         normal = u.cartesian_unitary * np.sin(angle) + v.cartesian_unitary * np.cos(
             angle
         )
-        noise = self.perlin_generator_of_tunnel(tunnel)(
+        noise = self.perlin_generator_of_tunnel(tunnel).call_no_multiprocessing(
             np.reshape(np.array((d, angle)), (1, 2))
         )
         radius = self.params_of_tunnel(tunnel).radius
@@ -545,7 +552,22 @@ class TunnelNewtorkMeshGenerator:
             self._ptcl_of_intersections[intersection] = ptcl_of_intersection
 
     def _compute_all_intersections_ptcl(self):
-        raise NotImplementedError()
+        for intersection in self._tunnel_network.intersections:
+            params = self.params_of_intersection(intersection)
+            if params.ptcl_type == IntersectionPtClType.no_cavity:
+                # Get the ids of the points to delete
+                for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
+                    idx = []
+                    for id, point in enumerate(
+                        self._ptcl_of_intersections[intersection]
+                    ):
+                        if not isinstance(point, np.ndarray):
+                            pass
+                        if self.is_point_inside_tunnel(tunnel, point, threshold=0.1):
+                            idx.append(id)
+                    self._ptcl_of_intersections[intersection] = np.delete(
+                        self._ptcl_of_intersections[intersection], idx, axis=0
+                    )
 
     def get_safe_radius_from_intersection_of_two_tunnels(
         self, tunnel_i: Tunnel, tunnel_j: Tunnel, intersection: Node, increment=0.5
@@ -598,15 +620,19 @@ class TunnelNewtorkMeshGenerator:
         self._compute_radius_of_intersections_for_all_tunnels()
         log.info("Separating the pointclouds of the tunnels for the intersections")
         self._separate_intersection_ptcl_from_tunnel_ptcls()
-        # self._compute_all_intersections_ptcl()
+        log.info("Computing pointclouds of intersections")
+        self._compute_all_intersections_ptcl()
 
     def perlin_generator_of_tunnel(
         self, tunnel: Tunnel
     ) -> CylindricalPerlinNoiseMapper:
         return self._perlin_generator_of_tunnel[tunnel]
 
+    def multiprocesing_is_point_inside_tunnel(self, tp):
+        return self.is_point_inside_tunnel(tp[0], tp[1])
+
     def is_point_inside_tunnel(self, tunnel: Tunnel, point, threshold=0.1):
-        ad, ap, av = tunnel.spline.get_closest(point)
+        ad, ap, av = tunnel.spline.get_closest(point, precision=0.05)
         u, v = get_two_perpendicular_vectors(av)
         n = Point3D(point) - Point3D(ap)
         dist_to_axis = n.length

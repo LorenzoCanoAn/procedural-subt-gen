@@ -21,6 +21,8 @@ class Point3D:
             self._coords = np.reshape(coords.astype(np.double), (1, 3))
         elif isinstance(coords, Point3D):
             self._coords = coords.xyz
+        else:
+            raise Exception("Input for point not valid")
 
     def __sub__(self, other):
         if isinstance(other, Vector3D):
@@ -292,9 +294,9 @@ class Spline3D:
     def collides(self, other, threshold_distance):
         assert isinstance(other, Spline3D)
 
-    def get_closest(self, point, max_distance=10):
+    def get_closest(self, point, precision):
         point = Point3D(point)
-        ds, ps, vs = self.discretize(0.1)
+        ds, ps, vs = self.discretize(precision)
         diff = ps - point.xyz
         dist = np.linalg.norm(diff, axis=1)
         idx = np.argmin(dist)
