@@ -1,12 +1,10 @@
 """Functions to display and debug the graph generation process"""
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 import pyvista as pv
 from subt_proc_gen.tunnel import Tunnel, Graph, TunnelNetwork
 from subt_proc_gen.graph import Node, Edge
 from subt_proc_gen.geometry import Spline3D
-import vtk
+from subt_proc_gen.mesh_generation import TunnelNewtorkMeshGenerator
 
 
 def lines_from_points(points):
@@ -116,6 +114,26 @@ def plot_splines(
         plot_spline(plotter=plotter, spline=tunnel.spline, radius=radius, color=color)
 
 
+def plot_ptcl(
+    plotter: pv.Plotter,
+    points: np.ndarray,
+    radius=None,
+    color=None,
+):
+    points = np.reshape(points, [-1, 3])
+    if radius is None:
+        radius = 0.01
+    if color is None:
+        color = "m"
+    mesh = pv.PolyData(points)
+    glyphs = mesh.glyph(
+        orient=False,
+        geom=pv.Sphere(radius=radius, theta_resolution=20, phi_resolution=20),
+        scale=False,
+    )
+    return plotter.add_mesh(glyphs, color=color)
+
+
 def plot_graph(
     plotter: pv.Plotter,
     graph: Graph,
@@ -127,3 +145,45 @@ def plot_graph(
     node_actors = plot_nodes(plotter, graph.nodes, radius=node_rad, color=node_color)
     edge_actors = plot_edges(plotter, graph.edges, radius=edge_rad, color=edge_color)
     return [node_actors] + edge_actors
+
+
+def plot_tunnel_ptcls(
+    plotter: pv.Plotter,
+    mesh_generator: TunnelNewtorkMeshGenerator,
+    size=None,
+    color=None,
+):
+    if color is None:
+        color = "m"
+    actors = []
+    for tunnel in mesh_generator._tunnel_network.tunnels:
+        actors.append(
+            plot_ptcl(
+                plotter,
+                mesh_generator._ptcl_of_tunnels[tunnel],
+                radius=size,
+                color=color,
+            )
+        )
+    return actors
+
+
+def plot_intersection_ptcls(
+    plotter: pv.Plotter,
+    mesh_generator: TunnelNewtorkMeshGenerator,
+    size=None,
+    color=None,
+):
+    if color is None:
+        color = "c"
+    actors = []
+    for intersection in mesh_generator._tunnel_network.intersections:
+        actors.append(
+            plot_ptcl(
+                plotter,
+                mesh_generator._ptcl_of_intersections[intersection],
+                radius=size,
+                color=color,
+            )
+        )
+    return actors

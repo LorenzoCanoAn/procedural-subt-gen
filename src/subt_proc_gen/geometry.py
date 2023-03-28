@@ -132,16 +132,20 @@ class Vector3D:
             ),
             (1, 3),
         )
+        self._unit_cartesian_vector = self._cartesian / self.length
 
     def set_distance(self, new_length):
         self.__set_cartesian(self.xyz / self.length * new_length)
+
+    def normalize(self):
+        self.set_distance(1.0)
 
     @property
     def length(self):
         return self._length.item()
 
     @property
-    def cartesian_unitary(self):
+    def cartesian_unitary(self) -> np.ndarray:
         return self._unit_cartesian_vector
 
     @property
@@ -218,7 +222,7 @@ class Spline3D:
         self.zspline = interpolate.splrep(
             self._dist_array, self._point_array[:, 2], k=self._degree
         )
-        self._discretized = dict()
+        self._discretized_cache = dict()
 
     def __call__(self, d):
         assert d >= 0 and d <= self._distance
@@ -235,6 +239,8 @@ class Spline3D:
         return p, v
 
     def discretize(self, precision):
+        if precision in self._discretized_cache:
+            return self._discretized_cache[precision]
         # number of sampling points
         nd = int(np.ceil(self._distance / precision))
         # sampling distances
@@ -245,6 +251,7 @@ class Spline3D:
             p, v = self(d)
             ps[n, :] = np.reshape(p, -1)
             vs[n, :] = np.reshape(v, -1)
+        self._discretized_cache[precision] = ds, ps, vs
         return ds, ps, vs
 
     def get_most_perpendicular_point_in_spline(
@@ -285,6 +292,22 @@ class Spline3D:
     def collides(self, other, threshold_distance):
         assert isinstance(other, Spline3D)
 
+    def get_closest(self, point, max_distance=10):
+        point = Point3D(point)
+        ds, ps, vs = self.discretize(0.1)
+        diff = ps - point.xyz
+        dist = np.linalg.norm(diff, axis=1)
+        idx = np.argmin(dist)
+        return (
+            np.reshape(ds[idx], -1),
+            np.reshape(ps[idx, :], (1, 3)),
+            np.reshape(vs[idx, :], (1, 3)),
+        )
+
+    @property
+    def metric_length(self):
+        return self._distance
+
 
 ###############################################################
 # FUNCTIONS
@@ -312,6 +335,27 @@ def format_coords(coords):
     ):
         assert len(coords) == 3
         return np.reshape(np.array(coords, dtype=np.double), (1, 3))
+
+
+def get_two_perpendicular_vectors(i_vector) -> tuple[Vector3D, Vector3D]:
+    vector = Vector3D(i_vector)
+    pho, theta, phi = np.reshape(vector.ptp, -1)
+    derived_vector = Vector3D(
+        (pho, theta, phi - np.deg2rad(0.01)), spherical_coords=True
+    )
+    u = Vector3D(np.cross(vector.cartesian_unitary, derived_vector.cartesian_unitary))
+    v = Vector3D(np.cross(vector.cartesian_unitary, u.cartesian_unitary))
+    u.normalize()
+    v.normalize()
+    return u, v
+
+
+def get_close_points_indices(point: np.ndarray, points: np.ndarray, distance):
+    point = np.reshape(point, (1, 3))
+    points = np.reshape(points, (-1, 3))
+    diff = points - point
+    dist = np.linalg.norm(diff, axis=1)
+    return np.where(dist < distance)
 
 
 ###############################################################

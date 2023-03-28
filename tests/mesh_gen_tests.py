@@ -1,11 +1,28 @@
 from subt_proc_gen.mesh_generation import (
     CylindricalPerlinNoiseMapper,
     CylindricalPerlinNoiseMapperParms,
+    TunnelNewtorkMeshGenerator,
+    TunnelNetworkPtClGenParams,
+    TunnelNetworkMeshGenParams,
+)
+from subt_proc_gen.tunnel import (
+    TunnelNetwork,
+    Tunnel,
+    GrownTunnelGenerationParams,
+    ConnectorTunnelGenerationParams,
+)
+from subt_proc_gen.graph import Node
+from subt_proc_gen.geometry import Point3D, Vector3D
+from subt_proc_gen.display_functions import (
+    plot_tunnel_ptcls,
+    plot_graph,
+    plot_intersection_ptcls,
 )
 import numpy as np
-import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from time import perf_counter_ns
+from traceback import print_exc
+import pyvista as pv
 
 
 def timeit(function, **args):
@@ -36,20 +53,64 @@ def fill_image_with_noise(image, noise, coords):
 
 
 def test1():
-    scale = 1000
+    scale = 100
     generator = CylindricalPerlinNoiseMapper(
         scale, CylindricalPerlinNoiseMapperParms.from_defaults()
     )
-    coords = timeit(generate_coords, scale=scale)
-    noise = timeit(noise_with_pool, generator=generator, coords=coords)
+    coords = generate_coords(scale=scale)
+    noise = noise_with_pool(generator=generator, coords=coords)
     image = np.zeros((scale, scale))
-    image = timeit(fill_image_with_noise, image=image, noise=noise, coords=coords)
-    plt.imshow(image)
-    plt.show()
+    image = fill_image_with_noise(image=image, noise=noise, coords=coords)
+
+
+def test2():
+    tunnel_network = Tunnel
+    tunnel_network = TunnelNetwork()
+    first_node = Node((0, 0, 0))
+    tunnel_network.add_node(first_node)
+    first_tunnel = Tunnel.grown(
+        i_node=first_node,
+        i_direction=Vector3D.from_inclination_yaw_length(
+            inclination=0, yaw=np.deg2rad(0), length=30
+        ),
+        params=GrownTunnelGenerationParams.from_defaults(),
+    )
+    tunnel_network.add_tunnel(first_tunnel)
+    second_tunnel = Tunnel.grown(
+        i_node=first_node,
+        i_direction=Vector3D.from_inclination_yaw_length(
+            inclination=0, yaw=np.deg2rad(90), length=30
+        ),
+        params=GrownTunnelGenerationParams.from_defaults(),
+    )
+    tunnel_network.add_tunnel(second_tunnel)
+    third_tunnel = Tunnel.connector(
+        i_node=first_tunnel[-2],
+        f_node=second_tunnel[-2],
+        params=ConnectorTunnelGenerationParams.from_defaults(),
+    )
+    tunnel_network.add_tunnel(third_tunnel)
+    mesh_generator = TunnelNewtorkMeshGenerator(
+        tunnel_network,
+        ptcl_gen_params=TunnelNetworkPtClGenParams.from_defaults(),
+        meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
+    )
+    mesh_generator.compute_all()
+    # plotter = pv.Plotter()
+    # plot_graph(plotter, tunnel_network)
+    # plot_tunnel_ptcls(plotter, mesh_generator, size=0.1)
+    # plot_intersection_ptcls(plotter, mesh_generator, size=0.1)
+    # plotter.show()
 
 
 def main():
-    test1()
+    tests = [test1, test2]
+    for test in tests:
+        try:
+            timeit(test)
+        except:
+            print(f"{test.__name__} failed")
+            print_exc()
 
 
 if __name__ == "__main__":
