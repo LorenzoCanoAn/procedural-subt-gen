@@ -109,7 +109,10 @@ class Vector3D:
     def __set_cartesian(self, coords):
         self._cartesian = coords
         self._length = np.linalg.norm(self._cartesian, axis=1)
-        self._unit_cartesian_vector = self._cartesian / self.length
+        if self._length == 0:
+            self._unit_cartesian_vector = self._cartesian
+        else:
+            self._unit_cartesian_vector = self._cartesian / self.length
         self._spherical = np.reshape(
             np.array(
                 (
@@ -137,7 +140,8 @@ class Vector3D:
         self._unit_cartesian_vector = self._cartesian / self.length
 
     def set_distance(self, new_length):
-        self.__set_cartesian(self.xyz / self.length * new_length)
+        if self.length != 0:
+            self.__set_cartesian(self.xyz / self.length * new_length)
 
     def normalize(self):
         self.set_distance(1.0)
@@ -240,7 +244,7 @@ class Spline3D:
         v /= np.linalg.norm(v)
         return p, v
 
-    def discretize(self, precision):
+    def discretize(self, precision, d_min=None, d_max=None):
         if precision in self._discretized_cache:
             return self._discretized_cache[precision]
         # number of sampling points
@@ -358,6 +362,10 @@ def get_close_points_indices(point: np.ndarray, points: np.ndarray, distance):
     diff = points - point
     dist = np.linalg.norm(diff, axis=1)
     return np.where(dist < distance)
+
+
+def warp_angle_2pi(angle):
+    return (angle + np.pi * 2) % (np.pi * 2)
 
 
 ###############################################################

@@ -181,7 +181,7 @@ def plot_intersection_ptcls(
         actors.append(
             plot_ptcl(
                 plotter,
-                mesh_generator._ptcl_of_intersections[intersection],
+                mesh_generator.ptcl_of_intersections(intersection),
                 radius=size,
                 color=color,
             )

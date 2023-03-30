@@ -12,11 +12,12 @@ from subt_proc_gen.tunnel import (
     ConnectorTunnelGenerationParams,
 )
 from subt_proc_gen.graph import Node
-from subt_proc_gen.geometry import Point3D, Vector3D
+from subt_proc_gen.geometry import Point3D, Vector3D, get_two_perpendicular_vectors
 from subt_proc_gen.display_functions import (
     plot_tunnel_ptcls,
     plot_graph,
     plot_intersection_ptcls,
+    plot_splines,
 )
 import numpy as np
 from multiprocessing import Pool
@@ -96,11 +97,6 @@ def test2():
         meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
     )
     mesh_generator.compute_all()
-    plotter = pv.Plotter()
-    plot_graph(plotter, tunnel_network)
-    plot_tunnel_ptcls(plotter, mesh_generator, size=0.1)
-    plot_intersection_ptcls(plotter, mesh_generator, size=0.1)
-    plotter.show()
 
 
 def main():
