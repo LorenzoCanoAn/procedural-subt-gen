@@ -97,10 +97,36 @@ def test2():
         meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
     )
     mesh_generator.compute_all()
+    plotter = pv.Plotter()
+    plot_graph(plotter, tunnel_network)
+    plot_splines(plotter, tunnel_network)
+    # plot_tunnel_ptcls(plotter, mesh_generator)
+    plot_intersection_ptcls(plotter, mesh_generator)
+    plotter.show()
+
+
+def test3():
+    tunnel_network = TunnelNetwork()
+    tunnel_network.add_random_grown_tunnel()
+    tunnel_network.add_random_grown_tunnel()
+    tunnel_network.add_random_grown_tunnel()
+    tunnel_network.add_random_grown_tunnel()
+    mesh_generator = TunnelNewtorkMeshGenerator(
+        tunnel_network,
+        ptcl_gen_params=TunnelNetworkPtClGenParams.from_defaults(),
+        meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
+    )
+    mesh_generator.compute_all()
+    plotter = pv.Plotter()
+    plot_graph(plotter, tunnel_network)
+    plot_splines(plotter, tunnel_network)
+    plot_tunnel_ptcls(plotter, mesh_generator)
+    plot_intersection_ptcls(plotter, mesh_generator)
+    plotter.show()
 
 
 def main():
-    tests = [test1, test2]
+    tests = [test1, test2, test3]
     for test in tests:
         try:
             timeit(test)

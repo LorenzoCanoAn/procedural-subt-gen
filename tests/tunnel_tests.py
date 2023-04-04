@@ -94,7 +94,7 @@ def test3():
 
 def test4():
     """Tests the serializtion and deserialization from yaml"""
-    tunnel_network = TunnelNetwork()
+    tunnel_network = TunnelNetwork(initial_node=False)
     first_node = Node((0, 0, 0))
     tunnel_network.add_node(first_node)
     first_tunnel = Tunnel.grown(
@@ -129,7 +129,7 @@ def test4():
 
 def test5():
     """Tests the node classification"""
-    tunnel_network = TunnelNetwork()
+    tunnel_network = TunnelNetwork(initial_node=False)
     first_node = Node((0, 0, 0))
     tunnel_network.add_node(first_node)
     first_tunnel = Tunnel.grown(
@@ -185,16 +185,23 @@ def test6():
     )
     tunnel_network.add_tunnel(third_tunnel)
     intersection_connections = tunnel_network.compute_intersection_connectivity_graph()
+
+
+def test7():
+    tunnel_network = TunnelNetwork()
+    tunnel_network.add_random_grown_tunnel()
+    tunnel_network.add_random_grown_tunnel()
+    tunnel_network.add_random_grown_tunnel()
+    tunnel_network.add_random_grown_tunnel()
     plotter = pv.Plotter()
     plot_graph(plotter, tunnel_network, edge_color="g")
     plot_splines(plotter, tunnel_network)
-    plot_graph(plotter, intersection_connections, edge_color="b")
     plot_xyz_axis(plotter)
     plotter.show()
 
 
 def main():
-    tests = [test1, test2, test3, test4, test5, test6]
+    tests = [test1, test2, test3, test4, test5, test6, test7]
     for test in tests:
         try:
             timeit(test)

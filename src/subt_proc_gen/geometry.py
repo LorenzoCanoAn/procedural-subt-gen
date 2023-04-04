@@ -43,6 +43,9 @@ class Point3D:
             return np.all(self.xyz == other.xyz)
         return False
 
+    def __hash__(self) -> int:
+        return hash((self.x, self.y, self.z))
+
     @property
     def x(self):
         return self._coords[0, 0]
@@ -65,6 +68,20 @@ class Vector3D:
     def from_inclination_yaw_length(cls, inclination, yaw, length):
         phi = inclination_to_phi(inclination)
         return Vector3D((length, yaw, phi), spherical_coords=True)
+
+    @classmethod
+    def random(cls, inclination_range, yaw_range, length=1):
+        return cls.from_inclination_yaw_length(
+            np.random.uniform(
+                inclination_range[0],
+                inclination_range[1],
+            ),
+            np.random.uniform(
+                yaw_range[0],
+                yaw_range[1],
+            ),
+            length=length,
+        )
 
     def __init__(self, coords, spherical_coords=False):
         if isinstance(coords, Vector3D):
@@ -364,8 +381,61 @@ def get_close_points_indices(point: np.ndarray, points: np.ndarray, distance):
     return np.where(dist < distance)
 
 
+def get_close_points_to_point(point: np.ndarray, points: np.ndarray, distance):
+    point = np.reshape(point, (1, 3))
+    points = np.reshape(points, (-1, 3))
+    diff = points - point
+    dist = np.linalg.norm(diff, axis=1)
+    return np.reshape(points[np.where(dist < distance), :], (-1, 3))
+
+
 def warp_angle_2pi(angle):
     return (angle + np.pi * 2) % (np.pi * 2)
+
+
+def distance_matrix(array1: np.ndarray, array2: np.ndarray):
+    # array1 and array2 are of dimensions: AxN and BxN respevely
+    # N is the dimensionality of the points
+    A = array1.shape[0]
+    B = array2.shape[0]
+    assert array1.shape[1] == array2.shape[1]
+    N = array1.shape[1]
+    return np.reshape(
+        np.linalg.norm(
+            np.ones(
+                (
+                    A,
+                    B,
+                    N,
+                )
+            )
+            * np.reshape(array1, (A, 1, N))
+            - np.reshape(array2, (1, B, N)),
+            axis=2,
+        ),
+        (A, B),
+    )
+
+
+def check_spline_collision(
+    spline1: Spline3D,
+    spline2: Spline3D,
+    collision_distance,
+    omision_points: list | tuple = None,
+    omision_distances: list | tuple = None,
+):
+    discretization_precision = collision_distance / 4
+    spd1 = spline1.discretize(discretization_precision)[1]
+    spd2 = spline2.discretize(discretization_precision)[1]
+    if not omision_points is None:
+        if omision_distances is None:
+            omision_distances = [
+                collision_distance * 2 for _ in range(len(omision_points))
+            ]
+        for op, od in zip(omision_points, omision_distances):
+            spd1 = np.delete(spd1, get_close_points_indices(op, spd1, od), axis=0)
+            spd2 = np.delete(spd2, get_close_points_indices(op, spd2, od), axis=0)
+    return np.any(distance_matrix(spd1, spd2) < collision_distance)
 
 
 ###############################################################

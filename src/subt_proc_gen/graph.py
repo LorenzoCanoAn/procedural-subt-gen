@@ -43,6 +43,15 @@ class Node:
                 f"Adding a {type(other)} to a {type(self)} not implemented"
             )
 
+    def __eq__(self, other):
+        if isinstance(other, Node):
+            return self._pose == other._pose
+        else:
+            return False
+
+    def __hash__(self) -> int:
+        return hash(self._pose)
+
     def set_id(self, id):
         self._id = id
 

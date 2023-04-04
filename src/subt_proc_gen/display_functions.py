@@ -122,7 +122,7 @@ def plot_ptcl(
 ):
     points = np.reshape(points, [-1, 3])
     if radius is None:
-        radius = 0.01
+        radius = 0.05
     if color is None:
         color = "m"
     mesh = pv.PolyData(points)
@@ -181,7 +181,7 @@ def plot_intersection_ptcls(
         actors.append(
             plot_ptcl(
                 plotter,
-                mesh_generator.ptcl_of_intersections(intersection),
+                mesh_generator.ptcl_of_intersection(intersection),
                 radius=size,
                 color=color,
             )

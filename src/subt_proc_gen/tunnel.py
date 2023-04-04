@@ -1,5 +1,5 @@
-from subt_proc_gen.graph import Node, Edge, Graph
-from subt_proc_gen.geometry import Point3D, Vector3D, Spline3D
+from subt_proc_gen.graph import Node, Graph
+from subt_proc_gen.geometry import Vector3D, Spline3D, check_spline_collision
 from enum import Enum
 import numpy as np
 import math
@@ -334,14 +334,46 @@ class NodeType(Enum):
         ]
 
 
+class TunnelNetworkParams:
+    _default_collision_distance = 10
+    _default_min_intersection_angle = np.deg2rad(30)
+    _default_max_inclination = np.deg2rad(30)
+
+    def __init__(
+        self, collision_distance=None, max_inclination=None, min_intersection_angle=None
+    ):
+        assert not collision_distance is None
+        assert not max_inclination is None
+        assert not min_intersection_angle is None
+        self.collision_distance = collision_distance
+        self.min_intersection_angle = min_intersection_angle
+        self.max_inclination = max_inclination
+
+    @classmethod
+    def from_defaults(cls):
+        return cls(
+            collision_distance=cls._default_collision_distance,
+            max_inclination=cls._default_max_inclination,
+            min_intersection_angle=cls._default_min_intersection_angle,
+        )
+
+
 class TunnelNetwork(Graph):
-    def __init__(self):
+    def __init__(self, params=None, initial_node=True):
         super().__init__()
+        if params is None:
+            self._params = TunnelNetworkParams.from_defaults()
         self._tunnels = set()
         # Tracks the tunnels to which a node belongs
         self._tunnels_of_node = dict()
         # Tracks which tunnels are connected to each other
         self._node_types = dict()
+        if initial_node:
+            self.add_node(Node((0, 0, 0)))
+
+    @property
+    def params(self) -> TunnelNetworkParams:
+        return self._params
 
     def add_node(self, node: Node):
         """IMPORTANT: This should only be called by _add_tunnel"""
@@ -418,7 +450,10 @@ class TunnelNetwork(Graph):
                         next_node = nodes_connected_to_next_node[0]
         return intersection_connectivity_graph
 
-    def add_tunnel(self, tunnel: Tunnel):
+    def add_tunnel(
+        self,
+        tunnel: Tunnel,
+    ):
         self._tunnels.add(tunnel)
         for node in tunnel:
             self.add_node(node)
@@ -426,11 +461,34 @@ class TunnelNetwork(Graph):
         for ni, nj in zip(tunnel[:-1], tunnel[1:]):
             self.connect(ni, nj)
 
+    def check_collisions(
+        self,
+        tunnel: Tunnel,
+        collision_distance,
+    ):
+        for tunnel_i in self.tunnels:
+            if tunnel_i is tunnel:
+                continue
+            common_nodes = []
+            for node in tunnel.nodes:
+                if node in tunnel_i.nodes:
+                    common_nodes.append(node)
+            if check_spline_collision(
+                tunnel.spline,
+                tunnel_i.spline,
+                collision_distance,
+                omision_points=[node.xyz for node in common_nodes],
+                omision_distances=[collision_distance * 2 for _ in common_nodes],
+            ):
+                return True
+        return False
+
     def remove_tunnel(self, tunnel: Tunnel):
         for node in tunnel:
             self._tunnels_of_node[node].remove(tunnel)
             if len(self._tunnels_of_node[node]) == 0:
                 self.remove_node(node)
+        self._tunnels.remove(tunnel)
 
     def to_yaml(self, file):
         nodes_dict = {}
@@ -463,6 +521,58 @@ class TunnelNetwork(Graph):
                     tunnel_type=TunnelType(tunnel["type"]),
                 )
             )
+        Node.set_global_counter(max(yaml_data["nodes"]))
+
+    def add_random_grown_tunnel(
+        self,
+        params=None,
+        n_trials=10,
+        collsion_distance=None,
+        max_inclination=None,
+        min_intersection_angle=None,
+    ):
+        if params is None:
+            params = GrownTunnelGenerationParams.random()
+        n = 0
+        successful = False
+        if collsion_distance is None:
+            collision_distance = self.params.collision_distance
+        if max_inclination is None:
+            max_inclination = self.params.max_inclination
+        if min_intersection_angle is None:
+            min_intersection_angle = self.params.min_intersection_angle
+        while not successful and n < n_trials:
+            n += 1
+            i_node = np.random.choice(np.array(list(self.nodes)))
+            tunnel = Tunnel.grown(
+                i_node=i_node,
+                i_direction=Vector3D.random(
+                    inclination_range=(np.deg2rad(-10), np.deg2rad(10)),
+                    yaw_range=(0, np.pi * 2),
+                ),
+                params=params,
+            )
+            self.add_tunnel(tunnel)
+            collides = self.check_collisions(
+                tunnel, collision_distance=collision_distance
+            )
+            too_much_inclination = check_maximum_inclination_of_spline(
+                tunnel.spline, max_inclination
+            )
+            too_small_angle = False
+            for tunnel_j in self._tunnels_of_node[i_node]:
+                if not tunnel_j is tunnel:
+                    angle = min_angle_between_splines_at_point(
+                        tunnel.spline, tunnel_j.spline, i_node._pose.xyz
+                    )
+                    too_small_angle = angle < min_intersection_angle
+                    if too_small_angle:
+                        break
+            if collides or too_much_inclination or too_small_angle:
+                successful = False
+                self.remove_tunnel(tunnel)
+            else:
+                successful = True
 
     @property
     def tunnels(self) -> set[Tunnel]:
@@ -476,3 +586,28 @@ class TunnelNetwork(Graph):
             if self._node_types[node] in NodeType.inter_types():
                 intersections.add(node)
         return intersections
+
+
+def check_maximum_inclination_of_spline(spline: Spline3D, max_inc_rad, precision=0.5):
+    vs = spline.discretize(precision)[2]
+    inc = np.arctan2(vs[:, 2], np.linalg.norm(vs[:, :2], axis=1))
+    return np.any(inc > max_inc_rad)
+
+
+def min_angle_between_splines_at_point(
+    spline1: Spline3D, spline2: Spline3D, point, precision=0.1
+):
+    _, ap1, av1 = spline1.discretize(precision)
+    _, ap2, av2 = spline2.discretize(precision)
+    id1 = np.argmin(np.linalg.norm(ap1 - point, axis=1))
+    id2 = np.argmin(np.linalg.norm(ap2 - point, axis=1))
+    v1xy = np.reshape(av1[id1, 0:2], (1, 2))
+    v2xy = np.reshape(av2[id2, 0:2], (1, 2))
+    sign = [-1, 1]
+    angle_between = np.pi * 2
+    for dir1 in sign:
+        for dir2 in sign:
+            v1dir = dir1 * v1xy
+            v2dir = dir2 * v2xy
+            angle_between = min(angle_between, np.arccos(np.dot(v1dir, v2dir.T)))
+    return angle_between
