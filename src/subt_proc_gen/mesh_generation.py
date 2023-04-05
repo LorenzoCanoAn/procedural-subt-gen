@@ -8,6 +8,7 @@ from subt_proc_gen.geometry import (
     get_close_points_to_point,
     Point3D,
     warp_angle_2pi,
+    warp_angle_pi,
     distance_matrix,
 )
 from subt_proc_gen.perlin import (
@@ -20,6 +21,8 @@ from time import perf_counter_ns
 from multiprocessing.pool import Pool
 import logging as log
 import pyvista as pv
+import open3d as o3d
+import os
 
 log.basicConfig(level=log.DEBUG)
 
@@ -120,6 +123,7 @@ class TunnelPtClGenParams:
         self.flatter_floor = flatten_floor
         self.fta_distance = fta_distance
         self.perlin_params = perlin_params
+        self.perlin_weight_by_angle = None
 
 
 class IntersectionPtClType(Enum):
@@ -180,6 +184,7 @@ class TunnelNetworkPtClGenParams:
     complete tunnel network"""
 
     _default_ptcl_gen_strategy = TunnelNetworkPtClGenStrategies.all_default
+    _default_perlin_weight_by_angle = np.deg2rad(40)
 
     _random_ptcl_gen_strategy_choices = (
         TunnelNetworkPtClGenStrategies.all_default,
@@ -188,31 +193,52 @@ class TunnelNetworkPtClGenParams:
 
     @classmethod
     def from_defaults(cls):
-        return cls(ptcl_gen_strategy=cls._default_ptcl_gen_strategy)
+        return cls(
+            ptcl_gen_strategy=cls._default_ptcl_gen_strategy,
+            perlin_weight_by_angle=cls._default_perlin_weight_by_angle,
+        )
 
     @classmethod
     def random(cls):
         return cls(
-            ptcl_gen_strategy=np.random.choice(cls._random_ptcl_gen_strategy_choices)
+            ptcl_gen_strategy=np.random.choice(
+                ptcl_gen_strategy=np.random.choice(
+                    cls._random_ptcl_gen_strategy_choices
+                ),
+                perlin_weight_by_angle=cls._default_perlin_weight_by_angle,
+            )
         )
 
-    def __init__(self, ptcl_gen_strategy: TunnelNetworkPtClGenStrategies):
+    def __init__(
+        self, ptcl_gen_strategy: TunnelNetworkPtClGenStrategies, perlin_weight_by_angle
+    ):
         self.strategy = ptcl_gen_strategy
+        self.perlin_weight_by_angle = perlin_weight_by_angle
+
+
+class MeshingApproaches(Enum):
+    poisson = 1
 
 
 class TunnelNetworkMeshGenParams:
     """Params that control how the mesh is generated from the ptcl"""
 
+    _default_meshing_approach = MeshingApproaches.poisson
+    _default_poisson_depth = 11
+
     @classmethod
     def from_defaults(cls):
-        return cls()
+        return cls(
+            meshing_approach=cls._default_meshing_approach,
+            poisson_depth=cls._default_poisson_depth,
+        )
 
-    @classmethod
-    def random(cls):
-        return cls()
-
-    def __init__(self):
-        pass
+    def __init__(self, meshing_approach=None, poisson_depth=None):
+        assert not meshing_approach is None
+        if meshing_approach == MeshingApproaches.poisson:
+            assert not poisson_depth is None
+        self.meshing_approach = meshing_approach
+        self.poisson_depth = poisson_depth
 
 
 class TunnelNewtorkMeshGenerator:
@@ -224,7 +250,7 @@ class TunnelNewtorkMeshGenerator:
     ):
         self._tunnel_network = tunnel_network
         self._ptcl_gen_params = ptcl_gen_params
-        self.meshing_params = meshing_params
+        self._meshing_params = meshing_params
         self._ptcl_of_tunnels = dict()
         self._normals_of_tunnels = dict()
         self._params_of_tunnels = dict()
@@ -280,6 +306,10 @@ class TunnelNewtorkMeshGenerator:
                     ] = ptcl_gen_params.pre_set_tunnel_params[tunnel]
                 else:
                     self._params_of_tunnels[tunnel] = TunnelPtClGenParams.random()
+        for tunnel in self._tunnel_network.tunnels:
+            self._params_of_tunnels[
+                tunnel
+            ].perlin_weight_by_angle = ptcl_gen_params.perlin_weight_by_angle
 
     def _set_params_of_each_intersection_ptcl_gen(
         self, ptcl_gen_params: TunnelNetworkPtClGenParams
@@ -339,6 +369,9 @@ class TunnelNewtorkMeshGenerator:
                 n_points_per_circle=self.params_of_tunnel(tunnel).n_points_per_circle,
                 radius=self.params_of_tunnel(tunnel).radius,
                 noise_magnitude=self.params_of_tunnel(tunnel).noise_relative_magnitude,
+                perlin_weight_angle=self.params_of_tunnel(
+                    tunnel
+                ).perlin_weight_by_angle,
             )
 
     def _compute_radius_of_intersections_for_all_tunnels(self):
@@ -403,7 +436,7 @@ class TunnelNewtorkMeshGenerator:
                     tunnel_ptcl, indices_of_points_of_intersection, axis=0
                 )
                 self._normals_of_tunnels[tunnel] = np.delete(
-                    tunnel_normals, indices_of_axis_points_of_intersection, axis=0
+                    tunnel_normals, indices_of_points_of_intersection, axis=0
                 )
             self._ptcl_of_intersections[intersection] = ptcl_of_intersection
             self._normals_of_intersections[intersection] = normals_of_intersection
@@ -419,7 +452,7 @@ class TunnelNewtorkMeshGenerator:
             axis=0,
         )
 
-    def normals_of_intersections(self, intersection):
+    def normals_of_intersection(self, intersection):
         return np.concatenate(
             [
                 self._normals_of_intersections[intersection][tunnel]
@@ -427,6 +460,78 @@ class TunnelNewtorkMeshGenerator:
             ],
             axis=0,
         )
+
+    @property
+    def complete_pointcloud(self):
+        complete_ptcl = np.zeros((self.n_of_points, 3))
+        n_points = 0
+        for intersection in self._tunnel_network.intersections:
+            ptcl_of_intersection = self.ptcl_of_intersection(intersection)
+            complete_ptcl[
+                n_points : n_points + ptcl_of_intersection.shape[0]
+            ] = ptcl_of_intersection
+            n_points += ptcl_of_intersection.shape[0]
+        for tunnel in self._tunnel_network.tunnels:
+            ptcl_of_tunnel = self.ptcl_of_tunnel(tunnel)
+            complete_ptcl[
+                n_points : n_points + ptcl_of_tunnel.shape[0]
+            ] = ptcl_of_tunnel
+            n_points += ptcl_of_tunnel.shape[0]
+        return complete_ptcl
+
+    @property
+    def n_of_intersection_normals(self):
+        n_normals = 0
+        for intersection in self._tunnel_network.intersections:
+            n_normals += self.normals_of_intersection(intersection).shape[0]
+        return n_normals
+
+    @property
+    def n_of_tunel_normals(self):
+        n_normals = 0
+        for intersection in self._tunnel_network.tunnels:
+            n_normals += self.normals_of_tunnel(intersection).shape[0]
+        return n_normals
+
+    @property
+    def n_of_intersection_points(self):
+        n_points = 0
+        for intersection in self._tunnel_network.intersections:
+            n_points += self.ptcl_of_intersection(intersection).shape[0]
+        return n_points
+
+    @property
+    def n_of_tunel_points(self):
+        n_points = 0
+        for tunnel in self._tunnel_network.tunnels:
+            n_points += self.ptcl_of_tunnel(tunnel).shape[0]
+        return n_points
+
+    @property
+    def n_of_normals(self):
+        return self.n_of_intersection_normals + self.n_of_tunel_normals
+
+    @property
+    def n_of_points(self):
+        return self.n_of_tunel_points + self.n_of_intersection_points
+
+    @property
+    def complete_normals(self):
+        complete_normals = np.zeros((self.n_of_normals, 3))
+        n_normals = 0
+        for intersection in self._tunnel_network.intersections:
+            normals_of_intersection = self.normals_of_intersection(intersection)
+            complete_normals[
+                n_normals : n_normals + normals_of_intersection.shape[0]
+            ] = normals_of_intersection
+            n_normals += normals_of_intersection.shape[0]
+        for tunnel in self._tunnel_network.tunnels:
+            normals_of_tunnel = self.normals_of_tunnel(tunnel)
+            complete_normals[
+                n_normals : n_normals + normals_of_tunnel.shape[0]
+            ] = normals_of_tunnel
+            n_normals += normals_of_tunnel.shape[0]
+        return complete_normals
 
     def ptcl_of_tunnel(self, tunnel: Tunnel) -> np.ndarray:
         return self._ptcl_of_tunnels[tunnel]
@@ -522,6 +627,29 @@ class TunnelNewtorkMeshGenerator:
         self._separate_intersection_ptcl_from_tunnel_ptcls()
         log.info("Computing pointclouds of intersections")
         self._compute_all_intersections_ptcl()
+        log.info("Computing mesh")
+        self._compute_mesh()
+
+    def _compute_mesh(self):
+        points = self.complete_pointcloud
+        normals = self.complete_normals
+        if self._meshing_params.meshing_approach == MeshingApproaches.poisson:
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(points)
+            pcd.normals = o3d.utility.Vector3dVector(normals)
+            o3d_mesh, _ = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+                pcd, depth=self._meshing_params.poisson_depth
+            )
+            o3d.io.write_triangle_mesh("mesh.obj", o3d_mesh)
+            self.mesh = pv.read("mesh.obj")
+            os.remove("mesh.obj")
+        else:
+            raise NotImplementedError(
+                f"The method {self._meshing_params.meshing_approach} is not implemented"
+            )
+
+    def save_mesh(self, path):
+        pv.save_meshio(path, self.mesh)
 
     def perlin_generator_of_tunnel(
         self, tunnel: Tunnel
@@ -565,14 +693,18 @@ def ptcl_from_tunnel(
     n_points_per_circle,
     radius,
     noise_magnitude,
+    perlin_weight_angle,
     d_min=None,
     d_max=None,
 ):
     ads, aps, avs = tunnel.spline.discretize(dist_between_circles, d_min, d_max)
     n_circles = aps.shape[0]
     angs = np.linspace(0, 2 * np.pi, n_points_per_circle)
+    pws = perlin_weight_from_angle(angs, perlin_weight_angle)
     angss = np.concatenate([angs for _ in range(n_circles)])
+    pwss = np.concatenate([pws for _ in range(n_circles)])
     angss = np.reshape(angss, [-1, 1])
+    pwss = np.reshape(pwss, [-1, 1])
     apss = np.concatenate(
         [np.full((n_points_per_circle, 3), aps[i, :]) for i in range(n_circles)],
         axis=0,
@@ -599,7 +731,11 @@ def ptcl_from_tunnel(
     archdss = angss * radius
     cylindrical_coords = np.concatenate([dss, archdss], axis=1)
     noise_to_add = perlin_mapper(cylindrical_coords)
-    points = apss + normals * radius + normals * radius * noise_magnitude * noise_to_add
+    points = (
+        apss
+        + normals * radius
+        + normals * radius * noise_magnitude * noise_to_add * pwss
+    )
     return points, normals
 
 
@@ -630,3 +766,14 @@ def points_inside_of_tunnel_section(
     )
     inside = np.logical_and(inside_for_radius, np.logical_not(outside_because_of_angle))
     return np.where(inside)
+
+
+def perlin_weight_from_angle(angles, perlin_weight_angle):
+    perlin_weights = np.zeros(angles.shape)
+    for i, angle in enumerate(angles):
+        warped_angle = warp_angle_pi(angle)
+        if abs(warped_angle) < perlin_weight_angle:
+            perlin_weights[i] = (abs(warped_angle) / perlin_weight_angle) ** 2
+        else:
+            perlin_weights[i] = 1
+    return perlin_weights

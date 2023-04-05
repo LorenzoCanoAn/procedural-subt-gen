@@ -18,6 +18,8 @@ from subt_proc_gen.display_functions import (
     plot_graph,
     plot_intersection_ptcls,
     plot_splines,
+    plot_ptcl,
+    plot_mesh,
 )
 import numpy as np
 from multiprocessing import Pool
@@ -96,13 +98,7 @@ def test2():
         ptcl_gen_params=TunnelNetworkPtClGenParams.from_defaults(),
         meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
     )
-    mesh_generator.compute_all()
-    plotter = pv.Plotter()
-    plot_graph(plotter, tunnel_network)
-    plot_splines(plotter, tunnel_network)
-    # plot_tunnel_ptcls(plotter, mesh_generator)
-    plot_intersection_ptcls(plotter, mesh_generator)
-    plotter.show()
+    vertices, faces, normals = mesh_generator.compute_all()
 
 
 def test3():
@@ -117,9 +113,8 @@ def test3():
         meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
     )
     mesh_generator.compute_all()
+    mesh_generator.save_mesh("mesh.obj")
     plotter = pv.Plotter()
-    plot_graph(plotter, tunnel_network)
-    plot_splines(plotter, tunnel_network)
     plot_tunnel_ptcls(plotter, mesh_generator)
     plot_intersection_ptcls(plotter, mesh_generator)
     plotter.show()
@@ -127,6 +122,7 @@ def test3():
 
 def main():
     tests = [test1, test2, test3]
+    tests = [test3]
     for test in tests:
         try:
             timeit(test)

@@ -393,6 +393,11 @@ def warp_angle_2pi(angle):
     return (angle + np.pi * 2) % (np.pi * 2)
 
 
+def warp_angle_pi(angle):
+    a = warp_angle_2pi(angle)
+    return a if a < np.pi else 2 * np.pi - a
+
+
 def distance_matrix(array1: np.ndarray, array2: np.ndarray):
     # array1 and array2 are of dimensions: AxN and BxN respevely
     # N is the dimensionality of the points

@@ -187,3 +187,10 @@ def plot_intersection_ptcls(
             )
         )
     return actors
+
+
+def plot_mesh(plotter, vertices, faces, normals, color=None):
+    if color is None:
+        color = "y"
+    mesh = pv.PolyData(vertices, faces)
+    return plotter.add_mesh(mesh, color=color)
