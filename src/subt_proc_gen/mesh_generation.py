@@ -377,19 +377,23 @@ class TunnelNewtorkMeshGenerator:
     def _compute_radius_of_intersections_for_all_tunnels(self):
         for intersection in self._tunnel_network.intersections:
             for tunnel_i in self._tunnel_network._tunnels_of_node[intersection]:
-                max_rad = self.params_of_intersection(intersection).radius
                 for tunnel_j in self._tunnel_network._tunnels_of_node[intersection]:
                     # Tunnel i is the one being evaluated here
                     if tunnel_i is tunnel_j:
                         continue
-                    current_rad = self.get_safe_radius_from_intersection_of_two_tunnels(
-                        tunnel_i, tunnel_j, intersection
+                    intersection_radius_for_tunnel_at_intersection = (
+                        self.get_safe_radius_from_intersection_of_two_tunnels(
+                            tunnel_i,
+                            tunnel_j,
+                            intersection,
+                            starting_radius=self.params_of_intersection(
+                                intersection
+                            ).radius,
+                        )
                     )
-                    if current_rad > max_rad:
-                        max_rad = current_rad
                 self._radius_of_intersections_for_tunnels[
                     (intersection, tunnel_i)
-                ] = max_rad
+                ] = intersection_radius_for_tunnel_at_intersection
 
     def _separate_intersection_ptcl_from_tunnel_ptcls(self):
         for intersection in self._tunnel_network.intersections:
@@ -610,7 +614,7 @@ class TunnelNewtorkMeshGenerator:
             if radius < cut_off_radius - increment:
                 break
             cut_off_radius += increment
-        return radius
+        return radius + increment
 
     def compute_all(self):
         log.info("Setting parameters of tunnels")
@@ -627,6 +631,8 @@ class TunnelNewtorkMeshGenerator:
         self._separate_intersection_ptcl_from_tunnel_ptcls()
         log.info("Computing pointclouds of intersections")
         self._compute_all_intersections_ptcl()
+        log.info("Flattening floors")
+        #        self._flatten_floors()
         log.info("Computing mesh")
         self._compute_mesh()
 
