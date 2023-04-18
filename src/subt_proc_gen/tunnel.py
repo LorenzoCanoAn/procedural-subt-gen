@@ -4,6 +4,7 @@ from enum import Enum
 import numpy as np
 import math
 import yaml
+import logging as log
 
 
 class ConnectorTunnelGenerationParams:
@@ -254,11 +255,12 @@ class Tunnel:
         n_segments = math.ceil(s_to_f_vector.length / params.segment_length)
         segment_length = s_to_f_vector.length / n_segments
         for n_segment in range(1, n_segments):
-            nodes.append(
-                start_node
-                + Vector3D(s_to_f_vector.cartesian_unitary * n_segment * segment_length)
-                + params.gen_random_displacement()
+            new_node = start_node + Vector3D(
+                s_to_f_vector.cartesian_unitary * n_segment * segment_length
             )
+            if n_segments > n_segment > 0:
+                new_node = new_node + params.gen_random_displacement()
+            nodes.append(new_node)
         return Tunnel(
             nodes + final_nodes,
             tunnel_type=TunnelType.connector,
@@ -553,12 +555,13 @@ class TunnelNetwork(Graph):
                 params=params,
             )
             self.add_tunnel(tunnel)
-            collides = self.check_collisions(
-                tunnel, collision_distance=collision_distance
-            )
-            too_much_inclination = check_maximum_inclination_of_spline(
-                tunnel.spline, max_inclination
-            )
+            # Check inclination
+            if check_maximum_inclination_of_spline(tunnel.spline, max_inclination):
+                log.info("Failed for inclination")
+                successful = False
+                self.remove_tunnel(tunnel)
+                continue
+            # Check intersection angle
             too_small_angle = False
             for tunnel_j in self._tunnels_of_node[i_node]:
                 if not tunnel_j is tunnel:
@@ -568,11 +571,85 @@ class TunnelNetwork(Graph):
                     too_small_angle = angle < min_intersection_angle
                     if too_small_angle:
                         break
-            if collides or too_much_inclination or too_small_angle:
+            if too_small_angle:
+                log.info("Failed for insertion angle")
                 successful = False
                 self.remove_tunnel(tunnel)
+                continue
+            # Check collisions
+            if self.check_collisions(tunnel, collision_distance=collision_distance):
+                log.info("Failed for collsion")
+                successful = False
+                self.remove_tunnel(tunnel)
+                continue
             else:
                 successful = True
+        return successful
+
+    def add_random_connector_tunnel(
+        self,
+        params=None,
+        n_trials=10,
+        collsion_distance=None,
+        max_inclination=None,
+        min_intersection_angle=None,
+    ):
+        if params is None:
+            params = ConnectorTunnelGenerationParams.random()
+        if collsion_distance is None:
+            collision_distance = self.params.collision_distance
+        if max_inclination is None:
+            max_inclination = self.params.max_inclination
+        if min_intersection_angle is None:
+            min_intersection_angle = self.params.min_intersection_angle
+        successful = False
+        n = 0
+        while not successful and n < n_trials:
+            n += 1
+            # Get initial and final node from different tunnels
+            while True:
+                i_node = np.random.choice(np.array(list(self.nodes)))
+                f_node = np.random.choice(np.array(list(self.nodes)))
+                if not i_node is f_node:
+                    f_node_in_i_tunnel = False
+                    for i_tunnel in self._tunnels_of_node[i_node]:
+                        if f_node in i_tunnel.nodes:
+                            f_node_in_i_tunnel = True
+                            break
+                    if not f_node_in_i_tunnel:
+                        break
+            tunnel = Tunnel.connector(i_node, f_node, params=params)
+            self.add_tunnel(tunnel)
+            # Check inclination
+            if check_maximum_inclination_of_spline(tunnel.spline, max_inclination):
+                log.info("Failed for inclination")
+                successful = False
+                self.remove_tunnel(tunnel)
+                continue
+            # Check intersection angle
+            too_small_angle = False
+            for tunnel_j in self._tunnels_of_node[i_node]:
+                if not tunnel_j is tunnel:
+                    angle = min_angle_between_splines_at_point(
+                        tunnel.spline, tunnel_j.spline, i_node._pose.xyz
+                    )
+                    too_small_angle = angle < min_intersection_angle
+                    if too_small_angle:
+                        break
+            if too_small_angle:
+                log.info("Failed for insertion angle")
+                successful = False
+                self.remove_tunnel(tunnel)
+                continue
+            # Check collisions
+            if self.check_collisions(tunnel, collision_distance=collision_distance):
+                log.info("Failed for collsion")
+                successful = False
+                self.remove_tunnel(tunnel)
+                continue
+            else:
+                successful = True
+        return successful
 
     @property
     def tunnels(self) -> set[Tunnel]:
@@ -590,7 +667,7 @@ class TunnelNetwork(Graph):
 
 def check_maximum_inclination_of_spline(spline: Spline3D, max_inc_rad, precision=0.5):
     vs = spline.discretize(precision)[2]
-    inc = np.arctan2(vs[:, 2], np.linalg.norm(vs[:, :2], axis=1))
+    inc = np.arctan2(np.abs(vs[:, 2]), np.linalg.norm(vs[:, :2], axis=1))
     return np.any(inc > max_inc_rad)
 
 

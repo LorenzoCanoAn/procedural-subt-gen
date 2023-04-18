@@ -24,8 +24,6 @@ import pyvista as pv
 import open3d as o3d
 import os
 
-log.basicConfig(level=log.DEBUG)
-
 
 def timeit(function, **args):
     start = perf_counter_ns()
@@ -631,8 +629,6 @@ class TunnelNewtorkMeshGenerator:
         self._separate_intersection_ptcl_from_tunnel_ptcls()
         log.info("Computing pointclouds of intersections")
         self._compute_all_intersections_ptcl()
-        log.info("Flattening floors")
-        #        self._flatten_floors()
         log.info("Computing mesh")
         self._compute_mesh()
 

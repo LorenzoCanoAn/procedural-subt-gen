@@ -26,6 +26,9 @@ from multiprocessing import Pool
 from time import perf_counter_ns
 from traceback import print_exc
 import pyvista as pv
+import logging as log
+
+log.basicConfig(level=log.WARNING)
 
 
 def timeit(function, **args):
@@ -98,7 +101,7 @@ def test2():
         ptcl_gen_params=TunnelNetworkPtClGenParams.from_defaults(),
         meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
     )
-    vertices, faces, normals = mesh_generator.compute_all()
+    mesh_generator.compute_all()
 
 
 def test3():
@@ -107,6 +110,7 @@ def test3():
     tunnel_network.add_random_grown_tunnel()
     tunnel_network.add_random_grown_tunnel()
     tunnel_network.add_random_grown_tunnel()
+    tunnel_network.add_random_connector_tunnel(n_trials=100)
     mesh_generator = TunnelNewtorkMeshGenerator(
         tunnel_network,
         ptcl_gen_params=TunnelNetworkPtClGenParams.from_defaults(),
@@ -114,15 +118,11 @@ def test3():
     )
     mesh_generator.compute_all()
     mesh_generator.save_mesh("mesh.obj")
-    plotter = pv.Plotter()
-    plot_tunnel_ptcls(plotter, mesh_generator)
-    plot_intersection_ptcls(plotter, mesh_generator)
-    plotter.show()
+    print(len(mesh_generator.mesh.points))
 
 
 def main():
     tests = [test1, test2, test3]
-    tests = [test3]
     for test in tests:
         try:
             timeit(test)

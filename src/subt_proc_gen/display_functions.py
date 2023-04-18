@@ -1,10 +1,16 @@
 """Functions to display and debug the graph generation process"""
 import numpy as np
 import pyvista as pv
-from subt_proc_gen.tunnel import Tunnel, Graph, TunnelNetwork
+from subt_proc_gen.tunnel import Tunnel, Graph, TunnelNetwork, TunnelType
 from subt_proc_gen.graph import Node, Edge
 from subt_proc_gen.geometry import Spline3D
 from subt_proc_gen.mesh_generation import TunnelNewtorkMeshGenerator
+
+tunnel_type_to_color = {
+    TunnelType.connector: "r",
+    TunnelType.grown: "b",
+    TunnelType.from_nodes: "w",
+}
 
 
 def lines_from_points(points):
@@ -111,7 +117,11 @@ def plot_splines(
     color=None,
 ):
     for tunnel in tunnel_network.tunnels:
-        plot_spline(plotter=plotter, spline=tunnel.spline, radius=radius, color=color)
+        if color is None:
+            _color = tunnel_type_to_color[tunnel.tunnel_type]
+        else:
+            _color = color
+        plot_spline(plotter=plotter, spline=tunnel.spline, radius=radius, color=_color)
 
 
 def plot_ptcl(

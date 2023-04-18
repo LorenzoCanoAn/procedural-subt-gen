@@ -19,6 +19,9 @@ import pathlib
 from time import perf_counter_ns
 from traceback import print_exc
 import pyvista as pv
+import logging as log
+
+log.basicConfig(level=log.DEBUG)
 
 
 def timeit(function):
@@ -189,10 +192,16 @@ def test6():
 
 def test7():
     tunnel_network = TunnelNetwork()
-    tunnel_network.add_random_grown_tunnel()
-    tunnel_network.add_random_grown_tunnel()
-    tunnel_network.add_random_grown_tunnel()
-    tunnel_network.add_random_grown_tunnel()
+    for i in range(10):
+        print(i, end="\r", flush=True)
+        result = False
+        while not result:
+            result = tunnel_network.add_random_grown_tunnel()
+    for i in range(4):
+        print(i, end="\r", flush=True)
+        result = False
+        while not result:
+            result = tunnel_network.add_random_connector_tunnel()
     plotter = pv.Plotter()
     plot_graph(plotter, tunnel_network, edge_color="g")
     plot_splines(plotter, tunnel_network)
