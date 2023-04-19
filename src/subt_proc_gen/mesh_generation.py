@@ -5,6 +5,7 @@ from subt_proc_gen.geometry import (
     get_two_perpendicular_vectors,
     get_close_points_indices,
     get_close_points_to_point,
+    get_uniform_points_in_sphere,
     Point3D,
     warp_angle_pi,
     distance_matrix,
@@ -532,6 +533,28 @@ def ptcl_from_tunnel(
         floor_points_idxs = np.where(floor_to_axis_dist[2] < -fta_distance)
         points[floor_points_idxs, 2] = apss[floor_points_idxs, 2] - fta_distance
     return points, normals
+
+
+def generate_noisy_sphere(
+    center_point,
+    radius,
+    points_per_sm,
+    perlin_mapper: SphericalPerlinNoiseMapper,
+    noise_multiplier,
+    flatten_floors,
+    fta_distance,
+):
+    area_of_sphere = 4 * np.pi * radius**2
+    n_points = points_per_sm * area_of_sphere
+    points_before_noise = get_uniform_points_in_sphere(n_points)
+    noise_of_points = np.reshape(perlin_mapper(points_before_noise), (-1, 1))
+    points_with_noise_and_radius = (
+        points_before_noise + points_before_noise * noise_of_points * noise_multiplier
+    ) * radius
+    if flatten_floors:
+        floor_points_idxs = np.where(points_with_noise_and_radius[:, 2] < -fta_distance)
+        points_with_noise_and_radius[floor_points_idxs, 2] = -fta_distance
+    return points_with_noise_and_radius + center_point
 
 
 def points_inside_of_tunnel_section(
