@@ -1,5 +1,4 @@
 import numpy as np
-from perlin_noise import PerlinNoise
 from subt_proc_gen.graph import Node
 from subt_proc_gen.tunnel import TunnelNetwork, Tunnel
 from subt_proc_gen.geometry import (
@@ -7,236 +6,27 @@ from subt_proc_gen.geometry import (
     get_close_points_indices,
     get_close_points_to_point,
     Point3D,
-    warp_angle_2pi,
     warp_angle_pi,
     distance_matrix,
 )
 from subt_proc_gen.perlin import (
     CylindricalPerlinNoiseMapper,
-    CylindricalPerlinNoiseMapperParms,
+    SphericalPerlinNoiseMapper,
+)
+from subt_proc_gen.mesh_generation_params import (
+    TunnelNetworkPtClGenStrategies,
+    TunnelPtClGenParams,
+    IntersectionPtClType,
+    IntersectionPtClGenParams,
+    TunnelNetworkPtClGenParams,
+    MeshingApproaches,
+    TunnelNetworkMeshGenParams,
 )
 from enum import Enum
-import time
-from time import perf_counter_ns
-from multiprocessing.pool import Pool
 import logging as log
 import pyvista as pv
 import open3d as o3d
 import os
-
-
-def timeit(function, **args):
-    start = perf_counter_ns()
-    result = function(**args)
-    end = perf_counter_ns()
-    elapsed = (end - start) * 1e-9
-    return result
-
-
-class TunnelPtClGenParams:
-    """Contains parameters for the generarion of a pointcloud around a single tunnel"""
-
-    # Default params
-    _default_dist_between_circles = 0.5
-    _default_n_points_per_circle = 30
-    _default_radius = 4
-    _default_noise_relative_magnitude = 1
-    _default_noise_along_angle_multiplier = 1.5
-    _default_flatten_floor = True
-    _default_fta_distance = 2
-    # Random params
-    _random_radius_interval = (1, 6)
-    _random_noise_relative_magnitude_interval = (0.5, 0.1)
-    _random_noise_along_angle_multiplier_interval = (1, 2)
-    _random_flatten_floor_probability = 0.5
-    _random_fta_relative_distance_interval = [0, 1]
-
-    @classmethod
-    def from_defaults(cls):
-        return TunnelPtClGenParams(
-            dist_between_circles=cls._default_dist_between_circles,
-            n_points_per_circle=cls._default_n_points_per_circle,
-            radius=cls._default_radius,
-            noise_relative_magnitude=cls._default_noise_relative_magnitude,
-            noise_along_angle_multiplier=cls._default_noise_along_angle_multiplier,
-            flatten_floor=cls._default_flatten_floor,
-            fta_distance=cls._default_fta_distance,
-            perlin_params=CylindricalPerlinNoiseMapperParms.from_defaults(),
-        )
-
-    @classmethod
-    def random(cls):
-        radius = np.random.uniform(
-            cls._random_radius_interval[0],
-            cls._random_radius_interval[1],
-        )
-        relative_magnitude = np.random.uniform(
-            cls._random_noise_relative_magnitude_interval[0],
-            cls._random_noise_relative_magnitude_interval[1],
-        )
-        noise_along_angle_multiplier = np.random.uniform(
-            cls._random_noise_along_angle_multiplier_interval[0],
-            cls._random_noise_along_angle_multiplier_interval[1],
-        )
-        flatten_floor = cls._random_flatten_floor_probability > np.random.random()
-        fta_distance = radius * np.random.uniform(
-            cls._random_noise_relative_magn_interval[0],
-            cls._random_noise_relative_magn_interval[1],
-        )
-        return TunnelPtClGenParams(
-            dist_between_circles=cls._default_dist_between_circles,
-            n_points_per_circle=cls._default_n_points_per_circle,
-            radius=radius,
-            noise_relative_magnitude=relative_magnitude,
-            noise_along_angle_multiplier=noise_along_angle_multiplier,
-            flatten_floor=flatten_floor,
-            fta_distance=fta_distance,
-            perlin_params=CylindricalPerlinNoiseMapperParms.random(),
-        )
-
-    def __init__(
-        self,
-        dist_between_circles=None,
-        n_points_per_circle=None,
-        radius=None,
-        noise_relative_magnitude=None,
-        noise_along_angle_multiplier=None,
-        flatten_floor=None,
-        fta_distance=None,
-        perlin_params=None,
-    ):
-        assert not dist_between_circles is None
-        assert not n_points_per_circle is None
-        assert not radius is None
-        assert not noise_relative_magnitude is None
-        assert not noise_along_angle_multiplier is None
-        assert not flatten_floor is None
-        assert not fta_distance is None
-        assert not perlin_params is None
-        self.dist_between_circles = dist_between_circles
-        self.n_points_per_circle = n_points_per_circle
-        self.radius = radius
-        self.noise_relative_magnitude = noise_relative_magnitude
-        self.noise_along_angle_multiplier = noise_along_angle_multiplier
-        self.flatter_floor = flatten_floor
-        self.fta_distance = fta_distance
-        self.perlin_params = perlin_params
-        self.perlin_weight_by_angle = None
-
-
-class IntersectionPtClType(Enum):
-    """Types of intersections to create
-    - no_cavity: The points of the tunnels that are inside other tunnels are delted
-    - cavity_along_one_tunnel: The pointcloud around one of the tunnels is inflated, and the
-    """
-
-    no_cavity = 1
-    cavity_along_one_tunnel = 2
-    spherical_cavity = 3
-
-
-class IntersectionPtClGenParams:
-    """Params that control how the pointcloud of an intersection is generated"""
-
-    _default_radius = 10
-    _default_type = IntersectionPtClType.no_cavity
-
-    _random_radius_range = (5, 15)
-    _random_type_choices = (
-        IntersectionPtClType.no_cavity,
-        IntersectionPtClType.spherical_cavity,
-    )
-
-    @classmethod
-    def from_defaults(cls):
-        return cls(radius=cls._default_radius, ptcl_type=cls._default_type)
-
-    @classmethod
-    def random(cls):
-        radius = np.random.uniform(
-            cls._random_radius_range[0],
-            cls._random_radius_range[1],
-        )
-        ptcl_type = np.random.choice(cls._random_type_choices)
-        return cls(radius=radius, ptcl_type=ptcl_type)
-
-    def __init__(self, radius=None, ptcl_type=None):
-        assert not radius is None
-        assert not ptcl_type is None
-        self.radius = radius
-        self.ptcl_type = ptcl_type
-
-
-class TunnelNetworkPtClGenStrategies(Enum):
-    """Different strategies to set the parameters of the ptcl
-    generation of each of the tunnels"""
-
-    all_random = 1
-    all_default = 2
-    pre_set_or_default = 3
-    pre_set_or_random = 4
-
-
-class TunnelNetworkPtClGenParams:
-    """Params that control the the overall generation of the pointcloud of the
-    complete tunnel network"""
-
-    _default_ptcl_gen_strategy = TunnelNetworkPtClGenStrategies.all_default
-    _default_perlin_weight_by_angle = np.deg2rad(40)
-
-    _random_ptcl_gen_strategy_choices = (
-        TunnelNetworkPtClGenStrategies.all_default,
-        TunnelNetworkPtClGenStrategies.all_random,
-    )
-
-    @classmethod
-    def from_defaults(cls):
-        return cls(
-            ptcl_gen_strategy=cls._default_ptcl_gen_strategy,
-            perlin_weight_by_angle=cls._default_perlin_weight_by_angle,
-        )
-
-    @classmethod
-    def random(cls):
-        return cls(
-            ptcl_gen_strategy=np.random.choice(
-                ptcl_gen_strategy=np.random.choice(
-                    cls._random_ptcl_gen_strategy_choices
-                ),
-                perlin_weight_by_angle=cls._default_perlin_weight_by_angle,
-            )
-        )
-
-    def __init__(
-        self, ptcl_gen_strategy: TunnelNetworkPtClGenStrategies, perlin_weight_by_angle
-    ):
-        self.strategy = ptcl_gen_strategy
-        self.perlin_weight_by_angle = perlin_weight_by_angle
-
-
-class MeshingApproaches(Enum):
-    poisson = 1
-
-
-class TunnelNetworkMeshGenParams:
-    """Params that control how the mesh is generated from the ptcl"""
-
-    _default_meshing_approach = MeshingApproaches.poisson
-    _default_poisson_depth = 11
-
-    @classmethod
-    def from_defaults(cls):
-        return cls(
-            meshing_approach=cls._default_meshing_approach,
-            poisson_depth=cls._default_poisson_depth,
-        )
-
-    def __init__(self, meshing_approach=None, poisson_depth=None):
-        assert not meshing_approach is None
-        if meshing_approach == MeshingApproaches.poisson:
-            assert not poisson_depth is None
-        self.meshing_approach = meshing_approach
-        self.poisson_depth = poisson_depth
 
 
 class TunnelNewtorkMeshGenerator:
@@ -275,16 +65,7 @@ class TunnelNewtorkMeshGenerator:
     def _set_params_of_each_tunnel_ptcl_gen(
         self, ptcl_gen_params: TunnelNetworkPtClGenParams
     ):
-        if ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.all_default:
-            for tunnel in self._tunnel_network.tunnels:
-                self._params_of_tunnels[tunnel] = TunnelPtClGenParams.from_defaults()
-        elif ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.all_random:
-            for tunnel in self._tunnel_network.tunnels:
-                self._params_of_tunnels[tunnel] = TunnelPtClGenParams.random()
-        elif (
-            ptcl_gen_params.strategy
-            == TunnelNetworkPtClGenStrategies.pre_set_or_default
-        ):
+        if ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.default:
             for tunnel in self._tunnel_network.tunnels:
                 if tunnel in ptcl_gen_params.pre_set_tunnel_params:
                     self._params_of_tunnels[
@@ -294,9 +75,7 @@ class TunnelNewtorkMeshGenerator:
                     self._params_of_tunnels[
                         tunnel
                     ] = TunnelPtClGenParams.from_defaults()
-        elif (
-            ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.pre_set_or_random
-        ):
+        elif ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.random:
             for tunnel in self._tunnel_network.tunnels:
                 if tunnel in ptcl_gen_params.pre_set_tunnel_params:
                     self._params_of_tunnels[
@@ -304,20 +83,16 @@ class TunnelNewtorkMeshGenerator:
                     ] = ptcl_gen_params.pre_set_tunnel_params[tunnel]
                 else:
                     self._params_of_tunnels[tunnel] = TunnelPtClGenParams.random()
-        for tunnel in self._tunnel_network.tunnels:
-            self._params_of_tunnels[
-                tunnel
-            ].perlin_weight_by_angle = ptcl_gen_params.perlin_weight_by_angle
 
     def _set_params_of_each_intersection_ptcl_gen(
         self, ptcl_gen_params: TunnelNetworkPtClGenParams
     ):
-        if ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.all_default:
+        if ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.default:
             for intersection in self._tunnel_network.intersections:
                 self._params_of_intersections[
                     intersection
                 ] = IntersectionPtClGenParams.from_defaults()
-        elif ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.all_random:
+        elif ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.random:
             for intersection in self._tunnel_network.intersections:
                 self._params_of_intersections[
                     intersection
@@ -370,6 +145,8 @@ class TunnelNewtorkMeshGenerator:
                 perlin_weight_angle=self.params_of_tunnel(
                     tunnel
                 ).perlin_weight_by_angle,
+                flatten_floors=self.params_of_tunnel(tunnel).flatter_floor,
+                fta_distance=self.params_of_tunnel(tunnel).fta_distance,
             )
 
     def _compute_radius_of_intersections_for_all_tunnels(self):
@@ -445,7 +222,7 @@ class TunnelNewtorkMeshGenerator:
             self._aps_of_intersections[intersection] = axis_of_intersection
             self._avs_of_intersections[intersection] = axisv_of_intersection
 
-    def ptcl_of_intersection(self, intersection):
+    def ptcl_of_intersection(self, intersection: Node):
         return np.concatenate(
             [
                 self._ptcl_of_intersections[intersection][tunnel]
@@ -454,7 +231,7 @@ class TunnelNewtorkMeshGenerator:
             axis=0,
         )
 
-    def normals_of_intersection(self, intersection):
+    def normals_of_intersection(self, intersection: Node):
         return np.concatenate(
             [
                 self._normals_of_intersections[intersection][tunnel]
@@ -575,6 +352,16 @@ class TunnelNewtorkMeshGenerator:
                         ),
                         (-1, 3),
                     )
+            elif params.ptcl_type == IntersectionPtClType.spherical_cavity:
+                center_point = intersection.xyz
+                radius = params.radius
+                points_per_sm = params.point_density
+                sphere_points = generate_noisy_sphere(
+                    center_point,
+                    radius,
+                    points_per_sm,
+                    SphericalPerlinNoiseMapper(params.perlin_params),
+                )
 
     def get_safe_radius_from_intersection_of_two_tunnels(
         self,
@@ -696,6 +483,8 @@ def ptcl_from_tunnel(
     radius,
     noise_magnitude,
     perlin_weight_angle,
+    flatten_floors,
+    fta_distance,
     d_min=None,
     d_max=None,
 ):
@@ -738,6 +527,10 @@ def ptcl_from_tunnel(
         + normals * radius
         + normals * radius * noise_magnitude * noise_to_add * pwss
     )
+    if flatten_floors:
+        floor_to_axis_dist = points - apss
+        floor_points_idxs = np.where(floor_to_axis_dist[2] < -fta_distance)
+        points[floor_points_idxs, 2] = apss[floor_points_idxs, 2] - fta_distance
     return points, normals
 
 

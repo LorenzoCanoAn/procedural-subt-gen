@@ -14,7 +14,7 @@ class ConnectorTunnelGenerationParams:
 
     _random_segment_length_interval = (10, 20)
     _random_node_position_horizontal_noise_interval = (0, 15)
-    _random_node_position_vertical_noise_interval = (0, 10)
+    _random_node_position_vertical_noise_interval = (0, 5)
 
     @classmethod
     def from_defaults(cls):
@@ -55,7 +55,7 @@ class ConnectorTunnelGenerationParams:
         assert not node_position_vertical_noise is None
         self.segment_length = segment_length
         self.node_position_horizontal_noise = node_position_horizontal_noise
-        self.node_position_vertical_noise = node_position_horizontal_noise
+        self.node_position_vertical_noise = node_position_vertical_noise
 
     def gen_random_displacement(self) -> Vector3D:
         x = np.random.uniform(
@@ -230,6 +230,7 @@ class Tunnel:
             new_dir = params.get_new_direction(prev_direction)
             nodes.append(nodes[-1] + new_dir)
             d += new_dir.length
+            prev_direction = new_dir
         return Tunnel(nodes, tunnel_type=TunnelType.grown)
 
     @classmethod
@@ -258,7 +259,7 @@ class Tunnel:
             new_node = start_node + Vector3D(
                 s_to_f_vector.cartesian_unitary * n_segment * segment_length
             )
-            if n_segments > n_segment > 0:
+            if n_segments - 1 > n_segment > 1:
                 new_node = new_node + params.gen_random_displacement()
             nodes.append(new_node)
         return Tunnel(

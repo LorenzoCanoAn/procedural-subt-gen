@@ -1,9 +1,11 @@
 from subt_proc_gen.mesh_generation import (
-    CylindricalPerlinNoiseMapper,
-    CylindricalPerlinNoiseMapperParms,
     TunnelNewtorkMeshGenerator,
     TunnelNetworkPtClGenParams,
     TunnelNetworkMeshGenParams,
+)
+from subt_proc_gen.perlin import (
+    CylindricalPerlinNoiseMapper,
+    CylindricalPerlinNoiseMapperParms,
 )
 from subt_proc_gen.tunnel import (
     TunnelNetwork,
@@ -106,11 +108,16 @@ def test2():
 
 def test3():
     tunnel_network = TunnelNetwork()
-    tunnel_network.add_random_grown_tunnel()
-    tunnel_network.add_random_grown_tunnel()
-    tunnel_network.add_random_grown_tunnel()
-    tunnel_network.add_random_grown_tunnel()
-    tunnel_network.add_random_connector_tunnel(n_trials=100)
+    for i in range(10):
+        print(i, end="\r", flush=True)
+        result = False
+        while not result:
+            result = tunnel_network.add_random_grown_tunnel()
+    for i in range(10):
+        print(i, end="\r", flush=True)
+        result = False
+        while not result:
+            result = tunnel_network.add_random_connector_tunnel()
     mesh_generator = TunnelNewtorkMeshGenerator(
         tunnel_network,
         ptcl_gen_params=TunnelNetworkPtClGenParams.from_defaults(),

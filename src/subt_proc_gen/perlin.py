@@ -197,3 +197,130 @@ class CylindricalPerlinNoiseMapper:
                 for scaled_coord in scaled_coords
             ]
         )
+
+
+class SphericalPerlinNoiseMapperParms:
+    """Contains the parameters that controll the perlin cylindrical mapper. This also includes
+    parameters that controll how the octave generator and the octave to magnitude mapper works"""
+
+    _default_roughness = 0.01
+    _default_n_layers = 5
+    _default_octave_progression = OctaveProgressionType.exponential
+    _default_octave_progression_consts = (2,)
+    _default_octave_to_magnitude_scaling = OctaveToMagnitudeScalingTypes.inverse_root
+    _default_octave_to_magnitude_consts = (1.0,)
+
+    _random_roughness_range = (0.3, 0.0001)
+    _random_n_layers_range = (1, 6)
+    _random_octave_progression_types = (OctaveProgressionType.exponential,)
+    _random_octave_progression_const_ranges = ((0.5, 0.5),)
+    _random_octave_to_magnitude_scaling_types = (OctaveToMagnitudeScalingTypes.inverse,)
+    _random_octave_to_magnitude_const_ranges = ((1, 1),)
+
+    @classmethod
+    def from_defaults(cls):
+        return cls(
+            roughness=cls._default_roughness,
+            n_layers=cls._default_n_layers,
+            octave_progression=cls._default_octave_progression,
+            octave_progression_consts=cls._default_octave_progression_consts,
+            octave_to_magnitude_scaling=cls._default_octave_to_magnitude_scaling,
+            octave_to_magnitude_consts=cls._default_octave_to_magnitude_consts,
+        )
+
+    @classmethod
+    def random(cls):
+        return cls(
+            roughness=np.random.uniform(
+                cls._random_roughness_range[0],
+                cls._random_roughness_range[1],
+            ),
+            n_layers=np.random.random_integers(
+                cls._random_n_layers_range[0],
+                cls._random_n_layers_range[1],
+            ),
+            octave_progression=np.random.choice(cls._random_octave_progression_types),
+            octave_progression_consts=tuple(
+                [
+                    np.random.uniform(p[0], p[1])
+                    for p in cls._random_octave_progression_const_ranges
+                ]
+            ),
+            octave_to_magnitude_scaling=np.random.choice(
+                cls._random_octave_to_magnitude_scaling_types
+            ),
+            octave_to_magnitude_consts=tuple(
+                [
+                    np.random.uniform(p[0], p[1])
+                    for p in cls._random_octave_to_magnitude_const_ranges
+                ]
+            ),
+        )
+
+    def __init__(
+        self,
+        roughness,
+        n_layers,
+        octave_progression,
+        octave_progression_consts,
+        octave_to_magnitude_scaling,
+        octave_to_magnitude_consts,
+    ):
+        self.roughness = roughness
+        self.n_layers = n_layers
+        self.octave_progression = octave_progression
+        self.octave_progression_consts = octave_progression_consts
+        self.octave_to_magnitude_scaling = octave_to_magnitude_scaling
+        self.octave_to_magnitude_consts = octave_to_magnitude_consts
+
+
+class SphericalPerlinNoiseMapper:
+    def __init__(
+        self, sampling_scale, params: SphericalPerlinNoiseMapperParms, seed=None
+    ):
+        if seed is None:
+            self._seed = time.time_ns()
+        self._params = params
+        self._sampling_scale = sampling_scale
+        self._octave_progression = OctaveProgressionGenerator(
+            type=self._params.octave_progression,
+            constants=self._params.octave_progression_consts,
+        )(self._params.n_layers)
+        self._octaves = [
+            base_octave * self._sampling_scale * self._params.roughness
+            for base_octave in self._octave_progression
+        ]
+        self._magnitudes = PerlinMagnitudesGenerator(
+            self._params.octave_to_magnitude_scaling,
+            self._params.octave_to_magnitude_consts,
+        )(self._octave_progression)
+        self._noise_generators = [
+            PerlinNoise(octaves=octave, seed=seed) for octave in self._octaves
+        ]
+
+    def _noise_of_scaled_coords(self, scaled_coords):
+        return sum(
+            [
+                noise(scaled_coords) * mag
+                for noise, mag in zip(self._noise_generators, self._magnitudes)
+            ]
+        )
+
+    def __call__(self, coords):
+        if type(coords) in [tuple, list]:
+            coords = np.array(coords)
+        pool = Pool()
+        noises = pool.map(self._noise_of_scaled_coords, coords)
+        pool.close()
+        return np.array(noises)
+
+    def call_no_multiprocessing(self, coords):
+        if type(coords) in [tuple, list]:
+            coords = np.array(coords)
+        scaled_coords = coords / self._sampling_scale
+        return np.array(
+            [
+                self._noise_of_scaled_coords(scaled_coord)
+                for scaled_coord in scaled_coords
+            ]
+        )

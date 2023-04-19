@@ -197,7 +197,7 @@ def test7():
         result = False
         while not result:
             result = tunnel_network.add_random_grown_tunnel()
-    for i in range(4):
+    for i in range(10):
         print(i, end="\r", flush=True)
         result = False
         while not result:

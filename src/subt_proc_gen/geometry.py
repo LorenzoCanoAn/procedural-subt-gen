@@ -443,6 +443,20 @@ def check_spline_collision(
     return np.any(distance_matrix(spd1, spd2) < collision_distance)
 
 
+def get_uniform_points_in_sphere(n):
+    points = np.zeros((n, 3))
+    inc = m.pi * (3 - m.sqrt(5))
+    offset = 2 / float(n)
+    for i in range(n):
+        y = ((i * offset) - 1) + (offset / 2)
+        r = m.sqrt(1 - pow(y, 2))
+        phi = (i % n) * inc
+        x = m.cos(phi) * r
+        z = m.sin(phi) * r
+        points[i, :] = np.array((x, y, z))
+    return points
+
+
 ###############################################################
 # TESTING
 ###############################################################
@@ -464,6 +478,17 @@ def test2():
     assert v2 == v1
 
 
+def test3():
+    import pyvista as pv
+
+    points = get_uniform_points_in_sphere(1000)
+    points *= 10
+    plotter = pv.Plotter()
+    points = pv.PolyData(points)
+    plotter.add_mesh(points)
+    plotter.show()
+
+
 def main():
     test1()
     test2()
@@ -472,3 +497,4 @@ def main():
 if __name__ == "__main__":
     for _ in range(200):
         main()
+    test3()
