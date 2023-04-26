@@ -100,10 +100,11 @@ def test2():
     tunnel_network.add_tunnel(third_tunnel)
     mesh_generator = TunnelNewtorkMeshGenerator(
         tunnel_network,
-        ptcl_gen_params=TunnelNetworkPtClGenParams.from_defaults(),
+        ptcl_gen_params=TunnelNetworkPtClGenParams.random(),
         meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
     )
     mesh_generator.compute_all()
+    mesh_generator.save_mesh("test_2.obj")
 
 
 def test3():
@@ -130,6 +131,7 @@ def test3():
 
 def main():
     tests = [test1, test2, test3]
+    tests = [test2]
     for test in tests:
         try:
             timeit(test)

@@ -203,14 +203,14 @@ class SphericalPerlinNoiseMapperParms:
     """Contains the parameters that controll the perlin cylindrical mapper. This also includes
     parameters that controll how the octave generator and the octave to magnitude mapper works"""
 
-    _default_roughness = 0.01
+    _default_roughness = 0.1
     _default_n_layers = 5
     _default_octave_progression = OctaveProgressionType.exponential
     _default_octave_progression_consts = (2,)
     _default_octave_to_magnitude_scaling = OctaveToMagnitudeScalingTypes.inverse_root
     _default_octave_to_magnitude_consts = (1.0,)
 
-    _random_roughness_range = (0.3, 0.0001)
+    _random_roughness_range = (0.3, 0.1)
     _random_n_layers_range = (1, 6)
     _random_octave_progression_types = (OctaveProgressionType.exponential,)
     _random_octave_progression_const_ranges = ((0.5, 0.5),)
@@ -275,19 +275,16 @@ class SphericalPerlinNoiseMapperParms:
 
 
 class SphericalPerlinNoiseMapper:
-    def __init__(
-        self, sampling_scale, params: SphericalPerlinNoiseMapperParms, seed=None
-    ):
+    def __init__(self, params: SphericalPerlinNoiseMapperParms, seed=None):
         if seed is None:
             self._seed = time.time_ns()
         self._params = params
-        self._sampling_scale = sampling_scale
         self._octave_progression = OctaveProgressionGenerator(
             type=self._params.octave_progression,
             constants=self._params.octave_progression_consts,
         )(self._params.n_layers)
         self._octaves = [
-            base_octave * self._sampling_scale * self._params.roughness
+            base_octave * self._params.roughness
             for base_octave in self._octave_progression
         ]
         self._magnitudes = PerlinMagnitudesGenerator(
@@ -310,17 +307,15 @@ class SphericalPerlinNoiseMapper:
         if type(coords) in [tuple, list]:
             coords = np.array(coords)
         pool = Pool()
-        noises = pool.map(self._noise_of_scaled_coords, coords)
+        noises = pool.map(self._noise_of_scaled_coords, coords * 10)
         pool.close()
         return np.array(noises)
 
     def call_no_multiprocessing(self, coords):
         if type(coords) in [tuple, list]:
             coords = np.array(coords)
-        scaled_coords = coords / self._sampling_scale
+        coords = np.reshape(coords, (-1, 3))
+        coords *= 10
         return np.array(
-            [
-                self._noise_of_scaled_coords(scaled_coord)
-                for scaled_coord in scaled_coords
-            ]
+            [self._noise_of_scaled_coords(scaled_coord) for scaled_coord in coords]
         )

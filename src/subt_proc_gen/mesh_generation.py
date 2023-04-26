@@ -28,6 +28,7 @@ import logging as log
 import pyvista as pv
 import open3d as o3d
 import os
+import math
 
 
 class TunnelNewtorkMeshGenerator:
@@ -90,19 +91,6 @@ class TunnelNewtorkMeshGenerator:
     ):
         if ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.default:
             for intersection in self._tunnel_network.intersections:
-                self._params_of_intersections[
-                    intersection
-                ] = IntersectionPtClGenParams.from_defaults()
-        elif ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.random:
-            for intersection in self._tunnel_network.intersections:
-                self._params_of_intersections[
-                    intersection
-                ] = IntersectionPtClGenParams.random()
-        elif (
-            ptcl_gen_params.strategy
-            == TunnelNetworkPtClGenStrategies.pre_set_or_default
-        ):
-            for intersection in self._tunnel_network.intersections:
                 if intersection in ptcl_gen_params.pre_set_intersection_params:
                     self._params_of_intersections[
                         intersection
@@ -111,9 +99,7 @@ class TunnelNewtorkMeshGenerator:
                     self._params_of_intersections[
                         intersection
                     ] = IntersectionPtClGenParams.from_defaults()
-        elif (
-            ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.pre_set_or_random
-        ):
+        elif ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.random:
             for intersection in self._tunnel_network.intersections:
                 if intersection in ptcl_gen_params.pre_set_intersection_params:
                     self._params_of_intersections[
@@ -226,8 +212,8 @@ class TunnelNewtorkMeshGenerator:
     def ptcl_of_intersection(self, intersection: Node):
         return np.concatenate(
             [
-                self._ptcl_of_intersections[intersection][tunnel]
-                for tunnel in self._tunnel_network._tunnels_of_node[intersection]
+                self._ptcl_of_intersections[intersection][element]
+                for element in self._ptcl_of_intersections[intersection]
             ],
             axis=0,
         )
@@ -235,8 +221,8 @@ class TunnelNewtorkMeshGenerator:
     def normals_of_intersection(self, intersection: Node):
         return np.concatenate(
             [
-                self._normals_of_intersections[intersection][tunnel]
-                for tunnel in self._tunnel_network._tunnels_of_node[intersection]
+                self._normals_of_intersections[intersection][element]
+                for element in self._normals_of_intersections[intersection]
             ],
             axis=0,
         )
@@ -356,13 +342,52 @@ class TunnelNewtorkMeshGenerator:
             elif params.ptcl_type == IntersectionPtClType.spherical_cavity:
                 center_point = intersection.xyz
                 radius = params.radius
-                points_per_sm = params.point_density
-                sphere_points = generate_noisy_sphere(
+                points_per_sm = params.points_per_sm
+                # Generate the points of the intersection
+                sphere_points, sphere_normals = generate_noisy_sphere(
                     center_point,
                     radius,
                     points_per_sm,
                     SphericalPerlinNoiseMapper(params.perlin_params),
+                    params.noise_multiplier,
+                    params.flatten_floors,
+                    params.fta_distance,
                 )
+                ids_to_delete_in_cavity = set()
+                for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
+                    axis_of_tunnel = self._aps_of_intersections[intersection][tunnel]
+                    points_of_tunnel = self._ptcl_of_intersections[intersection][tunnel]
+                    ids_to_delete_in_tunnel = ids_points_inside_ptcl_sphere(
+                        sphere_points, center_point, points_of_tunnel
+                    )
+                    ids_to_delete_in_cavity_ = points_inside_of_tunnel_section(
+                        axis_of_tunnel, points_of_tunnel, sphere_points
+                    )
+                    plotter = pv.Plotter()
+                    plotter.add_mesh(pv.PolyData(axis_of_tunnel), color="r")
+                    plotter.add_mesh(pv.PolyData(points_of_tunnel), color="b")
+                    plotter.add_mesh(pv.PolyData(sphere_points), color="k")
+                    plotter.show()
+                    self._ptcl_of_intersections[intersection][tunnel] = np.delete(
+                        self._ptcl_of_intersections[intersection][tunnel],
+                        ids_to_delete_in_tunnel,
+                        axis=0,
+                    )
+                    self._normals_of_intersections[intersection][tunnel] = np.delete(
+                        self._normals_of_intersections[intersection][tunnel],
+                        ids_to_delete_in_tunnel,
+                        axis=0,
+                    )
+                    for id_ in np.reshape(ids_to_delete_in_cavity_, -1):
+                        ids_to_delete_in_cavity.add(id_)
+                sphere_points = np.delete(
+                    sphere_points, np.array(list(ids_to_delete_in_cavity)), axis=0
+                )
+                sphere_normals = np.delete(
+                    sphere_normals, np.array(list(ids_to_delete_in_cavity)), axis=0
+                )
+                self._ptcl_of_intersections[intersection]["cavity"] = sphere_points
+                self._normals_of_intersections[intersection]["cavity"] = sphere_normals
 
     def get_safe_radius_from_intersection_of_two_tunnels(
         self,
@@ -396,6 +421,9 @@ class TunnelNewtorkMeshGenerator:
             dist_of_i_points_inside_j_to_inter = np.linalg.norm(
                 intersection.xyz - p_of_i_inside_j, axis=1
             )
+            if len(dist_of_i_points_inside_j_to_inter) == 0:
+                radius = cut_off_radius
+                break
             radius = np.max(dist_of_i_points_inside_j_to_inter)
             if radius < cut_off_radius - increment:
                 break
@@ -445,30 +473,6 @@ class TunnelNewtorkMeshGenerator:
         self, tunnel: Tunnel
     ) -> CylindricalPerlinNoiseMapper:
         return self._perlin_generator_of_tunnel[tunnel]
-
-    def multiprocesing_is_point_inside_tunnel(self, tp):
-        return self.is_point_inside_tunnel(tp[0], tp[1])
-
-    def is_point_inside_tunnel(self, tunnel: Tunnel, point, threshold=0.1):
-        ad, ap, av = tunnel.spline.get_closest(point, precision=0.05)
-        u, v = get_two_perpendicular_vectors(av)
-        n = Point3D(point) - Point3D(ap)
-        dist_to_axis = n.length
-        if n.length == 0:
-            return True
-        n.normalize()
-        proj_u = np.dot(n.xyz, u.xyz.T)
-        proj_v = np.dot(n.xyz, v.xyz.T)
-        angle = np.arctan2(proj_u, proj_v)
-        if np.isnan(angle):
-            angle = 0
-        radius_of_tunnel_in_that_direction = np.linalg.norm(
-            ap
-            - self._compute_point_at_tunnel_by_d_and_angle(
-                tunnel, ad.item(0), angle
-            ).xyz
-        )
-        return radius_of_tunnel_in_that_direction > threshold + dist_to_axis
 
 
 #########################################################################################################################
@@ -545,16 +549,20 @@ def generate_noisy_sphere(
     fta_distance,
 ):
     area_of_sphere = 4 * np.pi * radius**2
-    n_points = points_per_sm * area_of_sphere
+    n_points = int(math.ceil(points_per_sm * area_of_sphere))
     points_before_noise = get_uniform_points_in_sphere(n_points)
     noise_of_points = np.reshape(perlin_mapper(points_before_noise), (-1, 1))
     points_with_noise_and_radius = (
         points_before_noise + points_before_noise * noise_of_points * noise_multiplier
     ) * radius
+    normals = points_with_noise_and_radius / np.reshape(
+        np.linalg.norm(points_with_noise_and_radius, axis=1), (-1, 1)
+    )
     if flatten_floors:
         floor_points_idxs = np.where(points_with_noise_and_radius[:, 2] < -fta_distance)
         points_with_noise_and_radius[floor_points_idxs, 2] = -fta_distance
-    return points_with_noise_and_radius + center_point
+        normals[floor_points_idxs] = np.array((0, 0, -1))
+    return points_with_noise_and_radius + center_point, normals
 
 
 def points_inside_of_tunnel_section(
@@ -586,12 +594,28 @@ def points_inside_of_tunnel_section(
     return np.where(inside)
 
 
-def perlin_weight_from_angle(angles, perlin_weight_angle):
-    perlin_weights = np.zeros(angles.shape)
-    for i, angle in enumerate(angles):
+def ids_points_inside_ptcl_sphere(sphere_points, center_point, points):
+    dists_of_ps_to_sph_pts = distance_matrix(points, sphere_points)
+    dists_of_sph_pts_to_center = np.reshape(
+        np.linalg.norm(sphere_points - center_point, axis=1), (-1, 1)
+    )
+    dists_of_ps_to_center = np.reshape(
+        np.linalg.norm(points - center_point, axis=1), (-1, 1)
+    )
+    id_closest_sph_pt_to_pt = np.argmin(dists_of_ps_to_sph_pts, axis=1)
+    return np.where(
+        dists_of_ps_to_center < dists_of_sph_pts_to_center[id_closest_sph_pt_to_pt]
+    )
+
+
+def perlin_weight_from_angle(angles_rad, perlin_weight_angle_rad):
+    """Given an set of angles in radians, and a cuttoff angle, this function returns the weight
+    that the perlin noise should have in a given angle, so that there is no discontinuity in the resulting image"""
+    perlin_weights = np.zeros(angles_rad.shape)
+    for i, angle in enumerate(angles_rad):
         warped_angle = warp_angle_pi(angle)
-        if abs(warped_angle) < perlin_weight_angle:
-            perlin_weights[i] = (abs(warped_angle) / perlin_weight_angle) ** 2
+        if abs(warped_angle) < perlin_weight_angle_rad:
+            perlin_weights[i] = (abs(warped_angle) / perlin_weight_angle_rad) ** 2
         else:
             perlin_weights[i] = 1
     return perlin_weights

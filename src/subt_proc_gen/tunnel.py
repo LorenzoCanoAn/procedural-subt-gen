@@ -372,7 +372,10 @@ class TunnelNetwork(Graph):
         # Tracks which tunnels are connected to each other
         self._node_types = dict()
         if initial_node:
-            self.add_node(Node((0, 0, 0)))
+            self.add_node_at_origin()
+
+    def add_node_at_origin(self):
+        self.add_node(Node((0, 0, 0)))
 
     @property
     def params(self) -> TunnelNetworkParams:
@@ -546,6 +549,8 @@ class TunnelNetwork(Graph):
             min_intersection_angle = self.params.min_intersection_angle
         while not successful and n < n_trials:
             n += 1
+            if len(self.nodes) == 0:
+                self.add_node_at_origin()
             i_node = np.random.choice(np.array(list(self.nodes)))
             tunnel = Tunnel.grown(
                 i_node=i_node,
