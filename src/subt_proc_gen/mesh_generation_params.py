@@ -112,20 +112,20 @@ class IntersectionPtClType(Enum):
 class IntersectionPtClGenParams:
     """Params that control how the pointcloud of an intersection is generated"""
 
-    _default_radius = 10
+    _default_radius = 20
     _default_type = IntersectionPtClType.no_cavity
     _default_point_density = 3  # Points per sqare meter
     _default_noise_multiplier = 0.4
     _default_flatten_floors = True
     _default_fta_distance = 1
 
-    _random_radius_range = (10, 15)
+    _random_radius_range = (20, 25)
     _random_type_choices = (
         IntersectionPtClType.no_cavity,
         IntersectionPtClType.spherical_cavity,
     )
     _random_noise_multiplier_range = (0.5, 0.6)
-    _random_flatten_floors_probability = 1
+    _random_flatten_floors_probability = 0
     _random_fta_range = [1, 1]
 
     @classmethod

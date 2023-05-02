@@ -105,6 +105,9 @@ def test2():
     )
     mesh_generator.compute_all()
     mesh_generator.save_mesh("test_2.obj")
+    plotter = pv.Plotter()
+    plotter.add_mesh(pv.PolyData(mesh_generator.complete_pointcloud))
+    plotter.show()
 
 
 def test3():

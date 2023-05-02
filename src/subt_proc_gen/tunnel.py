@@ -341,16 +341,23 @@ class TunnelNetworkParams:
     _default_collision_distance = 10
     _default_min_intersection_angle = np.deg2rad(30)
     _default_max_inclination = np.deg2rad(30)
+    _default_flat = False
 
     def __init__(
-        self, collision_distance=None, max_inclination=None, min_intersection_angle=None
+        self,
+        collision_distance=None,
+        max_inclination=None,
+        min_intersection_angle=None,
+        flat=None,
     ):
         assert not collision_distance is None
         assert not max_inclination is None
         assert not min_intersection_angle is None
+        assert not flat is None
         self.collision_distance = collision_distance
         self.min_intersection_angle = min_intersection_angle
         self.max_inclination = max_inclination
+        self.flat = flat
 
     @classmethod
     def from_defaults(cls):
@@ -358,6 +365,7 @@ class TunnelNetworkParams:
             collision_distance=cls._default_collision_distance,
             max_inclination=cls._default_max_inclination,
             min_intersection_angle=cls._default_min_intersection_angle,
+            flat=cls._default_flat,
         )
 
 
@@ -539,6 +547,9 @@ class TunnelNetwork(Graph):
     ):
         if params is None:
             params = GrownTunnelGenerationParams.random()
+        if self.params.flat:
+            params.vertical_noise = 0
+            params.vertical_tendency = 0
         n = 0
         successful = False
         if collsion_distance is None:
@@ -608,6 +619,8 @@ class TunnelNetwork(Graph):
             max_inclination = self.params.max_inclination
         if min_intersection_angle is None:
             min_intersection_angle = self.params.min_intersection_angle
+        if self.params.flat:
+            params.node_position_vertical_noise = 0
         successful = False
         n = 0
         while not successful and n < n_trials:

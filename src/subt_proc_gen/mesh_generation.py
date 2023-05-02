@@ -305,40 +305,43 @@ class TunnelNewtorkMeshGenerator:
     def normals_of_tunnel(self, tunnel: Tunnel) -> np.ndarray:
         return self._normals_of_tunnels[tunnel]
 
+    def clean_tunnels_in_intersection(self, intersection: Node):
+        # Get the ids of the points to delete
+        ids_to_delete = dict()
+        for tunnel_i in self._tunnel_network._tunnels_of_node[intersection]:
+            for tunnel_j in self._tunnel_network._tunnels_of_node[intersection]:
+                if tunnel_i is tunnel_j:
+                    continue
+                ids_to_delete[tunnel_j] = points_inside_of_tunnel_section(
+                    self._aps_of_intersections[intersection][tunnel_i],
+                    self._ptcl_of_intersections[intersection][tunnel_i],
+                    self._ptcl_of_intersections[intersection][tunnel_j],
+                    self._avs_of_intersections[intersection][tunnel_i],
+                )
+        # Delete the ids
+        for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
+            self._ptcl_of_intersections[intersection][tunnel] = np.reshape(
+                np.delete(
+                    self._ptcl_of_intersections[intersection][tunnel],
+                    ids_to_delete[tunnel],
+                    axis=0,
+                ),
+                (-1, 3),
+            )
+            self._normals_of_intersections[intersection][tunnel] = np.reshape(
+                np.delete(
+                    self._normals_of_intersections[intersection][tunnel],
+                    ids_to_delete[tunnel],
+                    axis=0,
+                ),
+                (-1, 3),
+            )
+
     def _compute_all_intersections_ptcl(self):
         for intersection in self._tunnel_network.intersections:
             params = self.params_of_intersection(intersection)
-            ids_to_delete = dict()
             if params.ptcl_type == IntersectionPtClType.no_cavity:
-                # Get the ids of the points to delete
-                for tunnel_i in self._tunnel_network._tunnels_of_node[intersection]:
-                    for tunnel_j in self._tunnel_network._tunnels_of_node[intersection]:
-                        if tunnel_i is tunnel_j:
-                            continue
-                        ids_to_delete[tunnel_j] = points_inside_of_tunnel_section(
-                            self._aps_of_intersections[intersection][tunnel_i],
-                            self._ptcl_of_intersections[intersection][tunnel_i],
-                            self._ptcl_of_intersections[intersection][tunnel_j],
-                            self._avs_of_intersections[intersection][tunnel_i],
-                        )
-                # Delete the ids
-                for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
-                    self._ptcl_of_intersections[intersection][tunnel] = np.reshape(
-                        np.delete(
-                            self._ptcl_of_intersections[intersection][tunnel],
-                            ids_to_delete[tunnel],
-                            axis=0,
-                        ),
-                        (-1, 3),
-                    )
-                    self._normals_of_intersections[intersection][tunnel] = np.reshape(
-                        np.delete(
-                            self._normals_of_intersections[intersection][tunnel],
-                            ids_to_delete[tunnel],
-                            axis=0,
-                        ),
-                        (-1, 3),
-                    )
+                self.clean_tunnels_in_intersection(intersection)
             elif params.ptcl_type == IntersectionPtClType.spherical_cavity:
                 center_point = intersection.xyz
                 radius = params.radius
@@ -363,11 +366,6 @@ class TunnelNewtorkMeshGenerator:
                     ids_to_delete_in_cavity_ = points_inside_of_tunnel_section(
                         axis_of_tunnel, points_of_tunnel, sphere_points
                     )
-                    plotter = pv.Plotter()
-                    plotter.add_mesh(pv.PolyData(axis_of_tunnel), color="r")
-                    plotter.add_mesh(pv.PolyData(points_of_tunnel), color="b")
-                    plotter.add_mesh(pv.PolyData(sphere_points), color="k")
-                    plotter.show()
                     self._ptcl_of_intersections[intersection][tunnel] = np.delete(
                         self._ptcl_of_intersections[intersection][tunnel],
                         ids_to_delete_in_tunnel,
@@ -527,6 +525,7 @@ def ptcl_from_tunnel(
     archdss = angss * radius
     cylindrical_coords = np.concatenate([dss, archdss], axis=1)
     noise_to_add = perlin_mapper(cylindrical_coords)
+    noise_to_add /= np.max(np.abs(noise_to_add))
     points = (
         apss
         + normals * radius
@@ -552,9 +551,13 @@ def generate_noisy_sphere(
     n_points = int(math.ceil(points_per_sm * area_of_sphere))
     points_before_noise = get_uniform_points_in_sphere(n_points)
     noise_of_points = np.reshape(perlin_mapper(points_before_noise), (-1, 1))
-    points_with_noise_and_radius = (
-        points_before_noise + points_before_noise * noise_of_points * noise_multiplier
-    ) * radius
+    noise_of_points /= np.max(np.abs(noise_of_points))
+    noise_of_points -= 1
+    noise_of_points /= 2
+    points_with_noise = (
+        points_before_noise + noise_multiplier * noise_of_points * points_before_noise
+    )
+    points_with_noise_and_radius = points_with_noise * radius
     normals = points_with_noise_and_radius / np.reshape(
         np.linalg.norm(points_with_noise_and_radius, axis=1), (-1, 1)
     )
@@ -562,7 +565,8 @@ def generate_noisy_sphere(
         floor_points_idxs = np.where(points_with_noise_and_radius[:, 2] < -fta_distance)
         points_with_noise_and_radius[floor_points_idxs, 2] = -fta_distance
         normals[floor_points_idxs] = np.array((0, 0, -1))
-    return points_with_noise_and_radius + center_point, normals
+    points = points_with_noise_and_radius + center_point
+    return points, normals
 
 
 def points_inside_of_tunnel_section(
