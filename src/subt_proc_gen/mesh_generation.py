@@ -119,7 +119,7 @@ class TunnelNewtorkMeshGenerator:
                     ] = IntersectionPtClGenParams.random()
         if not ptcl_gen_params.general_fta_distance is None:
             for intersection in self._tunnel_network.intersections:
-                self._params_of_intersections[intersection].flatten_floors = True
+                self._params_of_intersections[intersection].flatten_floor = True
                 self._params_of_intersections[
                     intersection
                 ].fta_distance = ptcl_gen_params.general_fta_distance
@@ -146,7 +146,7 @@ class TunnelNewtorkMeshGenerator:
                 perlin_weight_angle=self.params_of_tunnel(
                     tunnel
                 ).perlin_weight_by_angle,
-                flatten_floors=self.params_of_tunnel(tunnel).flatter_floor,
+                flatten_floor=self.params_of_tunnel(tunnel).flatter_floor,
                 fta_distance=self.params_of_tunnel(tunnel).fta_distance,
             )
 
@@ -367,7 +367,7 @@ class TunnelNewtorkMeshGenerator:
                     points_per_sm,
                     SphericalPerlinNoiseMapper(params.perlin_params),
                     params.noise_multiplier,
-                    params.flatten_floors,
+                    params.flatten_floor,
                     params.fta_distance,
                 )
                 ids_to_delete_in_cavity = set()
@@ -500,7 +500,7 @@ def ptcl_from_tunnel(
     radius,
     noise_magnitude,
     perlin_weight_angle,
-    flatten_floors,
+    flatten_floor,
     fta_distance,
     d_min=None,
     d_max=None,
@@ -545,9 +545,9 @@ def ptcl_from_tunnel(
         + normals * radius
         + normals * radius * noise_magnitude * noise_to_add * pwss
     )
-    if flatten_floors:
+    if flatten_floor:
         floor_to_axis_dist = points - apss
-        floor_points_idxs = np.where(floor_to_axis_dist[2] < -fta_distance)
+        floor_points_idxs = np.where(floor_to_axis_dist[:, 2] < -fta_distance)
         points[floor_points_idxs, 2] = apss[floor_points_idxs, 2] - fta_distance
     return points, normals
 
@@ -558,7 +558,7 @@ def generate_noisy_sphere(
     points_per_sm,
     perlin_mapper: SphericalPerlinNoiseMapper,
     noise_multiplier,
-    flatten_floors,
+    flatten_floor,
     fta_distance,
 ):
     area_of_sphere = 4 * np.pi * radius**2
@@ -575,7 +575,7 @@ def generate_noisy_sphere(
     normals = points_with_noise_and_radius / np.reshape(
         np.linalg.norm(points_with_noise_and_radius, axis=1), (-1, 1)
     )
-    if flatten_floors:
+    if flatten_floor:
         floor_points_idxs = np.where(points_with_noise_and_radius[:, 2] < -fta_distance)
         points_with_noise_and_radius[floor_points_idxs, 2] = -fta_distance
         normals[floor_points_idxs] = np.array((0, 0, -1))
