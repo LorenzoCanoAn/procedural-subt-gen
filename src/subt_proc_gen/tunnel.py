@@ -267,9 +267,7 @@ class Tunnel:
             tunnel_type=TunnelType.connector,
         )
 
-    def __init__(
-        self, nodes: list[Node] | tuple[Node], tunnel_type=TunnelType.from_nodes
-    ):
+    def __init__(self, nodes: list[Node], tunnel_type=TunnelType.from_nodes):
         if isinstance(nodes, list):
             nodes = tuple(nodes)
         assert len(nodes) > 1
@@ -341,6 +339,7 @@ class TunnelNetworkParams:
     _default_collision_distance = 10
     _default_min_intersection_angle = np.deg2rad(30)
     _default_max_inclination = np.deg2rad(30)
+    _default_min_dist_between_nodes = 30
     _default_flat = False
 
     def __init__(
@@ -348,15 +347,18 @@ class TunnelNetworkParams:
         collision_distance=None,
         max_inclination=None,
         min_intersection_angle=None,
+        min_distance_between_nodes=None,
         flat=None,
     ):
         assert not collision_distance is None
         assert not max_inclination is None
         assert not min_intersection_angle is None
+        assert not min_distance_between_nodes is None
         assert not flat is None
         self.collision_distance = collision_distance
         self.min_intersection_angle = min_intersection_angle
         self.max_inclination = max_inclination
+        self.min_distance_between_intersections = min_distance_between_nodes
         self.flat = flat
 
     @classmethod
@@ -365,6 +367,7 @@ class TunnelNetworkParams:
             collision_distance=cls._default_collision_distance,
             max_inclination=cls._default_max_inclination,
             min_intersection_angle=cls._default_min_intersection_angle,
+            min_distance_between_nodes=cls._default_min_dist_between_nodes,
             flat=cls._default_flat,
         )
 
@@ -373,7 +376,8 @@ class TunnelNetwork(Graph):
     def __init__(self, params=None, initial_node=True):
         super().__init__()
         if params is None:
-            self._params = TunnelNetworkParams.from_defaults()
+            params = TunnelNetworkParams.from_defaults()
+        self._params = params
         self._tunnels = set()
         # Tracks the tunnels to which a node belongs
         self._tunnels_of_node = dict()
@@ -537,6 +541,24 @@ class TunnelNetwork(Graph):
             )
         Node.set_global_counter(max(yaml_data["nodes"]))
 
+    def get_node_to_make_intersection(self):
+        there_is_a_close_node = True
+        while there_is_a_close_node:
+            i_node = np.random.choice(np.array(list(self.nodes)))
+            assert isinstance(i_node, Node)
+            # Enforce the minimum distance between intersections
+            for intersection in self.intersections:
+                if i_node is intersection:
+                    continue
+                if (
+                    np.linalg.norm(i_node.xyz - intersection.xyz)
+                    < self.params.min_distance_between_intersections
+                ):
+                    break
+            else:
+                there_is_a_close_node = False
+        return i_node
+
     def add_random_grown_tunnel(
         self,
         params=None,
@@ -562,7 +584,7 @@ class TunnelNetwork(Graph):
             n += 1
             if len(self.nodes) == 0:
                 self.add_node_at_origin()
-            i_node = np.random.choice(np.array(list(self.nodes)))
+            i_node = self.get_node_to_make_intersection()
             tunnel = Tunnel.grown(
                 i_node=i_node,
                 i_direction=Vector3D.random(
@@ -627,8 +649,8 @@ class TunnelNetwork(Graph):
             n += 1
             # Get initial and final node from different tunnels
             while True:
-                i_node = np.random.choice(np.array(list(self.nodes)))
-                f_node = np.random.choice(np.array(list(self.nodes)))
+                i_node = self.get_node_to_make_intersection() 
+                f_node = self.get_node_to_make_intersection() 
                 if not i_node is f_node:
                     f_node_in_i_tunnel = False
                     for i_tunnel in self._tunnels_of_node[i_node]:

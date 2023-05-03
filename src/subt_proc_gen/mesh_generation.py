@@ -64,9 +64,9 @@ class TunnelNewtorkMeshGenerator:
     ):
         raise NotImplementedError()
 
-    def _set_params_of_each_tunnel_ptcl_gen(
-        self, ptcl_gen_params: TunnelNetworkPtClGenParams
-    ):
+    def _set_params_of_each_tunnel_ptcl_gen(self, ptcl_gen_params=None):
+        if ptcl_gen_params is None:
+            ptcl_gen_params = self._ptcl_gen_params
         if ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.default:
             for tunnel in self._tunnel_network.tunnels:
                 if tunnel in ptcl_gen_params.pre_set_tunnel_params:
@@ -85,10 +85,18 @@ class TunnelNewtorkMeshGenerator:
                     ] = ptcl_gen_params.pre_set_tunnel_params[tunnel]
                 else:
                     self._params_of_tunnels[tunnel] = TunnelPtClGenParams.random()
+        if not ptcl_gen_params.general_fta_distance is None:
+            for tunnel in self._tunnel_network.tunnels:
+                self._params_of_tunnels[tunnel].flatten_floor = True
+                self._params_of_tunnels[
+                    tunnel
+                ].fta_distance = ptcl_gen_params.general_fta_distance
 
     def _set_params_of_each_intersection_ptcl_gen(
-        self, ptcl_gen_params: TunnelNetworkPtClGenParams
+        self, ptcl_gen_params: TunnelNetworkPtClGenParams = None
     ):
+        if ptcl_gen_params is None:
+            ptcl_gen_params = self._ptcl_gen_params
         if ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.default:
             for intersection in self._tunnel_network.intersections:
                 if intersection in ptcl_gen_params.pre_set_intersection_params:
@@ -109,6 +117,12 @@ class TunnelNewtorkMeshGenerator:
                     self._params_of_intersections[
                         intersection
                     ] = IntersectionPtClGenParams.random()
+        if not ptcl_gen_params.general_fta_distance is None:
+            for intersection in self._tunnel_network.intersections:
+                self._params_of_intersections[intersection].flatten_floors = True
+                self._params_of_intersections[
+                    intersection
+                ].fta_distance = ptcl_gen_params.general_fta_distance
 
     def _set_perlin_mappers_of_tunnels(self):
         for tunnel in self._tunnel_network.tunnels:
@@ -430,13 +444,13 @@ class TunnelNewtorkMeshGenerator:
 
     def compute_all(self):
         log.info("Setting parameters of tunnels")
-        self._set_params_of_each_tunnel_ptcl_gen(self._ptcl_gen_params)
+        self._set_params_of_each_tunnel_ptcl_gen()
         log.info("Setting perlin mappers for tunnels")
         self._set_perlin_mappers_of_tunnels()
         log.info("Computing pointclouds of tunnels")
         self._compute_tunnel_ptcls()
         log.info("Setting paramters for intersections")
-        self._set_params_of_each_intersection_ptcl_gen(self._ptcl_gen_params)
+        self._set_params_of_each_intersection_ptcl_gen()
         log.info("Calcludating radius of intersections")
         self._compute_radius_of_intersections_for_all_tunnels()
         log.info("Separating the pointclouds of the tunnels for the intersections")
@@ -570,8 +584,21 @@ def generate_noisy_sphere(
 
 
 def points_inside_of_tunnel_section(
-    axis_points, tunnel_points, points, axis_vectors=None, max_projection_over_axis=0.5
+    axis_points: np.ndarray,
+    tunnel_points: np.ndarray,
+    points: np.ndarray,
+    axis_vectors: np.ndarray = None,
+    max_projection_over_axis=0.5,
 ):
+    assert axis_points.shape[0] > 0
+    assert axis_points.shape[1] == 3
+    assert tunnel_points.shape[0] > 0
+    assert tunnel_points.shape[1] == 3
+    try:
+        assert points.shape[0] > 0
+    except:
+        return np.array([])
+    assert points.shape[1] == 3
     dist_of_ps_to_aps = distance_matrix(points, axis_points)
     closest_ap_to_p_idx = np.argmin(dist_of_ps_to_aps, axis=1)
     if not axis_vectors is None:
@@ -586,7 +613,6 @@ def points_inside_of_tunnel_section(
         outside_because_of_angle = np.abs(projection) > max_projection_over_axis
     else:
         outside_because_of_angle = np.zeros((points.shape[0]), dtype=np.bool8)
-
     dist_of_ps_to_tps = distance_matrix(points, tunnel_points)
     dist_of_tps_to_aps = distance_matrix(tunnel_points, axis_points)
     dist_to_ap_of_p = np.min(dist_of_ps_to_aps, axis=1)

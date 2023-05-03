@@ -62,7 +62,7 @@ def plot_xyz_axis(plotter: pv.Plotter):
 
 def plot_nodes(
     plotter: pv.Plotter,
-    nodes: list[Node] | set[Node] | tuple[Node],
+    nodes,
     radius=None,
     color=None,
 ):
@@ -85,7 +85,7 @@ def plot_nodes(
 
 def plot_edges(
     plotter: pv.Plotter,
-    edges: list[Edge] | set[Edge] | tuple[Edge],
+    edges,
     radius=None,
     color=None,
 ):

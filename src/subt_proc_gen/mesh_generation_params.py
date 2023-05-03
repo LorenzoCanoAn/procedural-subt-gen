@@ -136,7 +136,7 @@ class IntersectionPtClGenParams:
             perlin_params=SphericalPerlinNoiseMapperParms.from_defaults(),
             points_per_sm=cls._default_point_density,
             noise_multiplier=cls._default_noise_multiplier,
-            flatten_floors=cls._default_flatten_floors,
+            flatten_floor=cls._default_flatten_floors,
             fta_distance=cls._default_fta_distance,
         )
 
@@ -163,7 +163,7 @@ class IntersectionPtClGenParams:
             perlin_params=SphericalPerlinNoiseMapperParms.random(),
             points_per_sm=points_per_sm,
             noise_multiplier=noise_multiplier,
-            flatten_floors=flatten_floor,
+            flatten_floor=flatten_floor,
             fta_distance=fta_distance,
         )
 
@@ -174,7 +174,7 @@ class IntersectionPtClGenParams:
         perlin_params=None,
         points_per_sm=None,
         noise_multiplier=None,
-        flatten_floors=None,
+        flatten_floor=None,
         fta_distance=None,
     ):
         assert not radius is None
@@ -182,14 +182,14 @@ class IntersectionPtClGenParams:
         assert not perlin_params is None
         assert not points_per_sm is None
         assert not noise_multiplier is None
-        assert not flatten_floors is None
+        assert not flatten_floor is None
         assert not fta_distance is None
         self.radius = radius
         self.ptcl_type = ptcl_type
         self._perlin_params = perlin_params
         self.points_per_sm = points_per_sm
         self.noise_multiplier = noise_multiplier
-        self.flatten_floors = flatten_floors
+        self.flatten_floors = flatten_floor
         self.fta_distance = fta_distance
 
     @property
@@ -211,6 +211,7 @@ class TunnelNetworkPtClGenParams:
 
     _default_ptcl_gen_strategy = TunnelNetworkPtClGenStrategies.default
     _default_perlin_weight_by_angle = np.deg2rad(40)
+    _default_general_fta_distance = None
     _random_ptcl_gen_strategy_choices = TunnelNetworkPtClGenStrategies.random
 
     @classmethod
@@ -222,6 +223,7 @@ class TunnelNetworkPtClGenParams:
             perlin_weight_by_angle=cls._default_perlin_weight_by_angle,
             pre_set_tunnel_params=pre_set_tunnel_params,
             pre_set_intersection_params=pre_set_intersection_params,
+            general_fta_distance=cls._default_general_fta_distance,
         )
 
     @classmethod
@@ -231,6 +233,7 @@ class TunnelNetworkPtClGenParams:
             perlin_weight_by_angle=cls._default_perlin_weight_by_angle,
             pre_set_tunnel_params=pre_set_tunnel_params,
             pre_set_intersection_params=pre_set_intersection_params,
+            general_fta_distance=None,
         )
 
     def __init__(
@@ -239,11 +242,13 @@ class TunnelNetworkPtClGenParams:
         perlin_weight_by_angle,
         pre_set_tunnel_params,
         pre_set_intersection_params,
+        general_fta_distance=None,
     ):
         self.strategy = ptcl_gen_strategy
         self.perlin_weight_by_angle = perlin_weight_by_angle
         self.pre_set_tunnel_params = pre_set_tunnel_params
         self.pre_set_intersection_params = pre_set_intersection_params
+        self.general_fta_distance = general_fta_distance
 
 
 class MeshingApproaches(Enum):

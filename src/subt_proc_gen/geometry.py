@@ -426,8 +426,8 @@ def check_spline_collision(
     spline1: Spline3D,
     spline2: Spline3D,
     collision_distance,
-    omision_points: list | tuple = None,
-    omision_distances: list | tuple = None,
+    omision_points=None,
+    omision_distances=None,
 ):
     discretization_precision = collision_distance / 4
     spd1 = spline1.discretize(discretization_precision)[1]
