@@ -1,5 +1,10 @@
 from subt_proc_gen.graph import Node, Graph
-from subt_proc_gen.geometry import Vector3D, Spline3D, check_spline_collision
+from subt_proc_gen.geometry import (
+    Vector3D,
+    Spline3D,
+    check_spline_collision,
+    spline_collides_with_itself,
+)
 from enum import Enum
 import numpy as np
 import math
@@ -588,7 +593,10 @@ class TunnelNetwork(Graph):
             tunnel = Tunnel.grown(
                 i_node=i_node,
                 i_direction=Vector3D.random(
-                    inclination_range=(np.deg2rad(-10), np.deg2rad(10)),
+                    inclination_range=(
+                        params.vertical_tendency - params.vertical_noise,
+                        params.vertical_tendency + params.vertical_noise,
+                    ),
                     yaw_range=(0, np.pi * 2),
                 ),
                 params=params,
@@ -617,7 +625,14 @@ class TunnelNetwork(Graph):
                 continue
             # Check collisions
             if self.check_collisions(tunnel, collision_distance=collision_distance):
-                log.info("Failed for collsion")
+                log.info("Failed for collsion with other tunnel")
+                successful = False
+                self.remove_tunnel(tunnel)
+                continue
+            else:
+                successful = True
+            if spline_collides_with_itself(tunnel.spline, collision_distance):
+                log.info("Failed because tunnel collides with itself")
                 successful = False
                 self.remove_tunnel(tunnel)
                 continue
@@ -649,8 +664,8 @@ class TunnelNetwork(Graph):
             n += 1
             # Get initial and final node from different tunnels
             while True:
-                i_node = self.get_node_to_make_intersection() 
-                f_node = self.get_node_to_make_intersection() 
+                i_node = self.get_node_to_make_intersection()
+                f_node = self.get_node_to_make_intersection()
                 if not i_node is f_node:
                     f_node_in_i_tunnel = False
                     for i_tunnel in self._tunnels_of_node[i_node]:
@@ -685,6 +700,13 @@ class TunnelNetwork(Graph):
             # Check collisions
             if self.check_collisions(tunnel, collision_distance=collision_distance):
                 log.info("Failed for collsion")
+                successful = False
+                self.remove_tunnel(tunnel)
+                continue
+            else:
+                successful = True
+            if spline_collides_with_itself(tunnel.spline, collision_distance):
+                log.info("Failed because tunnel collides with itself")
                 successful = False
                 self.remove_tunnel(tunnel)
                 continue

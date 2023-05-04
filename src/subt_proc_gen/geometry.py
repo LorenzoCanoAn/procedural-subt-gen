@@ -443,6 +443,18 @@ def check_spline_collision(
     return np.any(distance_matrix(spd1, spd2) < collision_distance)
 
 
+def spline_collides_with_itself(spline: Spline3D, collision_distance):
+    length = spline.metric_length
+    res = collision_distance / 10
+    _, points, _ = spline.discretize(res)
+    dist_mat = distance_matrix(points, points)
+    close_points_idi_idj = np.array(np.where(dist_mat < collision_distance)).T
+    for i, j in close_points_idi_idj:
+        if abs(i - j) > 10:
+            return True
+    return False
+
+
 def get_uniform_points_in_sphere(n):
     points = np.zeros((n, 3))
     inc = m.pi * (3 - m.sqrt(5))
