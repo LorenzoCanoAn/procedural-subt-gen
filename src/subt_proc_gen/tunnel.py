@@ -483,6 +483,7 @@ class TunnelNetwork(Graph):
             self._tunnels_of_node[node].add(tunnel)
         for ni, nj in zip(tunnel[:-1], tunnel[1:]):
             self.connect(ni, nj)
+        return tunnel
 
     def check_collisions(
         self,
@@ -666,6 +667,11 @@ class TunnelNetwork(Graph):
             while True:
                 i_node = self.get_node_to_make_intersection()
                 f_node = self.get_node_to_make_intersection()
+                if (
+                    np.linalg.norm(i_node.xyz - f_node.xyz)
+                    < self.params.min_distance_between_intersections
+                ):
+                    continue
                 if not i_node is f_node:
                     f_node_in_i_tunnel = False
                     for i_tunnel in self._tunnels_of_node[i_node]:

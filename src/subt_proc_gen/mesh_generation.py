@@ -43,14 +43,30 @@ class TunnelNewtorkMeshGenerator:
         self._meshing_params = meshing_params
         self._ptcl_of_tunnels = dict()
         self._normals_of_tunnels = dict()
+        self._aps_of_tunnels = dict()
+        self._avs_of_tunnels = dict()
+        self._apss_of_tunnels = dict()
         self._params_of_tunnels = dict()
         self._perlin_generator_of_tunnel = dict()
         self._ptcl_of_intersections = dict()
         self._normals_of_intersections = dict()
         self._aps_of_intersections = dict()
         self._avs_of_intersections = dict()
+        self._apss_of_intersections = dict()
         self._params_of_intersections = dict()
         self._radius_of_intersections_for_tunnels = dict()
+
+    @property
+    def axis_points(self) -> np.ndarray:
+        axis_points = np.zeros((0, 3))
+        for t in self._aps_of_tunnels:
+            axis_points = np.concatenate([axis_points, self._aps_of_tunnels[t]], axis=0)
+        for intersection in self._aps_of_intersections:
+            for elm in self._aps_of_intersections[intersection]:
+                axis_points = np.concatenate(
+                    [axis_points, self._aps_of_intersections[intersection][elm]]
+                )
+        return axis_points
 
     def params_of_intersection(self, intersection) -> IntersectionPtClGenParams:
         return self._params_of_intersections[intersection]
@@ -136,6 +152,9 @@ class TunnelNewtorkMeshGenerator:
             (
                 self._ptcl_of_tunnels[tunnel],
                 self._normals_of_tunnels[tunnel],
+                self._aps_of_tunnels[tunnel],
+                self._avs_of_tunnels[tunnel],
+                self._apss_of_tunnels[tunnel],
             ) = ptcl_from_tunnel(
                 tunnel=tunnel,
                 perlin_mapper=self._perlin_generator_of_tunnel[tunnel],
@@ -146,18 +165,18 @@ class TunnelNewtorkMeshGenerator:
                 perlin_weight_angle=self.params_of_tunnel(
                     tunnel
                 ).perlin_weight_by_angle,
-                flatten_floor=self.params_of_tunnel(tunnel).flatter_floor,
-                fta_distance=self.params_of_tunnel(tunnel).fta_distance,
             )
 
     def _compute_radius_of_intersections_for_all_tunnels(self):
         for intersection in self._tunnel_network.intersections:
             for tunnel_i in self._tunnel_network._tunnels_of_node[intersection]:
+                intersection_radius_for_tunnel_at_intersection = 0
                 for tunnel_j in self._tunnel_network._tunnels_of_node[intersection]:
                     # Tunnel i is the one being evaluated here
                     if tunnel_i is tunnel_j:
                         continue
-                    intersection_radius_for_tunnel_at_intersection = (
+                    intersection_radius_for_tunnel_at_intersection = max(
+                        intersection_radius_for_tunnel_at_intersection,
                         self.get_safe_radius_from_intersection_of_two_tunnels(
                             tunnel_i,
                             tunnel_j,
@@ -165,7 +184,7 @@ class TunnelNewtorkMeshGenerator:
                             starting_radius=self.params_of_intersection(
                                 intersection
                             ).radius,
-                        )
+                        ),
                     )
                 self._radius_of_intersections_for_tunnels[
                     (intersection, tunnel_i)
@@ -176,52 +195,65 @@ class TunnelNewtorkMeshGenerator:
             tunnels_of_intersection = self._tunnel_network._tunnels_of_node[
                 intersection
             ]
-            ptcl_of_intersection = dict()
-            normals_of_intersection = dict()
-            axis_of_intersection = dict()
-            axisv_of_intersection = dict()
+            pts_of_intersection = dict()
+            ns_of_intersection = dict()
+            aps_of_intersection = dict()
+            avs_of_intersection = dict()
+            apss_of_intersection = dict()
             for tunnel in tunnels_of_intersection:
-                tunnel_ptcl = self._ptcl_of_tunnels[tunnel]
-                tunnel_normals = self._normals_of_tunnels[tunnel]
-                radius = max(
-                    self.params_of_intersection(intersection).radius,
-                    self._radius_of_intersections_for_tunnels[(intersection, tunnel)],
+                tunnel_pts = self._ptcl_of_tunnels[tunnel]
+                tunnel_ns = self._normals_of_tunnels[tunnel]
+                tunnel_aps = self._aps_of_tunnels[tunnel]
+                tunnel_avs = self._avs_of_tunnels[tunnel]
+                tunnel_apss = self._apss_of_tunnels[tunnel]
+                radius = self._radius_of_intersections_for_tunnels[
+                    (intersection, tunnel)
+                ]
+                idxs_of_t_ptcl_to_int_ptcl = get_close_points_indices(
+                    intersection.xyz, tunnel_pts, radius
                 )
-                indices_of_points_of_intersection = get_close_points_indices(
-                    intersection.xyz, tunnel_ptcl, radius
-                )
-                _, tunnel_axis_points, tunnel_axis_vectors = tunnel.spline.discretize(
-                    self.params_of_tunnel(tunnel).dist_between_circles
-                )
-                indices_of_axis_points_of_intersection = get_close_points_indices(
+                idxs_of_aps_from_t_to_int = get_close_points_indices(
                     intersection.xyz,
-                    tunnel_axis_points,
+                    tunnel_aps,
                     radius,
                 )
-                ptcl_of_intersection[tunnel] = np.reshape(
-                    tunnel_ptcl[indices_of_points_of_intersection, :], (-1, 3)
+                pts_of_intersection[tunnel] = np.reshape(
+                    tunnel_pts[idxs_of_t_ptcl_to_int_ptcl, :], (-1, 3)
                 )
-                normals_of_intersection[tunnel] = np.reshape(
-                    tunnel_normals[indices_of_points_of_intersection, :], (-1, 3)
+                ns_of_intersection[tunnel] = np.reshape(
+                    tunnel_ns[idxs_of_t_ptcl_to_int_ptcl, :], (-1, 3)
                 )
-                axis_of_intersection[tunnel] = np.reshape(
-                    tunnel_axis_points[indices_of_axis_points_of_intersection, :],
+                apss_of_intersection[tunnel] = np.reshape(
+                    tunnel_apss[idxs_of_t_ptcl_to_int_ptcl, :], (-1, 3)
+                )
+                aps_of_intersection[tunnel] = np.reshape(
+                    tunnel_aps[idxs_of_aps_from_t_to_int, :],
                     (-1, 3),
                 )
-                axisv_of_intersection[tunnel] = np.reshape(
-                    tunnel_axis_vectors[indices_of_axis_points_of_intersection, :],
+                avs_of_intersection[tunnel] = np.reshape(
+                    tunnel_avs[idxs_of_aps_from_t_to_int, :],
                     (-1, 3),
                 )
                 self._ptcl_of_tunnels[tunnel] = np.delete(
-                    tunnel_ptcl, indices_of_points_of_intersection, axis=0
+                    self._ptcl_of_tunnels[tunnel], idxs_of_t_ptcl_to_int_ptcl, axis=0
                 )
                 self._normals_of_tunnels[tunnel] = np.delete(
-                    tunnel_normals, indices_of_points_of_intersection, axis=0
+                    self._normals_of_tunnels[tunnel], idxs_of_t_ptcl_to_int_ptcl, axis=0
                 )
-            self._ptcl_of_intersections[intersection] = ptcl_of_intersection
-            self._normals_of_intersections[intersection] = normals_of_intersection
-            self._aps_of_intersections[intersection] = axis_of_intersection
-            self._avs_of_intersections[intersection] = axisv_of_intersection
+                self._aps_of_tunnels[tunnel] = np.delete(
+                    self._aps_of_tunnels[tunnel], idxs_of_aps_from_t_to_int, axis=0
+                )
+                self._avs_of_tunnels[tunnel] = np.delete(
+                    self._avs_of_tunnels[tunnel], idxs_of_aps_from_t_to_int, axis=0
+                )
+                self._apss_of_tunnels[tunnel] = np.delete(
+                    self._apss_of_tunnels[tunnel], idxs_of_t_ptcl_to_int_ptcl, axis=0
+                )
+            self._ptcl_of_intersections[intersection] = pts_of_intersection
+            self._normals_of_intersections[intersection] = ns_of_intersection
+            self._aps_of_intersections[intersection] = aps_of_intersection
+            self._avs_of_intersections[intersection] = avs_of_intersection
+            self._apss_of_intersections[intersection] = apss_of_intersection
 
     def ptcl_of_intersection(self, intersection: Node):
         return np.concatenate(
@@ -321,23 +353,33 @@ class TunnelNewtorkMeshGenerator:
 
     def clean_tunnels_in_intersection(self, intersection: Node):
         # Get the ids of the points to delete
-        ids_to_delete = dict()
+        idxs_of_tunnel_pts_to_delete = dict()
         for tunnel_i in self._tunnel_network._tunnels_of_node[intersection]:
+            ids_to_delete_from_i = set()
             for tunnel_j in self._tunnel_network._tunnels_of_node[intersection]:
                 if tunnel_i is tunnel_j:
                     continue
-                ids_to_delete[tunnel_j] = points_inside_of_tunnel_section(
-                    self._aps_of_intersections[intersection][tunnel_i],
-                    self._ptcl_of_intersections[intersection][tunnel_i],
-                    self._ptcl_of_intersections[intersection][tunnel_j],
-                    self._avs_of_intersections[intersection][tunnel_i],
+                ids_of_i_in_j = np.reshape(
+                    points_inside_of_tunnel_section(
+                        self._aps_of_intersections[intersection][tunnel_j],
+                        self._ptcl_of_intersections[intersection][tunnel_j],
+                        self._ptcl_of_intersections[intersection][tunnel_i],
+                        self._avs_of_intersections[intersection][tunnel_j],
+                    ),
+                    -1,
                 )
-        # Delete the ids
+                for idx in ids_of_i_in_j:
+                    ids_to_delete_from_i.add(idx)
+            idxs_of_tunnel_pts_to_delete[tunnel_i] = np.array(
+                list(ids_to_delete_from_i)
+            )
         for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
+            if len(idxs_of_tunnel_pts_to_delete[tunnel]) == 0:
+                continue
             self._ptcl_of_intersections[intersection][tunnel] = np.reshape(
                 np.delete(
                     self._ptcl_of_intersections[intersection][tunnel],
-                    ids_to_delete[tunnel],
+                    idxs_of_tunnel_pts_to_delete[tunnel],
                     axis=0,
                 ),
                 (-1, 3),
@@ -345,7 +387,15 @@ class TunnelNewtorkMeshGenerator:
             self._normals_of_intersections[intersection][tunnel] = np.reshape(
                 np.delete(
                     self._normals_of_intersections[intersection][tunnel],
-                    ids_to_delete[tunnel],
+                    idxs_of_tunnel_pts_to_delete[tunnel],
+                    axis=0,
+                ),
+                (-1, 3),
+            )
+            self._apss_of_intersections[intersection][tunnel] = np.reshape(
+                np.delete(
+                    self._apss_of_intersections[intersection][tunnel],
+                    idxs_of_tunnel_pts_to_delete[tunnel],
                     axis=0,
                 ),
                 (-1, 3),
@@ -355,8 +405,10 @@ class TunnelNewtorkMeshGenerator:
         for intersection in self._tunnel_network.intersections:
             params = self.params_of_intersection(intersection)
             if params.ptcl_type == IntersectionPtClType.no_cavity:
+                print("cleaning tunnels")
                 self.clean_tunnels_in_intersection(intersection)
             elif params.ptcl_type == IntersectionPtClType.spherical_cavity:
+                self.clean_tunnels_in_intersection(intersection)
                 center_point = intersection.xyz
                 radius = params.radius
                 points_per_sm = params.points_per_sm
@@ -367,8 +419,6 @@ class TunnelNewtorkMeshGenerator:
                     points_per_sm,
                     SphericalPerlinNoiseMapper(params.perlin_params),
                     params.noise_multiplier,
-                    params.flatten_floor,
-                    params.fta_distance,
                 )
                 ids_to_delete_in_cavity = set()
                 for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
@@ -440,7 +490,7 @@ class TunnelNewtorkMeshGenerator:
             if radius < cut_off_radius - increment:
                 break
             cut_off_radius += increment
-        return radius + increment
+        return max(radius + increment, starting_radius)
 
     def compute_all(self):
         log.info("Setting parameters of tunnels")
@@ -500,8 +550,6 @@ def ptcl_from_tunnel(
     radius,
     noise_magnitude,
     perlin_weight_angle,
-    flatten_floor,
-    fta_distance,
     d_min=None,
     d_max=None,
 ):
@@ -545,11 +593,7 @@ def ptcl_from_tunnel(
         + normals * radius
         + normals * radius * noise_magnitude * noise_to_add * pwss
     )
-    if flatten_floor:
-        floor_to_axis_dist = points - apss
-        floor_points_idxs = np.where(floor_to_axis_dist[:, 2] < -fta_distance)
-        points[floor_points_idxs, 2] = apss[floor_points_idxs, 2] - fta_distance
-    return points, normals
+    return points, normals, aps, avs, apss
 
 
 def generate_noisy_sphere(
@@ -558,8 +602,6 @@ def generate_noisy_sphere(
     points_per_sm,
     perlin_mapper: SphericalPerlinNoiseMapper,
     noise_multiplier,
-    flatten_floor,
-    fta_distance,
 ):
     area_of_sphere = 4 * np.pi * radius**2
     n_points = int(math.ceil(points_per_sm * area_of_sphere))
@@ -575,10 +617,6 @@ def generate_noisy_sphere(
     normals = points_with_noise_and_radius / np.reshape(
         np.linalg.norm(points_with_noise_and_radius, axis=1), (-1, 1)
     )
-    if flatten_floor:
-        floor_points_idxs = np.where(points_with_noise_and_radius[:, 2] < -fta_distance)
-        points_with_noise_and_radius[floor_points_idxs, 2] = -fta_distance
-        normals[floor_points_idxs] = np.array((0, 0, -1))
     points = points_with_noise_and_radius + center_point
     return points, normals
 
@@ -590,15 +628,15 @@ def points_inside_of_tunnel_section(
     axis_vectors: np.ndarray = None,
     max_projection_over_axis=0.5,
 ):
-    assert axis_points.shape[0] > 0
-    assert axis_points.shape[1] == 3
-    assert tunnel_points.shape[0] > 0
-    assert tunnel_points.shape[1] == 3
     try:
+        assert axis_points.shape[0] > 0
+        assert axis_points.shape[1] == 3
+        assert tunnel_points.shape[0] > 0
+        assert tunnel_points.shape[1] == 3
         assert points.shape[0] > 0
+        assert points.shape[1] == 3
     except:
-        return np.array([])
-    assert points.shape[1] == 3
+        return np.array([], dtype=int)
     dist_of_ps_to_aps = distance_matrix(points, axis_points)
     closest_ap_to_p_idx = np.argmin(dist_of_ps_to_aps, axis=1)
     if not axis_vectors is None:
