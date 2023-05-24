@@ -31,6 +31,47 @@ import os
 import math
 
 
+class PtclVoxelizator:
+    def __init__(self, ptcl, apss, voxel_size=5):
+        self.voxel_size = voxel_size
+        self.grid = dict()
+        max_x = max(ptcl[:, 0])
+        min_x = min(ptcl[:, 0])
+        max_y = max(ptcl[:, 1])
+        min_y = min(ptcl[:, 1])
+        max_z = max(ptcl[:, 2])
+        min_z = min(ptcl[:, 2])
+        max_i = int(np.ceil(max_x / voxel_size)) + 3
+        min_i = int(np.floor(min_x / voxel_size)) - 3
+        max_j = int(np.ceil(max_y / voxel_size)) + 3
+        min_j = int(np.floor(min_y / voxel_size)) - 3
+        max_k = int(np.ceil(max_z / voxel_size)) + 3
+        min_k = int(np.floor(min_z / voxel_size)) - 3
+        for i in range(min_i, max_i):
+            for j in range(min_j, max_j):
+                for k in range(min_k, max_k):
+                    self.grid[(i, j, k)] = np.zeros([0, 6])
+        ijks = np.floor(self.axis_points / voxel_size).astype(int)
+        for ijk, ap, av in zip(ijks, self.axis_points, self.axis_vectors):
+            i, j, k = ijk
+            ap = np.reshape(ap, (-1, 3))
+            av = np.reshape(av, (-1, 3))
+            self.grid[(i, j, k)] = np.concatenate(
+                [self.grid[(i, j, k)], np.concatenate((ap, av), axis=1)], axis=0
+            )
+
+    def get_relevant_points(self, xyz):
+        _i, _j, _k = np.floor(xyz / self.voxel_size).astype(int)
+        relevant_points = np.zeros((0, 6))
+        for i in (_i - 1, _i, _i + 1):
+            for j in (_j - 1, _j, _j + 1):
+                for k in (_k - 1, _k, _k + 1):
+                    relevant_points = np.concatenate(
+                        [relevant_points, self.grid[(i, j, k)]], axis=0
+                    )
+        return relevant_points
+
+
 class TunnelNewtorkMeshGenerator:
     def __init__(
         self,
@@ -41,20 +82,19 @@ class TunnelNewtorkMeshGenerator:
         self._tunnel_network = tunnel_network
         self._ptcl_gen_params = ptcl_gen_params
         self._meshing_params = meshing_params
+        self._params_of_intersections = dict()
+        self._params_of_tunnels = dict()
         self._ptcl_of_tunnels = dict()
         self._normals_of_tunnels = dict()
-        self._aps_of_tunnels = dict()
-        self._avs_of_tunnels = dict()
-        self._apss_of_tunnels = dict()
-        self._params_of_tunnels = dict()
+        self._aps_avs_of_tunnels = dict()
+        self._apss_avss_of_tunnels = dict()
         self._perlin_generator_of_tunnel = dict()
         self._ptcl_of_intersections = dict()
         self._normals_of_intersections = dict()
-        self._aps_of_intersections = dict()
-        self._avs_of_intersections = dict()
-        self._apss_of_intersections = dict()
-        self._params_of_intersections = dict()
+        self._aps_avs_of_intersections = dict()
+        self._apss_avss_of_intersections = dict()
         self._radius_of_intersections_for_tunnels = dict()
+        self._voxelization_of_ptcl = None
 
     @property
     def axis_points(self) -> np.ndarray:
@@ -274,22 +314,30 @@ class TunnelNewtorkMeshGenerator:
         )
 
     @property
-    def complete_pointcloud(self):
-        complete_ptcl = np.zeros((self.n_of_points, 3))
-        n_points = 0
+    def ptcl(self):
+        global_ptcl = np.zeros((0, 3))
         for intersection in self._tunnel_network.intersections:
-            ptcl_of_intersection = self.ptcl_of_intersection(intersection)
-            complete_ptcl[
-                n_points : n_points + ptcl_of_intersection.shape[0]
-            ] = ptcl_of_intersection
-            n_points += ptcl_of_intersection.shape[0]
+            for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
+                ptcl = self._ptcl_of_intersections[intersection][tunnel]
+                global_ptcl = np.vstack((global_ptcl, ptcl))
         for tunnel in self._tunnel_network.tunnels:
-            ptcl_of_tunnel = self.ptcl_of_tunnel(tunnel)
-            complete_ptcl[
-                n_points : n_points + ptcl_of_tunnel.shape[0]
-            ] = ptcl_of_tunnel
-            n_points += ptcl_of_tunnel.shape[0]
-        return complete_ptcl
+            ptcl = self._ptcl_of_tunnels[tunnel]
+            global_ptcl = np.vstack((global_ptcl, ptcl))
+        return global_ptcl
+
+    @property
+    def ptcl_apss(self):
+        ptcl_apss = np.zeros((0, 6))
+        for intersection in self._tunnel_network.intersections:
+            for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
+                ptcl = self._ptcl_of_intersections[intersection][tunnel]
+                apss = self._apss_of_intersections[intersection][tunnel]
+                ptcl_apss = np.vstack((ptcl_apss, np.hstack((ptcl, apss))))
+        for tunnel in self._tunnel_network.tunnels:
+            ptcl = self._ptcl_of_tunnels[tunnel]
+            apss = self._apss_of_tunnels[tunnel]
+            ptcl_apss = np.vstack((ptcl_apss, np.hstack((ptcl, apss))))
+        return ptcl_apss
 
     @property
     def n_of_intersection_normals(self):
@@ -509,9 +557,13 @@ class TunnelNewtorkMeshGenerator:
         self._compute_all_intersections_ptcl()
         log.info("Computing mesh")
         self._compute_mesh()
+        log.info("Voxelizing ptcl")
+        self._voxelize_ptcl()
+        log.info("Flattening floors")
+        self._flatten_floors()
 
     def _compute_mesh(self):
-        points = self.complete_pointcloud
+        points = self.ptcl
         normals = self.complete_normals
         if self._meshing_params.meshing_approach == MeshingApproaches.poisson:
             pcd = o3d.geometry.PointCloud()
@@ -520,13 +572,22 @@ class TunnelNewtorkMeshGenerator:
             o3d_mesh, _ = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
                 pcd, depth=self._meshing_params.poisson_depth
             )
-            o3d.io.write_triangle_mesh("mesh.obj", o3d_mesh)
+            log.info("Simplifying mesh")
+            simplified_mesh = o3d.geometry.simplify_vertex_clustering(
+                o3d_mesh, self._meshing_params.simplification_voxel_size
+            )
+            o3d.io.write_triangle_mesh("mesh.obj", simplified_mesh)
             self.mesh = pv.read("mesh.obj")
             os.remove("mesh.obj")
         else:
             raise NotImplementedError(
                 f"The method {self._meshing_params.meshing_approach} is not implemented"
             )
+
+    def _voxelize_ptcl(self):
+        self._voxelization_of_ptcl = PtclVoxelizator(
+            self.ptcl,
+        )
 
     def save_mesh(self, path):
         pv.save_meshio(path, self.mesh)
