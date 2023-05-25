@@ -84,41 +84,154 @@ class TunnelNewtorkMeshGenerator:
         self._meshing_params = meshing_params
         self._params_of_intersections = dict()
         self._params_of_tunnels = dict()
-        self._ptcl_of_tunnels = dict()
-        self._normals_of_tunnels = dict()
-        self._aps_avs_of_tunnels = dict()
-        self._apss_avss_of_tunnels = dict()
         self._perlin_generator_of_tunnel = dict()
+        self._ptcl_of_tunnels = dict()
+        self._aps_avs_of_tunnels = dict()
         self._ptcl_of_intersections = dict()
-        self._normals_of_intersections = dict()
         self._aps_avs_of_intersections = dict()
-        self._apss_avss_of_intersections = dict()
         self._radius_of_intersections_for_tunnels = dict()
         self._voxelization_of_ptcl = None
 
-    @property
-    def axis_points(self) -> np.ndarray:
-        axis_points = np.zeros((0, 3))
-        for t in self._aps_of_tunnels:
-            axis_points = np.concatenate([axis_points, self._aps_of_tunnels[t]], axis=0)
-        for intersection in self._aps_of_intersections:
-            for elm in self._aps_of_intersections[intersection]:
-                axis_points = np.concatenate(
-                    [axis_points, self._aps_of_intersections[intersection][elm]]
+    def ps_of_tunnel(self, tunnel: Tunnel):
+        return self._ptcl_of_tunnels[tunnel][:, :3]
+
+    def ns_of_tunnel(self, tunnel: Tunnel):
+        return self._ptcl_of_tunnels[tunnel][:, 3:6]
+
+    def apss_of_tunnel(self, tunnel: Tunnel):
+        return self._ptcl_of_tunnels[tunnel][:, 6:9]
+
+    def avss_of_tunnel(self, tunnel: Tunnel):
+        return self._ptcl_of_tunnels[tunnel][:, 9:12]
+
+    def aps_of_tunnel(self, tunnel: Tunnel):
+        return self._aps_avs_of_tunnels[tunnel][:, :3]
+
+    def avs_of_tunnel(self, tunnel: Tunnel):
+        return self._aps_avs_of_tunnels[tunnel][:, 3:]
+
+    def ptcl_of_intersection(self, intersection: Node):
+        return np.vstack(
+            [
+                self._ptcl_of_intersections[intersection][element]
+                for element in self._ptcl_of_intersections[intersection]
+            ]
+        )
+
+    def ps_of_intersection(self, intersection: Node):
+        return self.ptcl_of_intersection(intersection)[:, 0:3]
+
+    def ns_of_intersection(self, intersection: Node):
+        return self.ptcl_of_intersection(intersection)[:, 3:6]
+
+    def apss_of_intersection(self, intersection: Node):
+        return self.ptcl_of_intersection(intersection)[:, 6:9]
+
+    def avss_of_intersection(self, intersection: Node):
+        return self.ptcl_of_intersection(intersection)[:, 9:12]
+
+    def aps_of_intersection(self, intersection: Node):
+        to_return = np.zeros((0, 3))
+        for element in self._aps_avs_of_intersections[intersection]:
+            to_return = np.vstack(
+                (
+                    to_return,
+                    self._aps_avs_of_intersections[intersection][element][:, 0:3],
                 )
-        return axis_points
+            )
+        return to_return
+
+    def avs_of_intersection(self, intersection: Node):
+        to_return = np.zeros((0, 3))
+        for element in self._aps_avs_of_intersections[intersection]:
+            to_return = np.vstack(
+                (
+                    to_return,
+                    self._aps_avs_of_intersections[intersection][element][:, 3:6],
+                )
+            )
+        return to_return
+
+    @property
+    def tunnels(self):
+        return self._tunnel_network.tunnels
+
+    @property
+    def intersections(self):
+        return self._tunnel_network.intersections
+
+    @property
+    def combined_tunnel_ptcls(self):
+        return np.vstack([self._ptcl_of_tunnels[tunnel] for tunnel in self.tunnels])
+
+    @property
+    def combined_intersection_ptcls(self):
+        return np.vstack(
+            [
+                self.ptcl_of_intersection(intersection)
+                for intersection in self.intersections
+            ]
+        )
+
+    @property
+    def ptcl(self):
+        return np.vstack([self.combined_tunnel_ptcls, self.combined_intersection_ptcls])
+
+    @property
+    def ps(self):
+        return self.ptcl[:, 0:3]
+
+    @property
+    def ns(self):
+        return self.ptcl[:, 3:6]
+
+    @property
+    def apss(self):
+        return self.ptcl[:, 6:9]
+
+    @property
+    def avss(self):
+        return self.ptcl[:, 9:12]
+
+    @property
+    def aps_of_tunnels(self):
+        return np.vstack([self.aps_of_tunnel(tunnel) for tunnel in self.tunnels])
+
+    @property
+    def avs_of_tunnels(self):
+        return np.vstack([self.avs_of_tunnel(tunnel) for tunnel in self.tunnels])
+
+    @property
+    def aps_of_intersections(self):
+        return np.vstack(
+            [
+                self.aps_of_intersction(intersection)
+                for intersection in self.intersections
+            ]
+        )
+
+    @property
+    def avs_of_intersections(self):
+        return np.vstack(
+            [
+                self.avs_of_intersction(intersection)
+                for intersection in self.intersections
+            ]
+        )
+
+    @property
+    def aps(self):
+        return np.vstack([self.aps_of_tunnels, self.aps_of_intersections])
+
+    @property
+    def avs(self):
+        return np.vstack([self.avs_of_tunnels, self.avs_of_intersections])
 
     def params_of_intersection(self, intersection) -> IntersectionPtClGenParams:
         return self._params_of_intersections[intersection]
 
     def params_of_tunnel(self, tunnel) -> TunnelPtClGenParams:
         return self._params_of_tunnels[tunnel]
-
-    def _compute_intersection_ptcl(
-        self,
-        ptcl_gen_params: IntersectionPtClGenParams,
-    ):
-        raise NotImplementedError()
 
     def _set_params_of_each_tunnel_ptcl_gen(self, ptcl_gen_params=None):
         if ptcl_gen_params is None:
@@ -189,13 +302,7 @@ class TunnelNewtorkMeshGenerator:
 
     def _compute_tunnel_ptcls(self):
         for tunnel in self._tunnel_network.tunnels:
-            (
-                self._ptcl_of_tunnels[tunnel],
-                self._normals_of_tunnels[tunnel],
-                self._aps_of_tunnels[tunnel],
-                self._avs_of_tunnels[tunnel],
-                self._apss_of_tunnels[tunnel],
-            ) = ptcl_from_tunnel(
+            (ptcl, normals, aps, avs, apss, avss,) = ptcl_from_tunnel(
                 tunnel=tunnel,
                 perlin_mapper=self._perlin_generator_of_tunnel[tunnel],
                 dist_between_circles=self.params_of_tunnel(tunnel).dist_between_circles,
@@ -206,9 +313,12 @@ class TunnelNewtorkMeshGenerator:
                     tunnel
                 ).perlin_weight_by_angle,
             )
+            self._ptcl_of_tunnels[tunnel] = np.hstack((ptcl, normals, apss, avss))
+            self._aps_avs_of_tunnels[tunnel] = np.hstack((aps, avs))
 
     def _compute_radius_of_intersections_for_all_tunnels(self):
         for intersection in self._tunnel_network.intersections:
+            self._radius_of_intersections_for_tunnels[intersection] = dict()
             for tunnel_i in self._tunnel_network._tunnels_of_node[intersection]:
                 intersection_radius_for_tunnel_at_intersection = 0
                 for tunnel_j in self._tunnel_network._tunnels_of_node[intersection]:
@@ -226,8 +336,8 @@ class TunnelNewtorkMeshGenerator:
                             ).radius,
                         ),
                     )
-                self._radius_of_intersections_for_tunnels[
-                    (intersection, tunnel_i)
+                self._radius_of_intersections_for_tunnels[intersection][
+                    tunnel_i
                 ] = intersection_radius_for_tunnel_at_intersection
 
     def _separate_intersection_ptcl_from_tunnel_ptcls(self):
@@ -235,169 +345,36 @@ class TunnelNewtorkMeshGenerator:
             tunnels_of_intersection = self._tunnel_network._tunnels_of_node[
                 intersection
             ]
-            pts_of_intersection = dict()
-            ns_of_intersection = dict()
-            aps_of_intersection = dict()
-            avs_of_intersection = dict()
-            apss_of_intersection = dict()
+            ptcl_of_intersection = dict()
+            aps_avs_of_intersection = dict()
             for tunnel in tunnels_of_intersection:
-                tunnel_pts = self._ptcl_of_tunnels[tunnel]
-                tunnel_ns = self._normals_of_tunnels[tunnel]
-                tunnel_aps = self._aps_of_tunnels[tunnel]
-                tunnel_avs = self._avs_of_tunnels[tunnel]
-                tunnel_apss = self._apss_of_tunnels[tunnel]
-                radius = self._radius_of_intersections_for_tunnels[
-                    (intersection, tunnel)
-                ]
-                idxs_of_t_ptcl_to_int_ptcl = get_close_points_indices(
-                    intersection.xyz, tunnel_pts, radius
-                )
+                taps = self.aps_of_tunnel(tunnel)
+                tapss = self.apss_of_tunnel(tunnel)
+                radius = self._radius_of_intersections_for_tunnels[intersection][tunnel]
                 idxs_of_aps_from_t_to_int = get_close_points_indices(
                     intersection.xyz,
-                    tunnel_aps,
+                    taps,
                     radius,
                 )
-                pts_of_intersection[tunnel] = np.reshape(
-                    tunnel_pts[idxs_of_t_ptcl_to_int_ptcl, :], (-1, 3)
+                idxs_of_ptcl_from_t_to_int = get_close_points_indices(
+                    intersection.xyz, tapss, radius
                 )
-                ns_of_intersection[tunnel] = np.reshape(
-                    tunnel_ns[idxs_of_t_ptcl_to_int_ptcl, :], (-1, 3)
+                ptcl_of_intersection[tunnel] = np.reshape(
+                    self._ptcl_of_tunnels[tunnel][idxs_of_ptcl_from_t_to_int, :],
+                    (-1, 12),
                 )
-                apss_of_intersection[tunnel] = np.reshape(
-                    tunnel_apss[idxs_of_t_ptcl_to_int_ptcl, :], (-1, 3)
-                )
-                aps_of_intersection[tunnel] = np.reshape(
-                    tunnel_aps[idxs_of_aps_from_t_to_int, :],
-                    (-1, 3),
-                )
-                avs_of_intersection[tunnel] = np.reshape(
-                    tunnel_avs[idxs_of_aps_from_t_to_int, :],
-                    (-1, 3),
+                aps_avs_of_intersection[tunnel] = np.reshape(
+                    self._aps_avs_of_tunnels[tunnel][idxs_of_aps_from_t_to_int, :],
+                    (-1, 6),
                 )
                 self._ptcl_of_tunnels[tunnel] = np.delete(
-                    self._ptcl_of_tunnels[tunnel], idxs_of_t_ptcl_to_int_ptcl, axis=0
+                    self._ptcl_of_tunnels[tunnel], idxs_of_ptcl_from_t_to_int, axis=0
                 )
-                self._normals_of_tunnels[tunnel] = np.delete(
-                    self._normals_of_tunnels[tunnel], idxs_of_t_ptcl_to_int_ptcl, axis=0
+                self._aps_avs_of_tunnels[tunnel] = np.delete(
+                    self._aps_avs_of_tunnels[tunnel], idxs_of_aps_from_t_to_int, axis=0
                 )
-                self._aps_of_tunnels[tunnel] = np.delete(
-                    self._aps_of_tunnels[tunnel], idxs_of_aps_from_t_to_int, axis=0
-                )
-                self._avs_of_tunnels[tunnel] = np.delete(
-                    self._avs_of_tunnels[tunnel], idxs_of_aps_from_t_to_int, axis=0
-                )
-                self._apss_of_tunnels[tunnel] = np.delete(
-                    self._apss_of_tunnels[tunnel], idxs_of_t_ptcl_to_int_ptcl, axis=0
-                )
-            self._ptcl_of_intersections[intersection] = pts_of_intersection
-            self._normals_of_intersections[intersection] = ns_of_intersection
-            self._aps_of_intersections[intersection] = aps_of_intersection
-            self._avs_of_intersections[intersection] = avs_of_intersection
-            self._apss_of_intersections[intersection] = apss_of_intersection
-
-    def ptcl_of_intersection(self, intersection: Node):
-        return np.concatenate(
-            [
-                self._ptcl_of_intersections[intersection][element]
-                for element in self._ptcl_of_intersections[intersection]
-            ],
-            axis=0,
-        )
-
-    def normals_of_intersection(self, intersection: Node):
-        return np.concatenate(
-            [
-                self._normals_of_intersections[intersection][element]
-                for element in self._normals_of_intersections[intersection]
-            ],
-            axis=0,
-        )
-
-    @property
-    def ptcl(self):
-        global_ptcl = np.zeros((0, 3))
-        for intersection in self._tunnel_network.intersections:
-            for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
-                ptcl = self._ptcl_of_intersections[intersection][tunnel]
-                global_ptcl = np.vstack((global_ptcl, ptcl))
-        for tunnel in self._tunnel_network.tunnels:
-            ptcl = self._ptcl_of_tunnels[tunnel]
-            global_ptcl = np.vstack((global_ptcl, ptcl))
-        return global_ptcl
-
-    @property
-    def ptcl_apss(self):
-        ptcl_apss = np.zeros((0, 6))
-        for intersection in self._tunnel_network.intersections:
-            for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
-                ptcl = self._ptcl_of_intersections[intersection][tunnel]
-                apss = self._apss_of_intersections[intersection][tunnel]
-                ptcl_apss = np.vstack((ptcl_apss, np.hstack((ptcl, apss))))
-        for tunnel in self._tunnel_network.tunnels:
-            ptcl = self._ptcl_of_tunnels[tunnel]
-            apss = self._apss_of_tunnels[tunnel]
-            ptcl_apss = np.vstack((ptcl_apss, np.hstack((ptcl, apss))))
-        return ptcl_apss
-
-    @property
-    def n_of_intersection_normals(self):
-        n_normals = 0
-        for intersection in self._tunnel_network.intersections:
-            n_normals += self.normals_of_intersection(intersection).shape[0]
-        return n_normals
-
-    @property
-    def n_of_tunel_normals(self):
-        n_normals = 0
-        for intersection in self._tunnel_network.tunnels:
-            n_normals += self.normals_of_tunnel(intersection).shape[0]
-        return n_normals
-
-    @property
-    def n_of_intersection_points(self):
-        n_points = 0
-        for intersection in self._tunnel_network.intersections:
-            n_points += self.ptcl_of_intersection(intersection).shape[0]
-        return n_points
-
-    @property
-    def n_of_tunel_points(self):
-        n_points = 0
-        for tunnel in self._tunnel_network.tunnels:
-            n_points += self.ptcl_of_tunnel(tunnel).shape[0]
-        return n_points
-
-    @property
-    def n_of_normals(self):
-        return self.n_of_intersection_normals + self.n_of_tunel_normals
-
-    @property
-    def n_of_points(self):
-        return self.n_of_tunel_points + self.n_of_intersection_points
-
-    @property
-    def complete_normals(self):
-        complete_normals = np.zeros((self.n_of_normals, 3))
-        n_normals = 0
-        for intersection in self._tunnel_network.intersections:
-            normals_of_intersection = self.normals_of_intersection(intersection)
-            complete_normals[
-                n_normals : n_normals + normals_of_intersection.shape[0]
-            ] = normals_of_intersection
-            n_normals += normals_of_intersection.shape[0]
-        for tunnel in self._tunnel_network.tunnels:
-            normals_of_tunnel = self.normals_of_tunnel(tunnel)
-            complete_normals[
-                n_normals : n_normals + normals_of_tunnel.shape[0]
-            ] = normals_of_tunnel
-            n_normals += normals_of_tunnel.shape[0]
-        return complete_normals
-
-    def ptcl_of_tunnel(self, tunnel: Tunnel) -> np.ndarray:
-        return self._ptcl_of_tunnels[tunnel]
-
-    def normals_of_tunnel(self, tunnel: Tunnel) -> np.ndarray:
-        return self._normals_of_tunnels[tunnel]
+            self._ptcl_of_intersections[intersection] = ptcl_of_intersection
+            self._aps_avs_of_intersections[intersection] = aps_avs_of_intersection
 
     def clean_tunnels_in_intersection(self, intersection: Node):
         # Get the ids of the points to delete
@@ -409,10 +386,10 @@ class TunnelNewtorkMeshGenerator:
                     continue
                 ids_of_i_in_j = np.reshape(
                     points_inside_of_tunnel_section(
-                        self._aps_of_intersections[intersection][tunnel_j],
-                        self._ptcl_of_intersections[intersection][tunnel_j],
-                        self._ptcl_of_intersections[intersection][tunnel_i],
-                        self._avs_of_intersections[intersection][tunnel_j],
+                        self._aps_avs_of_intersections[intersection][tunnel_j][:, :3],
+                        self._ptcl_of_intersections[intersection][tunnel_j][:, :3],
+                        self._ptcl_of_intersections[intersection][tunnel_i][:, :3],
+                        self._aps_avs_of_intersections[intersection][tunnel_j][:, 3:6],
                     ),
                     -1,
                 )
@@ -424,29 +401,10 @@ class TunnelNewtorkMeshGenerator:
         for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
             if len(idxs_of_tunnel_pts_to_delete[tunnel]) == 0:
                 continue
-            self._ptcl_of_intersections[intersection][tunnel] = np.reshape(
-                np.delete(
-                    self._ptcl_of_intersections[intersection][tunnel],
-                    idxs_of_tunnel_pts_to_delete[tunnel],
-                    axis=0,
-                ),
-                (-1, 3),
-            )
-            self._normals_of_intersections[intersection][tunnel] = np.reshape(
-                np.delete(
-                    self._normals_of_intersections[intersection][tunnel],
-                    idxs_of_tunnel_pts_to_delete[tunnel],
-                    axis=0,
-                ),
-                (-1, 3),
-            )
-            self._apss_of_intersections[intersection][tunnel] = np.reshape(
-                np.delete(
-                    self._apss_of_intersections[intersection][tunnel],
-                    idxs_of_tunnel_pts_to_delete[tunnel],
-                    axis=0,
-                ),
-                (-1, 3),
+            self._ptcl_of_intersections[intersection][tunnel] = np.delete(
+                self._ptcl_of_intersections[intersection][tunnel],
+                idxs_of_tunnel_pts_to_delete[tunnel],
+                axis=0,
             )
 
     def _compute_all_intersections_ptcl(self):
@@ -509,11 +467,9 @@ class TunnelNewtorkMeshGenerator:
     ):
         assert intersection in tunnel_i.nodes
         assert intersection in tunnel_j.nodes
-        tpi = self.ptcl_of_tunnel(tunnel_i)
-        tpj = self.ptcl_of_tunnel(tunnel_j)
-        _, apj, avj = tunnel_j.spline.discretize(
-            self.params_of_tunnel(tunnel_j).dist_between_circles
-        )
+        tpi = self.ps_of_tunnel(tunnel_i)
+        tpj = self.ps_of_tunnel(tunnel_j)
+        apj = self.aps_of_tunnel(tunnel_j)
         cut_off_radius = starting_radius
         while True:
             aidx = get_close_points_indices(intersection.xyz, apj, cut_off_radius)
@@ -559,12 +515,12 @@ class TunnelNewtorkMeshGenerator:
         self._compute_mesh()
         log.info("Voxelizing ptcl")
         self._voxelize_ptcl()
-        log.info("Flattening floors")
-        self._flatten_floors()
+        # log.info("Flattening floors")
+        # self._flatten_floors()
 
     def _compute_mesh(self):
-        points = self.ptcl
-        normals = self.complete_normals
+        points = self.ps
+        normals = self.ns
         if self._meshing_params.meshing_approach == MeshingApproaches.poisson:
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(points)
@@ -573,8 +529,8 @@ class TunnelNewtorkMeshGenerator:
                 pcd, depth=self._meshing_params.poisson_depth
             )
             log.info("Simplifying mesh")
-            simplified_mesh = o3d.geometry.simplify_vertex_clustering(
-                o3d_mesh, self._meshing_params.simplification_voxel_size
+            simplified_mesh = o3d_mesh.simplify_vertex_clustering(
+                self._meshing_params.simplification_voxel_size
             )
             o3d.io.write_triangle_mesh("mesh.obj", simplified_mesh)
             self.mesh = pv.read("mesh.obj")
@@ -626,6 +582,10 @@ def ptcl_from_tunnel(
         [np.full((n_points_per_circle, 3), aps[i, :]) for i in range(n_circles)],
         axis=0,
     )
+    avss = np.concatenate(
+        [np.full((n_points_per_circle, 3), avs[i, :]) for i in range(n_circles)],
+        axis=0,
+    )
     us = np.zeros(avs.shape)
     vs = np.zeros(avs.shape)
     for i, av in enumerate(avs):
@@ -654,7 +614,7 @@ def ptcl_from_tunnel(
         + normals * radius
         + normals * radius * noise_magnitude * noise_to_add * pwss
     )
-    return points, normals, aps, avs, apss
+    return points, normals, aps, avs, apss, avss
 
 
 def generate_noisy_sphere(

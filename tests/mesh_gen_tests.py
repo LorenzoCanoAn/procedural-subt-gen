@@ -31,7 +31,7 @@ import pyvista as pv
 import logging as log
 import distinctipy
 
-log.basicConfig(level=log.WARNING)
+log.basicConfig(level=log.DEBUG)
 
 colors = distinctipy.get_colors(30)
 
@@ -137,12 +137,12 @@ def test3():
 
 def test4():
     tunnel_network = TunnelNetwork()
-    for i in range(10):
+    for i in range(3):
         print(i, end="\r", flush=True)
         result = False
         while not result:
             result = tunnel_network.add_random_grown_tunnel()
-    for i in range(10):
+    for i in range(1):
         print(i, end="\r", flush=True)
         result = False
         while not result:
@@ -152,23 +152,19 @@ def test4():
         ptcl_gen_params=TunnelNetworkPtClGenParams.from_defaults(),
         meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
     )
-    mesh_generator._set_params_of_each_tunnel_ptcl_gen()
-    mesh_generator._set_perlin_mappers_of_tunnels()
-    mesh_generator._compute_tunnel_ptcls()
-    mesh_generator._set_params_of_each_intersection_ptcl_gen()
-    mesh_generator._compute_radius_of_intersections_for_all_tunnels()
-    mesh_generator._separate_intersection_ptcl_from_tunnel_ptcls()
+    mesh_generator.compute_all()
     plotter = pv.Plotter()
     for tunnel in mesh_generator._ptcl_of_tunnels:
-        if len(mesh_generator._ptcl_of_tunnels[tunnel]) > 0:
+        if len(mesh_generator.ps_of_tunnel(tunnel)) > 0:
             plotter.add_mesh(
-                pv.PolyData(mesh_generator._ptcl_of_tunnels[tunnel]), color="b"
+                pv.PolyData(mesh_generator.ps_of_tunnel(tunnel)), color="b"
             )
     for i, intersection in enumerate(mesh_generator._ptcl_of_intersections):
-        plotter.add_mesh(
-            pv.PolyData(mesh_generator.ptcl_of_intersection(intersection)),
-            color=colors[i],
-        )
+        if len(mesh_generator.ps_of_intersection(intersection)) > 0:
+            plotter.add_mesh(
+                pv.PolyData(mesh_generator.ps_of_intersection(intersection)),
+                color=colors[i],
+            )
     plotter.show()
 
 
