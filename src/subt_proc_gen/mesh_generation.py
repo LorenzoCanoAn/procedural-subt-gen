@@ -32,43 +32,40 @@ import math
 
 
 class PtclVoxelizator:
-    def __init__(self, ptcl, apss, voxel_size=5):
+    def __init__(self, ptcl, voxel_size=5):
+        log.info(f"Voxelizing ptcl with {len(ptcl)} elements")
+        self.ptcl = ptcl
         self.voxel_size = voxel_size
         self.grid = dict()
-        max_x = max(ptcl[:, 0])
-        min_x = min(ptcl[:, 0])
-        max_y = max(ptcl[:, 1])
-        min_y = min(ptcl[:, 1])
-        max_z = max(ptcl[:, 2])
-        min_z = min(ptcl[:, 2])
-        max_i = int(np.ceil(max_x / voxel_size)) + 3
-        min_i = int(np.floor(min_x / voxel_size)) - 3
-        max_j = int(np.ceil(max_y / voxel_size)) + 3
-        min_j = int(np.floor(min_y / voxel_size)) - 3
-        max_k = int(np.ceil(max_z / voxel_size)) + 3
-        min_k = int(np.floor(min_z / voxel_size)) - 3
-        for i in range(min_i, max_i):
-            for j in range(min_j, max_j):
-                for k in range(min_k, max_k):
-                    self.grid[(i, j, k)] = np.zeros([0, 6])
-        ijks = np.floor(self.axis_points / voxel_size).astype(int)
-        for ijk, ap, av in zip(ijks, self.axis_points, self.axis_vectors):
+        ijks = np.floor(self.ptcl[:, :3] / voxel_size).astype(int)
+        unique_ijks = set()
+        for ijk in ijks:
             i, j, k = ijk
-            ap = np.reshape(ap, (-1, 3))
-            av = np.reshape(av, (-1, 3))
-            self.grid[(i, j, k)] = np.concatenate(
-                [self.grid[(i, j, k)], np.concatenate((ap, av), axis=1)], axis=0
-            )
+            unique_ijks.add((i, j, k))
+        for ijk in unique_ijks:
+            ijk = np.array((ijk,))
+            idxs = np.where(np.prod(ijks == ijk, axis=1))
+            if len(idxs) == 1:
+                exit()
+            self.grid[(i, j, k)] = self.ptcl[idxs, :]
+            self.ptcl = np.reshape(np.delete(self.ptcl, idxs, axis=0), (-1, 12))
+            ijks = np.delete(ijks, idxs, axis=0)
 
     def get_relevant_points(self, xyz):
         _i, _j, _k = np.floor(xyz / self.voxel_size).astype(int)
-        relevant_points = np.zeros((0, 6))
+        relevant_points = np.zeros((0, 12))
         for i in (_i - 1, _i, _i + 1):
             for j in (_j - 1, _j, _j + 1):
                 for k in (_k - 1, _k, _k + 1):
-                    relevant_points = np.concatenate(
-                        [relevant_points, self.grid[(i, j, k)]], axis=0
-                    )
+                    if (i, j, k) in self.grid:
+                        print("######################")
+                        print(relevant_points)
+                        print("-------------------")
+                        print(self.grid[(i, j, k)])
+                        print("######################")
+                        relevant_points = np.vstack(
+                            [relevant_points, self.grid[(i, j, k)]]
+                        )
         return relevant_points
 
 
@@ -90,7 +87,7 @@ class TunnelNewtorkMeshGenerator:
         self._ptcl_of_intersections = dict()
         self._aps_avs_of_intersections = dict()
         self._radius_of_intersections_for_tunnels = dict()
-        self._voxelization_of_ptcl = None
+        self._voxelized_ptcl = None
 
     def ps_of_tunnel(self, tunnel: Tunnel):
         return self._ptcl_of_tunnels[tunnel][:, :3]
@@ -166,11 +163,15 @@ class TunnelNewtorkMeshGenerator:
 
     @property
     def combined_intersection_ptcls(self):
-        return np.vstack(
-            [
-                self.ptcl_of_intersection(intersection)
-                for intersection in self.intersections
-            ]
+        return (
+            np.vstack(
+                [
+                    self.ptcl_of_intersection(intersection)
+                    for intersection in self.intersections
+                ]
+            )
+            if len(self.intersections) > 0
+            else np.zeros((0, 12))
         )
 
     @property
@@ -411,7 +412,6 @@ class TunnelNewtorkMeshGenerator:
         for intersection in self._tunnel_network.intersections:
             params = self.params_of_intersection(intersection)
             if params.ptcl_type == IntersectionPtClType.no_cavity:
-                print("cleaning tunnels")
                 self.clean_tunnels_in_intersection(intersection)
             elif params.ptcl_type == IntersectionPtClType.spherical_cavity:
                 self.clean_tunnels_in_intersection(intersection)
@@ -419,7 +419,7 @@ class TunnelNewtorkMeshGenerator:
                 radius = params.radius
                 points_per_sm = params.points_per_sm
                 # Generate the points of the intersection
-                sphere_points, sphere_normals = generate_noisy_sphere(
+                sphere_ps, sphere_ns = generate_noisy_sphere(
                     center_point,
                     radius,
                     points_per_sm,
@@ -428,34 +428,43 @@ class TunnelNewtorkMeshGenerator:
                 )
                 ids_to_delete_in_cavity = set()
                 for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
-                    axis_of_tunnel = self._aps_of_intersections[intersection][tunnel]
-                    points_of_tunnel = self._ptcl_of_intersections[intersection][tunnel]
+                    axis_of_tunnel = self._aps_avs_of_intersections[intersection][
+                        tunnel
+                    ][:, 0:3]
+                    points_of_tunnel = self._ptcl_of_intersections[intersection][
+                        tunnel
+                    ][:, 0:3]
                     ids_to_delete_in_tunnel = ids_points_inside_ptcl_sphere(
-                        sphere_points, center_point, points_of_tunnel
+                        sphere_ps, center_point, points_of_tunnel
                     )
-                    ids_to_delete_in_cavity_ = points_inside_of_tunnel_section(
-                        axis_of_tunnel, points_of_tunnel, sphere_points
+                    idxs_to_delete_in_cavity_ = points_inside_of_tunnel_section(
+                        axis_of_tunnel, points_of_tunnel, sphere_ps
                     )
                     self._ptcl_of_intersections[intersection][tunnel] = np.delete(
                         self._ptcl_of_intersections[intersection][tunnel],
                         ids_to_delete_in_tunnel,
                         axis=0,
                     )
-                    self._normals_of_intersections[intersection][tunnel] = np.delete(
-                        self._normals_of_intersections[intersection][tunnel],
-                        ids_to_delete_in_tunnel,
-                        axis=0,
+                    for idx in np.reshape(idxs_to_delete_in_cavity_, -1):
+                        ids_to_delete_in_cavity.add(idx)
+                assert len(sphere_ps) == len(sphere_ns)
+                sphere_ps = np.delete(
+                    sphere_ps, np.array(list(ids_to_delete_in_cavity)), axis=0
+                )
+                sphere_ns = np.delete(
+                    sphere_ns, np.array(list(ids_to_delete_in_cavity)), axis=0
+                )
+                assert len(sphere_ps) == len(sphere_ns)
+                sphere_apss = np.ones(sphere_ps.shape) * center_point
+                sphere_avss = np.zeros(sphere_ps.shape)
+                self._ptcl_of_intersections[intersection]["cavity"] = np.hstack(
+                    (
+                        sphere_ps,
+                        sphere_ns,
+                        sphere_apss,
+                        sphere_avss,
                     )
-                    for id_ in np.reshape(ids_to_delete_in_cavity_, -1):
-                        ids_to_delete_in_cavity.add(id_)
-                sphere_points = np.delete(
-                    sphere_points, np.array(list(ids_to_delete_in_cavity)), axis=0
                 )
-                sphere_normals = np.delete(
-                    sphere_normals, np.array(list(ids_to_delete_in_cavity)), axis=0
-                )
-                self._ptcl_of_intersections[intersection]["cavity"] = sphere_points
-                self._normals_of_intersections[intersection]["cavity"] = sphere_normals
 
     def get_safe_radius_from_intersection_of_two_tunnels(
         self,
@@ -515,8 +524,8 @@ class TunnelNewtorkMeshGenerator:
         self._compute_mesh()
         log.info("Voxelizing ptcl")
         self._voxelize_ptcl()
-        # log.info("Flattening floors")
-        # self._flatten_floors()
+        log.info("Flattening floors")
+        self._flatten_floors()
 
     def _compute_mesh(self):
         points = self.ps
@@ -532,18 +541,24 @@ class TunnelNewtorkMeshGenerator:
             simplified_mesh = o3d_mesh.simplify_vertex_clustering(
                 self._meshing_params.simplification_voxel_size
             )
-            o3d.io.write_triangle_mesh("mesh.obj", simplified_mesh)
-            self.mesh = pv.read("mesh.obj")
-            os.remove("mesh.obj")
+            log.info(f"Simplified mesh has {len(simplified_mesh.vertices)} vertices")
+            self.mesh = simplified_mesh
         else:
             raise NotImplementedError(
                 f"The method {self._meshing_params.meshing_approach} is not implemented"
             )
 
     def _voxelize_ptcl(self):
-        self._voxelization_of_ptcl = PtclVoxelizator(
-            self.ptcl,
+        self._voxelized_ptcl = PtclVoxelizator(
+            self.ptcl, voxel_size=self._meshing_params.voxelization_voxel_size
         )
+
+    def _flatten_floors(self):
+        vertices = np.asarray(self.mesh.vertices)
+        n_points = len(vertices)
+        for i, vert in enumerate(vertices):
+            print(f"{i:5d} out of {n_points:5d}")  # , end="\r", flush=True)
+            ptcl = self._voxelized_ptcl.get_relevant_points(vert)
 
     def save_mesh(self, path):
         pv.save_meshio(path, self.mesh)

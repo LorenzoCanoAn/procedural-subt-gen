@@ -261,6 +261,7 @@ class TunnelNetworkMeshGenParams:
     _default_meshing_approach = MeshingApproaches.poisson
     _default_poisson_depth = 11
     _default_simplification_voxel_size = 0.3
+    _default_voxelization_voxel_size = 5
 
     @classmethod
     def from_defaults(cls):
@@ -268,15 +269,22 @@ class TunnelNetworkMeshGenParams:
             meshing_approach=cls._default_meshing_approach,
             poisson_depth=cls._default_poisson_depth,
             simplification_voxel_size=cls._default_simplification_voxel_size,
+            voxelization_voxel_size=cls._default_voxelization_voxel_size,
         )
 
     def __init__(
-        self, meshing_approach=None, poisson_depth=None, simplification_voxel_size=None
+        self,
+        meshing_approach=None,
+        poisson_depth=None,
+        simplification_voxel_size=None,
+        voxelization_voxel_size=None,
     ):
         assert not meshing_approach is None
         if meshing_approach == MeshingApproaches.poisson:
             assert not poisson_depth is None
+        assert not voxelization_voxel_size is None
         assert not simplification_voxel_size is None
         self.meshing_approach = meshing_approach
         self.poisson_depth = poisson_depth
         self.simplification_voxel_size = simplification_voxel_size
+        self.voxelization_voxel_size = voxelization_voxel_size

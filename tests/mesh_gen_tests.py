@@ -137,19 +137,19 @@ def test3():
 
 def test4():
     tunnel_network = TunnelNetwork()
-    for i in range(3):
+    for i in range(1):
         print(i, end="\r", flush=True)
         result = False
         while not result:
             result = tunnel_network.add_random_grown_tunnel()
-    for i in range(1):
+    for i in range(0):
         print(i, end="\r", flush=True)
         result = False
         while not result:
             result = tunnel_network.add_random_connector_tunnel()
     mesh_generator = TunnelNewtorkMeshGenerator(
         tunnel_network,
-        ptcl_gen_params=TunnelNetworkPtClGenParams.from_defaults(),
+        ptcl_gen_params=TunnelNetworkPtClGenParams.random(),
         meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
     )
     mesh_generator.compute_all()
@@ -166,6 +166,7 @@ def test4():
                 color=colors[i],
             )
     plotter.show()
+    mesh_generator.save_mesh("mesh.obj")
 
 
 def main():
