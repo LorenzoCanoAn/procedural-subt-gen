@@ -137,12 +137,12 @@ def test3():
 
 def test4():
     tunnel_network = TunnelNetwork()
-    for i in range(1):
+    for i in range(3):
         print(i, end="\r", flush=True)
         result = False
         while not result:
             result = tunnel_network.add_random_grown_tunnel()
-    for i in range(0):
+    for i in range(2):
         print(i, end="\r", flush=True)
         result = False
         while not result:
@@ -165,6 +165,7 @@ def test4():
                 pv.PolyData(mesh_generator.ps_of_intersection(intersection)),
                 color=colors[i],
             )
+    plotter.add_mesh(mesh_generator.pyvista_mesh)
     plotter.show()
     mesh_generator.save_mesh("mesh.obj")
 

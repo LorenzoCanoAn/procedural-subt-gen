@@ -64,6 +64,8 @@ class PtclVoxelizator:
                 for k in (_k - 1, _k, _k + 1):
                     if (i, j, k) in self.grid:
                         relevant_points.append(self.grid[(i, j, k)])
+        if len(relevant_points) == 0:
+            return None
         relevant_points = np.vstack(relevant_points)
         return relevant_points
 
@@ -254,12 +256,6 @@ class TunnelNewtorkMeshGenerator:
                     ] = ptcl_gen_params.pre_set_tunnel_params[tunnel]
                 else:
                     self._params_of_tunnels[tunnel] = TunnelPtClGenParams.random()
-        if not ptcl_gen_params.general_fta_distance is None:
-            for tunnel in self._tunnel_network.tunnels:
-                self._params_of_tunnels[tunnel].flatten_floor = True
-                self._params_of_tunnels[
-                    tunnel
-                ].fta_distance = ptcl_gen_params.general_fta_distance
 
     def _set_params_of_each_intersection_ptcl_gen(
         self, ptcl_gen_params: TunnelNetworkPtClGenParams = None
@@ -286,12 +282,6 @@ class TunnelNewtorkMeshGenerator:
                     self._params_of_intersections[
                         intersection
                     ] = IntersectionPtClGenParams.random()
-        if not ptcl_gen_params.general_fta_distance is None:
-            for intersection in self._tunnel_network.intersections:
-                self._params_of_intersections[intersection].flatten_floor = True
-                self._params_of_intersections[
-                    intersection
-                ].fta_distance = ptcl_gen_params.general_fta_distance
 
     def _set_perlin_mappers_of_tunnels(self):
         for tunnel in self._tunnel_network.tunnels:
@@ -555,12 +545,30 @@ class TunnelNewtorkMeshGenerator:
     def _flatten_floors(self):
         vertices = np.asarray(self.mesh.vertices)
         n_points = len(vertices)
-        for i, vert in enumerate(vertices):
-            print(f"{i:5d} out of {n_points:5d}")  # , end="\r", flush=True)
-            ptcl = self._voxelized_ptcl.get_relevant_points(vert)
+        fta_dist = self._meshing_params.fta_distance
+        for i in range(len(vertices)):
+            vert = vertices[i, :]
+            print(f"{i:6d} out of {n_points:6d}", end="\r", flush=True)
+            local_ptcl = self._voxelized_ptcl.get_relevant_points(vert)
+            if local_ptcl is None:
+                continue
+            aps = local_ptcl[:, 6:9]
+            ps = local_ptcl[:, 0:3]
+            ap_of_vert = aps[np.argmin(np.linalg.norm(ps - vert, axis=1)), :]
+            if vert[2] - ap_of_vert[2] < fta_dist:
+                vert[2] = ap_of_vert[2] + fta_dist
+                vertices[i, :] = vert
+        self.mesh.vertices = o3d.utility.Vector3dVector(vertices)
 
     def save_mesh(self, path):
-        pv.save_meshio(path, self.mesh)
+        o3d.io.write_triangle_mesh(path, self.mesh)
+
+    @property
+    def pyvista_mesh(self):
+        o3d.io.write_triangle_mesh("temp.ply", self.mesh)
+        pv_mesh = pv.read_meshio("temp.ply")
+        os.remove("temp.ply")
+        return pv_mesh
 
     def perlin_generator_of_tunnel(
         self, tunnel: Tunnel
