@@ -29,6 +29,7 @@ import pyvista as pv
 import open3d as o3d
 import os
 import math
+import trace
 
 
 class PtclVoxelizator:
@@ -37,35 +38,33 @@ class PtclVoxelizator:
         self.ptcl = ptcl
         self.voxel_size = voxel_size
         self.grid = dict()
-        ijks = np.floor(self.ptcl[:, :3] / voxel_size).astype(int)
+        ijks = self.xyz_to_ijk(ptcl[:, :3])
         unique_ijks = set()
         for ijk in ijks:
             i, j, k = ijk
             unique_ijks.add((i, j, k))
+        self.unique_ijks = unique_ijks
         for ijk in unique_ijks:
             ijk = np.array((ijk,))
             idxs = np.where(np.prod(ijks == ijk, axis=1))
-            if len(idxs) == 1:
-                exit()
-            self.grid[(i, j, k)] = self.ptcl[idxs, :]
+            i, j, k = ijk[0]
+            self.grid[(i, j, k)] = self.ptcl[idxs, :][0]
             self.ptcl = np.reshape(np.delete(self.ptcl, idxs, axis=0), (-1, 12))
             ijks = np.delete(ijks, idxs, axis=0)
+        assert len(self.ptcl) == 0
+
+    def xyz_to_ijk(self, coords):
+        return np.floor(coords / self.voxel_size).astype(int)
 
     def get_relevant_points(self, xyz):
-        _i, _j, _k = np.floor(xyz / self.voxel_size).astype(int)
-        relevant_points = np.zeros((0, 12))
+        _i, _j, _k = self.xyz_to_ijk(xyz)
+        relevant_points = []
         for i in (_i - 1, _i, _i + 1):
             for j in (_j - 1, _j, _j + 1):
                 for k in (_k - 1, _k, _k + 1):
                     if (i, j, k) in self.grid:
-                        print("######################")
-                        print(relevant_points)
-                        print("-------------------")
-                        print(self.grid[(i, j, k)])
-                        print("######################")
-                        relevant_points = np.vstack(
-                            [relevant_points, self.grid[(i, j, k)]]
-                        )
+                        relevant_points.append(self.grid[(i, j, k)])
+        relevant_points = np.vstack(relevant_points)
         return relevant_points
 
 
