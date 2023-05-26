@@ -137,6 +137,8 @@ def test3():
 
 def test4():
     tunnel_network = TunnelNetwork()
+    tunnel_network.params.min_distance_between_intersections = 40
+    tunnel_network.params.collision_distance = 10
     for i in range(3):
         print(i, end="\r", flush=True)
         result = False

@@ -217,9 +217,11 @@ class TunnelNetworkMeshGenParams:
 
     _default_meshing_approach = MeshingApproaches.poisson
     _default_poisson_depth = 11
-    _default_simplification_voxel_size = 0.3
+    _default_simplification_voxel_size = 0.5
     _default_voxelization_voxel_size = 5
     _default_fta_distance = -1
+    _default_floor_smoothing_iter = 10
+    _default_floor_smoothing_r = 2
 
     @classmethod
     def from_defaults(cls):
@@ -229,6 +231,8 @@ class TunnelNetworkMeshGenParams:
             simplification_voxel_size=cls._default_simplification_voxel_size,
             voxelization_voxel_size=cls._default_voxelization_voxel_size,
             fta_distance=cls._default_fta_distance,
+            floor_smoothing_iter=cls._default_floor_smoothing_iter,
+            floor_smoothing_r=cls._default_floor_smoothing_r,
         )
 
     def __init__(
@@ -238,14 +242,20 @@ class TunnelNetworkMeshGenParams:
         simplification_voxel_size=None,
         voxelization_voxel_size=None,
         fta_distance=None,
+        floor_smoothing_iter=None,
+        floor_smoothing_r=None,
     ):
         assert not meshing_approach is None
         if meshing_approach == MeshingApproaches.poisson:
             assert not poisson_depth is None
         assert not voxelization_voxel_size is None
         assert not simplification_voxel_size is None
+        assert not floor_smoothing_iter is None
+        assert not floor_smoothing_r is None
         self.meshing_approach = meshing_approach
         self.poisson_depth = poisson_depth
         self.simplification_voxel_size = simplification_voxel_size
         self.voxelization_voxel_size = voxelization_voxel_size
         self.fta_distance = fta_distance
+        self.floor_smoothing_iter = floor_smoothing_iter
+        self.floor_smoothing_r = floor_smoothing_r

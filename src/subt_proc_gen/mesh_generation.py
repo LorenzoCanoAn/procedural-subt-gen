@@ -33,12 +33,13 @@ import trace
 
 
 class PtclVoxelizator:
-    def __init__(self, ptcl, voxel_size=5):
+    def __init__(self, ptcl: np.ndarray, voxel_size=5, coords_range=[0, 3]):
         log.info(f"Voxelizing ptcl with {len(ptcl)} elements")
         self.ptcl = ptcl
         self.voxel_size = voxel_size
         self.grid = dict()
-        ijks = self.xyz_to_ijk(ptcl[:, :3])
+        ijks = self.xyz_to_ijk(ptcl[:, coords_range[0] : coords_range[1]])
+        self.ncols = ptcl.shape[1]
         unique_ijks = set()
         for ijk in ijks:
             i, j, k = ijk
@@ -48,8 +49,8 @@ class PtclVoxelizator:
             ijk = np.array((ijk,))
             idxs = np.where(np.prod(ijks == ijk, axis=1))
             i, j, k = ijk[0]
-            self.grid[(i, j, k)] = self.ptcl[idxs, :][0]
-            self.ptcl = np.reshape(np.delete(self.ptcl, idxs, axis=0), (-1, 12))
+            self.grid[(i, j, k)] = np.copy(self.ptcl[idxs, :][0])
+            self.ptcl = np.delete(self.ptcl, idxs, axis=0)
             ijks = np.delete(ijks, idxs, axis=0)
         assert len(self.ptcl) == 0
 
@@ -546,18 +547,85 @@ class TunnelNewtorkMeshGenerator:
         vertices = np.asarray(self.mesh.vertices)
         n_points = len(vertices)
         fta_dist = self._meshing_params.fta_distance
+        floor_vertices_idxs = set()
         for i in range(len(vertices)):
-            vert = vertices[i, :]
+            vert_inside = vertices[i, :]
             print(f"{i:6d} out of {n_points:6d}", end="\r", flush=True)
-            local_ptcl = self._voxelized_ptcl.get_relevant_points(vert)
+            local_ptcl = self._voxelized_ptcl.get_relevant_points(vert_inside)
             if local_ptcl is None:
                 continue
             aps = local_ptcl[:, 6:9]
             ps = local_ptcl[:, 0:3]
-            ap_of_vert = aps[np.argmin(np.linalg.norm(ps - vert, axis=1)), :]
-            if vert[2] - ap_of_vert[2] < fta_dist:
-                vert[2] = ap_of_vert[2] + fta_dist
-                vertices[i, :] = vert
+            ap_of_vert = aps[np.argmin(np.linalg.norm(ps - vert_inside, axis=1)), :]
+            if vert_inside[2] - ap_of_vert[2] < fta_dist:
+                vert_inside[2] = ap_of_vert[2] + fta_dist
+                vertices[i, :] = vert_inside
+                floor_vertices_idxs.add(i)
+        # Extra steps for diaphanous intersections
+        log.info("Adding extra intersection floor points")
+        for n_intersection, intersection in enumerate(self.intersections):
+            if (
+                self.params_of_intersection(intersection).ptcl_type
+                == IntersectionPtClType.spherical_cavity
+            ):
+                general_idxs_of_vertices_in_intersection = np.where(
+                    np.linalg.norm(vertices - intersection.xyz, axis=1)
+                    < self.params_of_intersection(intersection).radius
+                )
+                intersection_vertices = vertices[
+                    general_idxs_of_vertices_in_intersection, :
+                ]
+                for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
+                    aps = self._aps_avs_of_intersections[intersection][tunnel][:, :3]
+                    tps = self._ptcl_of_intersections[intersection][tunnel][:, :3][0]
+                    aps = np.reshape(aps, (-1, 3))
+                    tps = np.reshape(tps, (-1, 3))
+                    idxs_of_ver_inside_tunnel = points_inside_of_tunnel_section(
+                        intersection_vertices, tps, aps
+                    )
+                    verts_inside_tunnel = intersection_vertices[
+                        idxs_of_ver_inside_tunnel, :
+                    ]
+                    for n_vert_inside, vert_inside in enumerate(verts_inside_tunnel):
+                        axp_idx = np.argmin(np.linalg.norm(verts_inside_tunnel - aps))
+                        axp = aps[axp_idx, :]
+                        if (vert_inside - axp)[:, 2] < fta_dist:
+                            vert_inside[:, 2] = axp[:, 2] + fta_dist
+                            verts_inside_tunnel[n_vert_inside, :] = vert_inside
+                            floor_vertices_idxs.add(
+                                general_idxs_of_vertices_in_intersection[
+                                    idxs_of_ver_inside_tunnel[n_vert_inside]
+                                ]
+                            )
+                    intersection_vertices[
+                        idxs_of_ver_inside_tunnel, :
+                    ] = verts_inside_tunnel
+                vertices[
+                    general_idxs_of_vertices_in_intersection, :
+                ] = intersection_vertices
+        floor_vertices_idxs = tuple(floor_vertices_idxs)
+        floor_vertices = vertices[floor_vertices_idxs, :]
+        log.info("Smoothing floors")
+        for n_iter in range(self._meshing_params.floor_smoothing_iter):
+            log.info(f"Iter {n_iter}")
+            voxelized_floor_vertices = PtclVoxelizator(
+                floor_vertices, voxel_size=self._meshing_params.voxelization_voxel_size
+            )
+            for i in range(len(floor_vertices)):
+                print(f"{i:05d}", end="\r", flush=True)
+                vert_inside = floor_vertices[i, :]
+                relevant_vertices = voxelized_floor_vertices.get_relevant_points(
+                    vert_inside
+                )
+                close_vertices = relevant_vertices[
+                    np.where(
+                        np.linalg.norm((relevant_vertices - vert_inside)[:, :2], axis=1)
+                        < self._meshing_params.floor_smoothing_r
+                    )
+                ]
+                new_z = np.mean(close_vertices[:, 2])
+                floor_vertices[i, 2] = new_z
+        vertices[floor_vertices_idxs, :] = floor_vertices
         self.mesh.vertices = o3d.utility.Vector3dVector(vertices)
 
     def save_mesh(self, path):
