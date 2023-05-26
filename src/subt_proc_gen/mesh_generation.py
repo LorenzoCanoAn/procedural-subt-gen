@@ -563,6 +563,7 @@ class TunnelNewtorkMeshGenerator:
                 floor_vertices_idxs.add(i)
         # Extra steps for diaphanous intersections
         log.info("Adding extra intersection floor points")
+        # TODO: Save the original tunnel points for this calculations
         for n_intersection, intersection in enumerate(self.intersections):
             if (
                 self.params_of_intersection(intersection).ptcl_type
