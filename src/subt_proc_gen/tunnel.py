@@ -85,11 +85,11 @@ class GrownTunnelGenerationParams:
     _default_min_segment_length = 10
     _default_max_segment_lenght = 20
     # Random params
-    _random_distance_range = (50, 300)
-    _random_vertical_tendency_range_deg = (-20, 20)
+    _random_distance_range = (50, 100)
+    _random_vertical_tendency_range_deg = (-10, 10)
     _random_horizontal_tendency_range_deg = (-40, 40)
     _random_horizontal_noise_range_deg = (0, 20)
-    _random_vertical_noise_range_deg = (0, 10)
+    _random_vertical_noise_range_deg = (0, 5)
     _random_min_segment_length_fraction_range = (0.05, 0.15)
     _random_max_segment_length_fraction_range = (0.15, 0.30)
 

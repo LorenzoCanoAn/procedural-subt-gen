@@ -161,7 +161,7 @@ def test4():
             plotter.add_mesh(
                 pv.PolyData(mesh_generator.ps_of_tunnel(tunnel)), color="b"
             )
-    for i, intersection in enumerate(mesh_generator._ptcl_of_intersections):
+    for i, intersection in enumerate(mesh_generator._original_ptcl_of_intersections):
         if len(mesh_generator.ps_of_intersection(intersection)) > 0:
             plotter.add_mesh(
                 pv.PolyData(mesh_generator.ps_of_intersection(intersection)),

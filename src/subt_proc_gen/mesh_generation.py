@@ -89,6 +89,8 @@ class TunnelNewtorkMeshGenerator:
         self._ptcl_of_intersections = dict()
         self._aps_avs_of_intersections = dict()
         self._radius_of_intersections_for_tunnels = dict()
+        self._original_ptcl_of_intersections = dict()
+        self._original_aps_avs_of_intersections = dict()
         self._voxelized_ptcl = None
 
     def ps_of_tunnel(self, tunnel: Tunnel):
@@ -366,6 +368,18 @@ class TunnelNewtorkMeshGenerator:
                 )
             self._ptcl_of_intersections[intersection] = ptcl_of_intersection
             self._aps_avs_of_intersections[intersection] = aps_avs_of_intersection
+        # Save the original points for the floor flattening step
+        for intersection in self.intersections:
+            self._original_aps_avs_of_intersections[intersection] = dict()
+            self._original_ptcl_of_intersections[intersection] = dict()
+            for element in self._aps_avs_of_intersections[intersection]:
+                self._original_aps_avs_of_intersections[intersection][
+                    element
+                ] = np.copy(self._aps_avs_of_intersections[intersection][element])
+            for element in self._ptcl_of_intersections[intersection]:
+                self._original_ptcl_of_intersections[intersection][element] = np.copy(
+                    self._ptcl_of_intersections[intersection][element]
+                )
 
     def clean_tunnels_in_intersection(self, intersection: Node):
         # Get the ids of the points to delete
@@ -544,6 +558,7 @@ class TunnelNewtorkMeshGenerator:
         )
 
     def _flatten_floors(self):
+        # TODO: No longer use radius in smoothing, use the connected vertices
         vertices = np.asarray(self.mesh.vertices)
         n_points = len(vertices)
         fta_dist = self._meshing_params.fta_distance
@@ -561,72 +576,73 @@ class TunnelNewtorkMeshGenerator:
                 vert_inside[2] = ap_of_vert[2] + fta_dist
                 vertices[i, :] = vert_inside
                 floor_vertices_idxs.add(i)
+        floor_vertices_idxs = tuple(floor_vertices_idxs)
         # Extra steps for diaphanous intersections
         log.info("Adding extra intersection floor points")
-        # TODO: Save the original tunnel points for this calculations
+        floor_vertices = vertices[floor_vertices_idxs, :]
+        floor_vertices = np.reshape(floor_vertices, (-1, 3))
         for n_intersection, intersection in enumerate(self.intersections):
-            if (
+            if not (
                 self.params_of_intersection(intersection).ptcl_type
                 == IntersectionPtClType.spherical_cavity
             ):
-                general_idxs_of_vertices_in_intersection = np.where(
-                    np.linalg.norm(vertices - intersection.xyz, axis=1)
-                    < self.params_of_intersection(intersection).radius
-                )
-                intersection_vertices = vertices[
-                    general_idxs_of_vertices_in_intersection, :
+                continue
+            log.info(f"intersection: {n_intersection}")
+            intersection_floor_vertices_idxs = np.where(
+                np.linalg.norm(floor_vertices - intersection.xyz, axis=1)
+                < self.params_of_intersection(intersection).radius
+            )
+            int_floor_verts = np.reshape(
+                floor_vertices[intersection_floor_vertices_idxs, :], (-1, 3)
+            )
+            for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
+                aps = self._original_aps_avs_of_intersections[intersection][tunnel][
+                    :, :3
                 ]
-                for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
-                    aps = self._aps_avs_of_intersections[intersection][tunnel][:, :3]
-                    tps = self._ptcl_of_intersections[intersection][tunnel][:, :3][0]
-                    aps = np.reshape(aps, (-1, 3))
-                    tps = np.reshape(tps, (-1, 3))
-                    idxs_of_ver_inside_tunnel = points_inside_of_tunnel_section(
-                        intersection_vertices, tps, aps
-                    )
-                    verts_inside_tunnel = intersection_vertices[
-                        idxs_of_ver_inside_tunnel, :
+                tps = self._original_ptcl_of_intersections[intersection][tunnel][:, :3]
+                aps = np.reshape(aps, (-1, 3))
+                tps = np.reshape(tps, (-1, 3))
+                int_floor_verts_in_tunnel_idxs = points_inside_of_tunnel_section(
+                    aps, tps, int_floor_verts
+                )
+                int_floor_verts_in_tunnel_idxs = np.reshape(
+                    np.array(int_floor_verts_in_tunnel_idxs), -1
+                )
+                for int_floor_vert_in_tunnel_idx in int_floor_verts_in_tunnel_idxs:
+                    int_floor_vert_in_tunnel = int_floor_verts[
+                        int_floor_vert_in_tunnel_idx, :
                     ]
-                    for n_vert_inside, vert_inside in enumerate(verts_inside_tunnel):
-                        axp_idx = np.argmin(np.linalg.norm(verts_inside_tunnel - aps))
-                        axp = aps[axp_idx, :]
-                        if (vert_inside - axp)[:, 2] < fta_dist:
-                            vert_inside[:, 2] = axp[:, 2] + fta_dist
-                            verts_inside_tunnel[n_vert_inside, :] = vert_inside
-                            floor_vertices_idxs.add(
-                                general_idxs_of_vertices_in_intersection[
-                                    idxs_of_ver_inside_tunnel[n_vert_inside]
-                                ]
-                            )
-                    intersection_vertices[
-                        idxs_of_ver_inside_tunnel, :
-                    ] = verts_inside_tunnel
-                vertices[
-                    general_idxs_of_vertices_in_intersection, :
-                ] = intersection_vertices
-        floor_vertices_idxs = tuple(floor_vertices_idxs)
-        floor_vertices = vertices[floor_vertices_idxs, :]
+                    closest_ap_idx = np.argmin(
+                        np.linalg.norm(int_floor_vert_in_tunnel - aps, axis=1)
+                    )
+                    closest_ap_z = aps[closest_ap_idx, 2]
+                    int_floor_vert_in_tunnel[2] = closest_ap_z + fta_dist
+                    int_floor_verts[
+                        int_floor_vert_in_tunnel_idx, :
+                    ] = int_floor_vert_in_tunnel
+            floor_vertices[intersection_floor_vertices_idxs, :] = int_floor_verts
+        vertices[floor_vertices_idxs, :] = floor_vertices
+        log.info("Computing adjancency list")
+        self.mesh.compute_adjacency_list()
+        adjacency_list = self.mesh.adjacency_list
+        log.info("Computing floor adj list")
+        floor_adj_list = dict()
+        for vert_n, floor_idx in enumerate(floor_vertices_idxs):
+            print(f"{vert_n:05d}", end="\r", flush=True)
+            floor_adj_list[floor_idx] = list()
+            for adj_idx in adjacency_list[floor_idx]:
+                if adj_idx in floor_vertices_idxs:
+                    floor_adj_list[floor_idx].append(adj_idx)
         log.info("Smoothing floors")
         for n_iter in range(self._meshing_params.floor_smoothing_iter):
             log.info(f"Iter {n_iter}")
-            voxelized_floor_vertices = PtclVoxelizator(
-                floor_vertices, voxel_size=self._meshing_params.voxelization_voxel_size
-            )
-            for i in range(len(floor_vertices)):
-                print(f"{i:05d}", end="\r", flush=True)
-                vert_inside = floor_vertices[i, :]
-                relevant_vertices = voxelized_floor_vertices.get_relevant_points(
-                    vert_inside
-                )
-                close_vertices = relevant_vertices[
-                    np.where(
-                        np.linalg.norm((relevant_vertices - vert_inside)[:, :2], axis=1)
-                        < self._meshing_params.floor_smoothing_r
-                    )
-                ]
-                new_z = np.mean(close_vertices[:, 2])
-                floor_vertices[i, 2] = new_z
-        vertices[floor_vertices_idxs, :] = floor_vertices
+            copied_verts = np.copy(vertices)
+            for vert_n, vert_idx in enumerate(floor_vertices_idxs):
+                print(f"{vert_n:05d}", end="\r", flush=True)
+                adj_verts_idxs = floor_adj_list[vert_idx]
+                neigh_verts = copied_verts[adj_verts_idxs, :]
+                avg_z = np.average(neigh_verts[:, 2])
+                vertices[vert_idx, 2] = avg_z
         self.mesh.vertices = o3d.utility.Vector3dVector(vertices)
 
     def save_mesh(self, path):

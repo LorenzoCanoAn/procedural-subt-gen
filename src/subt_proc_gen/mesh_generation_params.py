@@ -220,7 +220,7 @@ class TunnelNetworkMeshGenParams:
     _default_simplification_voxel_size = 0.5
     _default_voxelization_voxel_size = 5
     _default_fta_distance = -1
-    _default_floor_smoothing_iter = 10
+    _default_floor_smoothing_iter = 20
     _default_floor_smoothing_r = 2
 
     @classmethod
