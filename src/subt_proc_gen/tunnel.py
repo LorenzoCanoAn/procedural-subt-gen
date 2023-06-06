@@ -549,7 +549,11 @@ class TunnelNetwork(Graph):
 
     def get_node_to_make_intersection(self):
         there_is_a_close_node = True
-        while there_is_a_close_node:
+        n_trials = 0
+        while there_is_a_close_node:            
+            if n_trials > 1000:
+                return None
+            n_trials += 1
             i_node = np.random.choice(np.array(list(self.nodes)))
             assert isinstance(i_node, Node)
             # Enforce the minimum distance between intersections
@@ -563,6 +567,7 @@ class TunnelNetwork(Graph):
                     break
             else:
                 there_is_a_close_node = False
+
         return i_node
 
     def add_random_grown_tunnel(
@@ -591,6 +596,9 @@ class TunnelNetwork(Graph):
             if len(self.nodes) == 0:
                 self.add_node_at_origin()
             i_node = self.get_node_to_make_intersection()
+            if i_node is None:
+                log.info("Failed for lack of suitable nodes")
+                return False
             tunnel = Tunnel.grown(
                 i_node=i_node,
                 i_direction=Vector3D.random(
@@ -667,6 +675,9 @@ class TunnelNetwork(Graph):
             while True:
                 i_node = self.get_node_to_make_intersection()
                 f_node = self.get_node_to_make_intersection()
+                if i_node is None or f_node is None:
+                    log.info("Failed for lack of suitable nodes")
+                    return False
                 if (
                     np.linalg.norm(i_node.xyz - f_node.xyz)
                     < self.params.min_distance_between_intersections
