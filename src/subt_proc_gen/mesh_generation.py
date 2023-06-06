@@ -31,6 +31,8 @@ import os
 import math
 import trace
 
+# TODO: When assigning parameters to the IntersectionPtclGenration step, ensure that diaphanous intersections wont be created if one of the tunnels in that direction is not long enough
+
 
 class PtclVoxelizator:
     def __init__(self, ptcl: np.ndarray, voxel_size=5, coords_range=[0, 3]):
@@ -551,6 +553,21 @@ class TunnelNewtorkMeshGenerator:
             raise NotImplementedError(
                 f"The method {self._meshing_params.meshing_approach} is not implemented"
             )
+
+    def flip_mesh_normals(self):
+        if not self.mesh is None:
+            if self.mesh.has_vertex_normals:
+                vertex_normals = np.reshape(
+                    np.asarray(self.mesh.vertex_normals), (-1, 3)
+                )
+                vertex_normals = -vertex_normals
+                self.mesh.vertex_normals = o3d.utility.Vector3dVector(vertex_normals)
+            if self.mesh.has_triangle_normals:
+                triangle_normals = np.reshape(
+                    np.asarray(self.mesh.triangle_normals), (-1, 3)
+                )
+                vertex_normals = -triangle_normals
+                self.mesh.vertex_normals = o3d.utility.Vector3dVector(triangle_normals)
 
     def _voxelize_ptcl(self):
         self._voxelized_ptcl = PtclVoxelizator(
