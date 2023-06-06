@@ -84,20 +84,32 @@ def gen_axis_points_file(mesh_generator: TunnelNewtorkMeshGenerator):
 
 def args():
     parser = argparse.ArgumentParser(
-        prog="DatasetEnvironmentsGenerator",
-        description="This script generates N environments and stores them in a folder with the dataset subfolder structure",
+        prog="EnvironemtnsGenerator",
+        description="This script generates as many environemts as desired, with different topological structures, and saves them in a folder.",
     )
     parser.add_argument("-F", "--folder", type=str, required=True)
-    parser.add_argument("-N", "--number_of_environments", type=int, required=True)
+    parser.add_argument("-N", "--number_of_environments", type=int, required=True, help="Number of environemts that will be generated")
     parser.add_argument(
-        "-NGT", "--number_of_grown_tunnels", default=5, required=False, type=int
+        "-NGT", "--number_of_grown_tunnels", default=5, required=False, type=int, help="Number of tunnels that are generated from just an initial node, growing randomly from it."
     )
     parser.add_argument(
-        "-NCT", "--number_of_connector_tunnels", default=2, required=False, type=int
+        "-NCT", "--number_of_connector_tunnels", default=2, required=False, type=int, help="Number of tunnels that are generated from an initial node to a final node already present in the Tunnel Network"
     )
-    parser.add_argument("-_FTA", "--min_fta_distance", default=-2, required=False)
-    parser.add_argument("-FTA", "--max_fta_distance", default=-0.5, required=False)
-    parser.add_argument("-O", "--overwrite", required=False, default=False, type=bool)
+    parser.add_argument(
+        "-_FTA",
+        "--min_fta_distance",
+        default=-2,
+        required=False,
+        help="This parameter controls what is the minimum vertical distance from the axis of a tunnel to the floor of the tunnel. If this number is positive, the floor of the tunnel will allways be avobe the axis. This number has to be lower thant -FTA",
+    )
+    parser.add_argument(
+        "-FTA",
+        "--max_fta_distance",
+        default=-0.5,
+        required=False,
+        help="This parameter controls what is the maximum vertical distance from the axis of a tunnel to the floor of the tunnel. If this number is negative, the floor of the tunnel will allways be below the axis, This number has to be greater than -_FTA",
+    )
+    parser.add_argument("-O", "--overwrite", required=False, default=False, type=bool, help="If this is set to True, the environmets previously on the folder will be overwriten")
     return parser.parse_args()
 
 
