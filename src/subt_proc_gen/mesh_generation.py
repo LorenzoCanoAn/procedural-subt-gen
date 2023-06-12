@@ -555,19 +555,11 @@ class TunnelNewtorkMeshGenerator:
             )
 
     def flip_mesh_normals(self):
-        if not self.mesh is None:
-            if self.mesh.has_vertex_normals:
-                vertex_normals = np.reshape(
-                    np.asarray(self.mesh.vertex_normals), (-1, 3)
-                )
-                vertex_normals = -vertex_normals
-                self.mesh.vertex_normals = o3d.utility.Vector3dVector(vertex_normals)
-            if self.mesh.has_triangle_normals:
-                triangle_normals = np.reshape(
-                    np.asarray(self.mesh.triangle_normals), (-1, 3)
-                )
-                vertex_normals = -triangle_normals
-                self.mesh.vertex_normals = o3d.utility.Vector3dVector(triangle_normals)
+        pv_mesh = self.pyvista_mesh
+        pv_mesh.flip_normals()
+        pv.save_meshio("temp.ply", pv_mesh)
+        self.mesh = o3d.io.read_triangle_mesh("temp.ply")
+        os.remove("temp.ply")
 
     def _voxelize_ptcl(self):
         self._voxelized_ptcl = PtclVoxelizator(
@@ -667,9 +659,9 @@ class TunnelNewtorkMeshGenerator:
 
     @property
     def pyvista_mesh(self):
-        o3d.io.write_triangle_mesh("temp.ply", self.mesh)
-        pv_mesh = pv.read_meshio("temp.ply")
-        os.remove("temp.ply")
+        o3d.io.write_triangle_mesh("temp.obj", self.mesh)
+        pv_mesh = pv.read_meshio("temp.obj")
+        os.remove("temp.obj")
         return pv_mesh
 
     def perlin_generator_of_tunnel(

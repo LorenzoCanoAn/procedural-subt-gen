@@ -17,7 +17,6 @@ import numpy as np
 import distinctipy
 import logging as log
 
-# TODO: Avoid diaphanus intersections in nodes that are 0 nodes away from an EOT node.
 colors = distinctipy.get_colors(30)
 
 log.basicConfig(level=log.DEBUG)
@@ -88,12 +87,28 @@ def args():
         description="This script generates as many environemts as desired, with different topological structures, and saves them in a folder.",
     )
     parser.add_argument("-F", "--folder", type=str, required=True)
-    parser.add_argument("-N", "--number_of_environments", type=int, required=True, help="Number of environemts that will be generated")
     parser.add_argument(
-        "-NGT", "--number_of_grown_tunnels", default=5, required=False, type=int, help="Number of tunnels that are generated from just an initial node, growing randomly from it."
+        "-N",
+        "--number_of_environments",
+        type=int,
+        required=True,
+        help="Number of environemts that will be generated",
     )
     parser.add_argument(
-        "-NCT", "--number_of_connector_tunnels", default=2, required=False, type=int, help="Number of tunnels that are generated from an initial node to a final node already present in the Tunnel Network"
+        "-NGT",
+        "--number_of_grown_tunnels",
+        default=5,
+        required=False,
+        type=int,
+        help="Number of tunnels that are generated from just an initial node, growing randomly from it.",
+    )
+    parser.add_argument(
+        "-NCT",
+        "--number_of_connector_tunnels",
+        default=2,
+        required=False,
+        type=int,
+        help="Number of tunnels that are generated from an initial node to a final node already present in the Tunnel Network",
     )
     parser.add_argument(
         "-_FTA",
@@ -109,7 +124,14 @@ def args():
         required=False,
         help="This parameter controls what is the maximum vertical distance from the axis of a tunnel to the floor of the tunnel. If this number is negative, the floor of the tunnel will allways be below the axis, This number has to be greater than -_FTA",
     )
-    parser.add_argument("-O", "--overwrite", required=False, default=False, type=bool, help="If this is set to True, the environmets previously on the folder will be overwriten")
+    parser.add_argument(
+        "-O",
+        "--overwrite",
+        required=False,
+        default=False,
+        type=bool,
+        help="If this is set to True, the environmets previously on the folder will be overwriten",
+    )
     return parser.parse_args()
 
 
@@ -135,24 +157,41 @@ def main():
         base_env_folder = os.path.join(base_folder, f"env_{n+1:03d}")
         os.mkdir(base_env_folder)
         tunnel_network_params = TunnelNetworkParams.from_defaults()
-        tunnel_network_params.min_distance_between_intersections = 50
+        tunnel_network_params.min_distance_between_intersections = 30
+        tunnel_network_params.collision_distance = 15
         tunnel_network = TunnelNetwork(params=tunnel_network_params)
         for _ in range(n_grown):
-            tunnel_network.add_random_grown_tunnel(n_trials=100)
+            GrownTunnelGenerationParams._random_distance_range = (100, 300)
+            GrownTunnelGenerationParams._random_horizontal_tendency_range_deg = (
+                -50,
+                50,
+            )
+            GrownTunnelGenerationParams._random_horizontal_noise_range_deg = (-30, 30)
+            GrownTunnelGenerationParams._random_min_segment_length_fraction_range = (
+                0.05,
+                0.05,
+            )
+            GrownTunnelGenerationParams._random_max_segment_length_fraction_range = (
+                0.10,
+                0.10,
+            )
+            result = False
+            while not result:
+                params = GrownTunnelGenerationParams.random()
+                result = tunnel_network.add_random_grown_tunnel(
+                    params=params, n_trials=100
+                )
         for _ in range(n_connector):
             tunnel_network.add_random_connector_tunnel(n_trials=100)
         ptcl_gen_params = TunnelNetworkPtClGenParams.random()
         mesh_gen_params = TunnelNetworkMeshGenParams.from_defaults()
         mesh_gen_params.fta_distance = fta_dist
-        GrownTunnelGenerationParams._default_distance = 100
-        GrownTunnelGenerationParams._random_distance_range = (100, 150)
         mesh_generator = TunnelNewtorkMeshGenerator(
             tunnel_network,
             ptcl_gen_params=ptcl_gen_params,
             meshing_params=mesh_gen_params,
         )
         mesh_generator.compute_all()
-        mesh_generator.flip_mesh_normals()
         axis_points = gen_axis_points_file(mesh_generator)
         path_to_mesh = os.path.join(base_env_folder, "mesh.obj")
         mesh_generator.save_mesh(path_to_mesh)
