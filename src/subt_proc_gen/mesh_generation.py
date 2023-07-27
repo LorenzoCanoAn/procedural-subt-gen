@@ -73,7 +73,7 @@ class PtclVoxelizator:
         return relevant_points
 
 
-class TunnelNewtorkMeshGenerator:
+class TunnelNetworkMeshGenerator:
     def __init__(
         self,
         tunnel_network: TunnelNetwork,
@@ -297,7 +297,14 @@ class TunnelNewtorkMeshGenerator:
 
     def _compute_tunnel_ptcls(self):
         for tunnel in self._tunnel_network.tunnels:
-            (ptcl, normals, aps, avs, apss, avss,) = ptcl_from_tunnel(
+            (
+                ptcl,
+                normals,
+                aps,
+                avs,
+                apss,
+                avss,
+            ) = ptcl_from_tunnel(
                 tunnel=tunnel,
                 perlin_mapper=self._perlin_generator_of_tunnel[tunnel],
                 dist_between_circles=self.params_of_tunnel(tunnel).dist_between_circles,
@@ -660,7 +667,7 @@ class TunnelNewtorkMeshGenerator:
     @property
     def pyvista_mesh(self):
         o3d.io.write_triangle_mesh("temp.obj", self.mesh)
-        pv_mesh = pv.read_meshio("temp.obj")
+        pv_mesh = pv.read("temp.obj")
         os.remove("temp.obj")
         return pv_mesh
 
@@ -815,7 +822,8 @@ def ids_points_inside_ptcl_sphere(sphere_points, center_point, points):
 
 def perlin_weight_from_angle(angles_rad, perlin_weight_angle_rad):
     """Given an set of angles in radians, and a cuttoff angle, this function returns the weight
-    that the perlin noise should have in a given angle, so that there is no discontinuity in the resulting image"""
+    that the perlin noise should have in a given angle, so that there is no discontinuity in the resulting image
+    """
     perlin_weights = np.zeros(angles_rad.shape)
     for i, angle in enumerate(angles_rad):
         warped_angle = warp_angle_pi(angle)

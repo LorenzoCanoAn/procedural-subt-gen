@@ -1,0 +1,92 @@
+# This script illustrates the most manual way of generating a tunnel network, meaning that the nodes are "hard-coded"
+import argparse
+import os
+import shutil
+import pyvista as pv
+from subt_proc_gen.tunnel import (
+    Tunnel,
+    TunnelNetwork,
+    TunnelNetworkParams,
+    TunnelType,
+    Node,
+    ConnectorTunnelGenerationParams,
+    GrownTunnelGenerationParams,
+)
+from subt_proc_gen.mesh_generation import (
+    TunnelNetworkMeshGenerator,
+    TunnelNetworkPtClGenParams,
+    TunnelNetworkMeshGenParams,
+    IntersectionPtClType,
+)
+from subt_proc_gen.display_functions import plot_graph, plot_splines, plot_mesh
+import numpy as np
+import distinctipy
+import logging as log
+
+log.basicConfig(level=log.DEBUG)
+
+####################################################################################################################################
+# 	TOP LEVEL PARAMETERS
+####################################################################################################################################
+FTA_DIST = (
+    -1
+)  # Distande from floor to axis. If negative, the floor of the tunnel is lower than the axis, for the time being, this applies
+# to the complete tunnel network
+mesh_save_path = "mesh.obj"
+
+
+def main():
+    plotter = pv.Plotter()
+    ####################################################################################################################################
+    # 	Generation of the tunnel network
+    ####################################################################################################################################
+    # To create an instance of a TunnelNetwork, it is necessary to initialise it with the corresponding paramter class. This parameter class
+    # controlls very general aspects of the generation of the overal structure of the network, like the minimum distance from one intersection
+    # to another, the maximum inclination that any tunnel can have, or if it is desired to have a completly flat tunnel network
+    tunnel_network_params = TunnelNetworkParams.from_defaults()
+    # Changed some values from defaults
+    tunnel_network_params.min_distance_between_intersections = 30
+    tunnel_network_params.collision_distance = 15
+    # Create the tunnel network, by default, the class inits with a node already in the (0,0,0) position
+    tunnel_network = TunnelNetwork(params=tunnel_network_params)
+    # At its core, a Tunnel is just a collection of nodes, to create a tunnel manually from nodes:
+    nodes_of_tunnel_1 = [
+        list(tunnel_network.nodes)[0],  # The first is the default at (0,0,0)
+        Node((20, 0, 0)),  # Nodes are only initialized by their coordinates
+        Node((40, 0, 10)),
+        Node((80, 0, 0)),
+    ]
+    nodes_of_tunnel_2 = [nodes_of_tunnel_1[2], Node((40, 50, 10)), Node((0, 60, 0))]
+    tunnel_1 = Tunnel(nodes_of_tunnel_1)  # Tunnels are just a list of nodes
+    tunnel_2 = Tunnel(nodes_of_tunnel_2)
+    # You can generate tunnels randomly, but this method is not recomended as it does not do any checks,
+    # in the second script there is the recomended method
+    example_tunnel = Tunnel.grown(
+        nodes_of_tunnel_1[1], (0, -1, 0), GrownTunnelGenerationParams.random()
+    )
+    # Then the tunnels are added to the network, and everyting is taken care of (intersections and other thingies)
+    # DO NOT ADD NODES DIRECTLY TO THE TUNNEL NETWORK, ONLY ADD TUNNELS
+    tunnel_network.add_tunnel(tunnel_1)
+    tunnel_network.add_tunnel(tunnel_2)
+    plot_graph(plotter, tunnel_network)
+    plot_splines(plotter, tunnel_network, color="r")
+    ####################################################################################################################################
+    # 	Pointcloud and mesh generation
+    ####################################################################################################################################
+    ptcl_gen_params = TunnelNetworkPtClGenParams.random()
+    mesh_gen_params = TunnelNetworkMeshGenParams.from_defaults()
+    mesh_gen_params.fta_distance = FTA_DIST
+    mesh_generator = TunnelNetworkMeshGenerator(
+        tunnel_network,
+        ptcl_gen_params=ptcl_gen_params,
+        meshing_params=mesh_gen_params,
+    )
+    mesh_generator.compute_all()
+    plot_mesh(plotter, mesh_generator)
+    plotter.show()
+    if "y" in input("Save mesh (y/n):\n\t").lower():
+        mesh_generator.save_mesh(mesh_save_path)
+
+
+if __name__ == "__main__":
+    main()

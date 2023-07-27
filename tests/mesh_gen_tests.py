@@ -1,5 +1,5 @@
 from subt_proc_gen.mesh_generation import (
-    TunnelNewtorkMeshGenerator,
+    TunnelNetworkMeshGenerator,
     TunnelNetworkPtClGenParams,
     TunnelNetworkMeshGenParams,
 )
@@ -101,7 +101,7 @@ def test2():
         params=ConnectorTunnelGenerationParams.from_defaults(),
     )
     tunnel_network.add_tunnel(third_tunnel)
-    mesh_generator = TunnelNewtorkMeshGenerator(
+    mesh_generator = TunnelNetworkMeshGenerator(
         tunnel_network,
         ptcl_gen_params=TunnelNetworkPtClGenParams.random(),
         meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
@@ -125,7 +125,7 @@ def test3():
         result = False
         while not result:
             result = tunnel_network.add_random_connector_tunnel()
-    mesh_generator = TunnelNewtorkMeshGenerator(
+    mesh_generator = TunnelNetworkMeshGenerator(
         tunnel_network,
         ptcl_gen_params=TunnelNetworkPtClGenParams.from_defaults(),
         meshing_params=TunnelNetworkMeshGenParams.from_defaults(),
@@ -149,7 +149,7 @@ def test4():
         result = False
         while not result:
             result = tunnel_network.add_random_connector_tunnel()
-    mesh_generator = TunnelNewtorkMeshGenerator(
+    mesh_generator = TunnelNetworkMeshGenerator(
         tunnel_network,
         ptcl_gen_params=TunnelNetworkPtClGenParams.random(),
         meshing_params=TunnelNetworkMeshGenParams.from_defaults(),

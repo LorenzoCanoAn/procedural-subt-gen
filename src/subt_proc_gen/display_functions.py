@@ -4,7 +4,7 @@ import pyvista as pv
 from subt_proc_gen.tunnel import Tunnel, Graph, TunnelNetwork, TunnelType
 from subt_proc_gen.graph import Node, Edge
 from subt_proc_gen.geometry import Spline3D
-from subt_proc_gen.mesh_generation import TunnelNewtorkMeshGenerator
+from subt_proc_gen.mesh_generation import TunnelNetworkMeshGenerator
 
 tunnel_type_to_color = {
     TunnelType.connector: "r",
@@ -159,7 +159,7 @@ def plot_graph(
 
 def plot_tunnel_ptcls(
     plotter: pv.Plotter,
-    mesh_generator: TunnelNewtorkMeshGenerator,
+    mesh_generator: TunnelNetworkMeshGenerator,
     size=None,
     color=None,
 ):
@@ -180,7 +180,7 @@ def plot_tunnel_ptcls(
 
 def plot_intersection_ptcls(
     plotter: pv.Plotter,
-    mesh_generator: TunnelNewtorkMeshGenerator,
+    mesh_generator: TunnelNetworkMeshGenerator,
     size=None,
     color=None,
 ):
@@ -199,8 +199,12 @@ def plot_intersection_ptcls(
     return actors
 
 
-def plot_mesh(plotter, vertices, faces, normals, color=None):
+def plot_mesh(
+    plotter,
+    tunnel_network_mesh_generator: TunnelNetworkMeshGenerator,
+    color=None,
+):
     if color is None:
-        color = "y"
-    mesh = pv.PolyData(vertices, faces)
-    return plotter.add_mesh(mesh, color=color)
+        color = "w"
+    mesh = tunnel_network_mesh_generator.pyvista_mesh
+    return plotter.add_mesh(mesh, color=color, style="wireframe")

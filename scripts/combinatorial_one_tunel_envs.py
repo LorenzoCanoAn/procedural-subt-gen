@@ -9,7 +9,7 @@ from subt_proc_gen.tunnel import (
     GrownTunnelGenerationParams,
 )
 from subt_proc_gen.mesh_generation import (
-    TunnelNewtorkMeshGenerator,
+    TunnelNetworkMeshGenerator,
     TunnelNetworkPtClGenParams,
     TunnelNetworkMeshGenParams,
     IntersectionPtClType,
@@ -49,7 +49,7 @@ MODEL_SDF_TEXT = """<?xml version="1.0"?>
 </sdf>"""
 
 
-def gen_axis_points_file(mesh_generator: TunnelNewtorkMeshGenerator):
+def gen_axis_points_file(mesh_generator: TunnelNetworkMeshGenerator):
     axis_points = np.zeros((0, 3 + 3 + 1 + 1))
     for tunnel in mesh_generator._tunnel_network.tunnels:
         radius = mesh_generator.params_of_tunnel(tunnel).radius
@@ -164,7 +164,7 @@ def main():
         ptcl_gen_params.pre_set_tunnel_params[tunnel] = tunnel_ptcl_gen_params
         mesh_gen_params = TunnelNetworkMeshGenParams.from_defaults()
         mesh_gen_params.fta_distance = fta_dist
-        mesh_generator = TunnelNewtorkMeshGenerator(
+        mesh_generator = TunnelNetworkMeshGenerator(
             tunnel_network,
             ptcl_gen_params=ptcl_gen_params,
             meshing_params=mesh_gen_params,
