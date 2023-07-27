@@ -19,7 +19,8 @@ class OctaveProgressionType(Enum):
 
 class CylindricalPerlinNoiseMapperParms:
     """Contains the parameters that controll the perlin cylindrical mapper. This also includes
-    parameters that controll how the octave generator and the octave to magnitude mapper works"""
+    parameters that controll how the octave generator and the octave to magnitude mapper works
+    """
 
     _default_roughness = 0.01
     _default_n_layers = 5
@@ -201,7 +202,8 @@ class CylindricalPerlinNoiseMapper:
 
 class SphericalPerlinNoiseMapperParms:
     """Contains the parameters that controll the perlin cylindrical mapper. This also includes
-    parameters that controll how the octave generator and the octave to magnitude mapper works"""
+    parameters that controll how the octave generator and the octave to magnitude mapper works
+    """
 
     _default_roughness = 0.1
     _default_n_layers = 5
