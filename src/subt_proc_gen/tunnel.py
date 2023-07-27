@@ -352,18 +352,18 @@ class TunnelNetworkParams:
         collision_distance=None,
         max_inclination=None,
         min_intersection_angle=None,
-        min_distance_between_nodes=None,
+        min_distance_between_intersections=None,
         flat=None,
     ):
         assert not collision_distance is None
         assert not max_inclination is None
         assert not min_intersection_angle is None
-        assert not min_distance_between_nodes is None
+        assert not min_distance_between_intersections is None
         assert not flat is None
         self.collision_distance = collision_distance
         self.min_intersection_angle = min_intersection_angle
         self.max_inclination = max_inclination
-        self.min_distance_between_intersections = min_distance_between_nodes
+        self.min_distance_between_intersections = min_distance_between_intersections
         self.flat = flat
 
     @classmethod
@@ -372,7 +372,7 @@ class TunnelNetworkParams:
             collision_distance=cls._default_collision_distance,
             max_inclination=cls._default_max_inclination,
             min_intersection_angle=cls._default_min_intersection_angle,
-            min_distance_between_nodes=cls._default_min_dist_between_nodes,
+            min_distance_between_intersections=cls._default_min_dist_between_nodes,
             flat=cls._default_flat,
         )
 
@@ -550,7 +550,7 @@ class TunnelNetwork(Graph):
     def get_node_to_make_intersection(self):
         there_is_a_close_node = True
         n_trials = 0
-        while there_is_a_close_node:            
+        while there_is_a_close_node:
             if n_trials > 1000:
                 return None
             n_trials += 1
@@ -577,6 +577,7 @@ class TunnelNetwork(Graph):
         collsion_distance=None,
         max_inclination=None,
         min_intersection_angle=None,
+        yaw_range=(0, np.pi * 2),
     ):
         if params is None:
             params = GrownTunnelGenerationParams.random()
@@ -606,7 +607,7 @@ class TunnelNetwork(Graph):
                         params.vertical_tendency - params.vertical_noise,
                         params.vertical_tendency + params.vertical_noise,
                     ),
-                    yaw_range=(0, np.pi * 2),
+                    yaw_range=yaw_range,
                 ),
                 params=params,
             )
