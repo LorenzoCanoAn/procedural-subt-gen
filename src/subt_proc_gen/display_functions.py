@@ -157,6 +157,22 @@ def plot_graph(
     return [node_actors] + edge_actors
 
 
+def plot_tunnel_network_graph(plotter: pv.Plotter, tnn: TunnelNetwork):
+    nodes = tnn.nodes
+    intersections = tnn.intersections
+    not_inter_nodes = []
+    inter_nodes = []
+    for node in nodes:
+        if node in intersections:
+            inter_nodes.append(node)
+        else:
+            not_inter_nodes.append(node)
+    not_inter_actors = plot_nodes(plotter, not_inter_nodes, color="b")
+    inter_actors = plot_nodes(plotter, inter_nodes, color="r")
+    edge_actors = plot_edges(plotter, tnn.edges)
+    return (not_inter_actors, inter_actors, edge_actors)
+
+
 def plot_tunnel_ptcls(
     plotter: pv.Plotter,
     mesh_generator: TunnelNetworkMeshGenerator,
