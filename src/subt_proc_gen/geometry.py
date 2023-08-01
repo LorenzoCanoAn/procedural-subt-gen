@@ -2,6 +2,7 @@ import numpy as np
 import math as m
 from scipy import interpolate
 from subt_proc_gen.helper_functions import get_indices_close_to_point
+from copy import copy
 
 ###############################################################
 # CLASSES
@@ -40,11 +41,11 @@ class Point3D:
 
     def __eq__(self, other):
         if isinstance(other, Point3D):
-            return np.all(self.xyz == other.xyz)
+            return hash(self) == hash(other)
         return False
 
     def __hash__(self) -> int:
-        return hash((self.x, self.y, self.z))
+        return hash((int(self.x), int(self.y), int(self.z)))
 
     @property
     def x(self):
@@ -216,39 +217,69 @@ class Vector3D:
     def inclination(self):
         return phi_to_inclination(self.phi)
 
+    @property
+    def normalized(self):
+        copy_of_self = copy(self)
+        copy_of_self.normalize()
+        return copy_of_self
+
 
 class Spline3D:
     """Wrapper around the scipy spline to
     interpolate a series of 3d points along x,y and z"""
 
-    def __init__(self, points):
+    def __init__(
+        self, points, initial_dir: Vector3D = None, final_dir: Vector3D = None
+    ):
         for p in points:
             assert isinstance(p, Point3D)
         self._points = list(points)
-        self._len = len(self._points)
-        self._point_array = np.zeros(shape=[self._len, 3], dtype=np.double)
-        self._dist_array = np.zeros(shape=[self._len, 1])
+        self._n_input_points = len(self._points)
+        self._input_points = np.zeros(shape=[self._n_input_points, 3], dtype=np.double)
+        self._initial_dir = initial_dir
+        self._final_dir = final_dir
         for i, p in enumerate(self._points):
-            self._point_array[i, :] = p.xyz
-        for i in range(1, len(points)):
-            self._dist_array[i, :] = self._dist_array[i - 1] + np.linalg.norm(
-                self._point_array[i, :] - self._point_array[i - 1, :]
+            self._input_points[i, :] = p.xyz
+        self._calculation_points = self._input_points
+        if not self._initial_dir is None:
+            self._initial_dir = self._initial_dir.normalized
+            self._initial_dir.set_distance(0.1)
+            initial_point = points[0] - self._initial_dir
+            self._calculation_points = np.vstack(
+                (initial_point.xyz, self._calculation_points)
             )
-        self._distance = self._dist_array[-1]
-        self._degree = 3 if len(self._dist_array) > 3 else len(self._dist_array) - 1
+            self._initial_offset = 0.1
+        else:
+            self._initial_offset = 0
+        if not self._final_dir is None:
+            self._final_dir = self._final_dir.normalized
+            self._final_dir.set_distance(0.1)
+            final_point = points[-1] + self._final_dir
+            self._calculation_points = np.vstack(
+                (self._calculation_points, final_point.xyz)
+            )
+        self._n_calculation_points = len(self._calculation_points)
+        dist_array = np.zeros(shape=[self._n_calculation_points, 1])
+        for i in range(1, self._n_calculation_points):
+            dist_array[i, :] = dist_array[i - 1] + np.linalg.norm(
+                self._calculation_points[i, :] - self._calculation_points[i - 1, :]
+            )
+        self._distance = dist_array[-1]
+        self._degree = 3 if len(dist_array) > 3 else len(dist_array) - 1
         self.xspline = interpolate.splrep(
-            self._dist_array, self._point_array[:, 0], k=self._degree
+            dist_array, self._calculation_points[:, 0], k=self._degree
         )
         self.yspline = interpolate.splrep(
-            self._dist_array, self._point_array[:, 1], k=self._degree
+            dist_array, self._calculation_points[:, 1], k=self._degree
         )
         self.zspline = interpolate.splrep(
-            self._dist_array, self._point_array[:, 2], k=self._degree
+            dist_array, self._calculation_points[:, 2], k=self._degree
         )
         self._discretized_cache = dict()
 
     def __call__(self, d):
-        assert d >= 0 and d <= self._distance
+        # assert d >= 0 and d <= self._distance
+        d += self._initial_offset
         x = interpolate.splev(d, self.xspline)
         y = interpolate.splev(d, self.yspline)
         z = interpolate.splev(d, self.zspline)
