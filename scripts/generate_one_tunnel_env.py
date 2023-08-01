@@ -121,6 +121,8 @@ def main():
                 raise Exception(
                     f"The number of arguments must be either 1 or all the same. Bad argument {arg_name}"
                 )
+    if non_1_length is None:
+        non_1_length = 1
     arg_iterator = [{} for _ in range(non_1_length)]
     for i in range(non_1_length):
         for arg_name in args:
@@ -180,7 +182,7 @@ def main():
         )
         mesh_generator.compute_all()
         axis_points = gen_axis_points_file(mesh_generator)
-        path_to_mesh = os.path.join(path_to_env, "mesh.obj")
+        path_to_mesh = os.path.join(path_to_env, "mesh.stl")
         mesh_generator.save_mesh(path_to_mesh)
         np.savetxt(os.path.join(path_to_env, "axis.txt"), axis_points)
         np.savetxt(os.path.join(path_to_env, "fta_dist.txt"), np.array((fta_dist,)))
