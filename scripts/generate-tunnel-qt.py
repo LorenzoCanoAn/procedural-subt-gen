@@ -3,7 +3,13 @@ import sys
 
 import matplotlib
 import pyvista
-import yaml
+
+from subt_proc_gen.display_functions import plot_graph, plot_splines, plot_mesh
+from subt_proc_gen.mesh_generation import (
+    TunnelNetworkMeshGenerator,
+    TunnelNetworkPtClGenParams,
+    TunnelNetworkMeshGenParams,
+)
 
 matplotlib.use("Qt5Agg")
 
@@ -25,18 +31,14 @@ from PyQt5.QtWidgets import (
     QInputDialog,
     QMenu,
     QSlider,
-    QMessageBox,
     QScrollArea,
     QProgressDialog,
 )
 from pyvista import QtInteractor
 from pyvistaqt import QtInteractor
-from EasyConfig import EasyConfig
-from pointcloud_from_graph import pc_from_graph
-from subt_proc_gen.display_functions import debug_plot
 from subt_proc_gen.tunnel import *
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtCore import Qt, QRect, QPoint, QRunnable, QThreadPool, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, QRect, QPoint, QRunnable, QThreadPool
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -77,13 +79,6 @@ class Point(QPoint):
         self.setZ(dictionary["z"])
 
 
-class CCaveNode(CaveNode):
-    def __init__(self, coords=np.zeros(3)):
-        self._connected_nodes = set()
-        self.coords = coords
-        self._tunnels = list()
-
-
 class Sketch(QLabel):
     def __init__(self):
         super().__init__()
@@ -93,41 +88,21 @@ class Sketch(QLabel):
         self.colors = [Qt.red, Qt.green, Qt.blue, Qt.darkYellow, Qt.darkMagenta]
         self.setPixmap(pix)
         self.setScaledContents(True)
-        self.p1 = None
         self.base = None
+        self.p1 = None
         self.p2 = None
         self.points = []
         self.lines = []
-        self.current_tree = []
         self.trees = []
         self.scale = 0.1
-        self.current_tree = []
+        self.current_tree_index = None
         self.selected = None
-
-    def delete_last(self):
-        if len(self.current_tree) > 0:
-            point = self.current_tree.pop(-1)
-            found = False
-            for tree, color in self.trees:
-                found = found or (point in tree)
-            if not found:
-                self.points.remove(point)
-                for i, node in enumerate(self.points):
-                    node.index = i
-
-            if len(self.current_tree) > 1:
-                self.p1 = self.current_tree[-1]
-            else:
-                self.current_tree = []
-                self.p1 = None
-                self.p2 = None
-
-            self.update()
+        self.params = {}
 
     def load(self, filename):
 
         self.points.clear()
-        self.current_tree.clear()
+        self.current_tree_index = 0
         self.trees.clear()
         try:
             f = open(filename, "r")
@@ -139,17 +114,61 @@ class Sketch(QLabel):
                     q = Point()
                     q.deserialize(p)
                     self.points.append(q)
+            print("Loaded {} points".format(len(self.points)))
 
-            for color, nodes in enumerate(data["trees"]):
-                tree = []
-                for node_id in nodes:
-                    tree.append(self.points[node_id])
-                self.trees.append((tree, color))
-
+            for color, tree in enumerate(data["trees"]):
+                tree_nodes = []
+                for node_id in tree['nodes']:
+                    tree_nodes.append(self.points[node_id])
+                self.trees.append({'nodes': tree_nodes, 'color': color, 'config': tree['config']})
+            self.color_index = len(self.trees)-1
             self.update()
             return True
         except:
             return False
+
+    def save(self, filename):
+        filename = "default.yaml" if filename is None else filename
+
+        dictionary = {"points": [], "trees": [], 'config': []}
+
+        for p in self.points:
+            data = {}
+            p.serialize(data)
+            dictionary["points"].append(data)
+
+        for tree in self.trees:
+            dictionary["trees"].append({'nodes': [node.index for node in tree.get("nodes")], 'config': tree.get("config")})
+
+        with open(filename, "w") as f:
+            yaml.dump(dictionary, f)
+
+    def update_defaults(self, **kwargs):
+        self.params = kwargs
+
+    def current_tree(self):
+        return self.trees[self.current_tree_index]
+
+    def delete_last(self):
+        nodes = self.current_tree().get('nodes')
+        if len(nodes) > 1:
+            point = nodes.pop(-1)
+            found = False
+            for tree in self.trees:
+                found = found or (point in tree.get("nodes"))
+            if not found:
+                self.points.remove(point)
+                for i, node in enumerate(self.points):
+                    node.index = i
+
+        if len(nodes) > 0:
+            self.p1 = nodes[-1]
+        else:
+            self.current_tree_index = 0
+            self.p1 = None
+            self.p2 = None
+
+        self.update()
 
     def setScale(self, scale):
         self.scale = scale
@@ -157,49 +176,36 @@ class Sketch(QLabel):
     def clear_points(self):
         self.points.clear()
         self.trees.clear()
-        self.current_tree.clear()
+        self.current_tree_index = None
         self.p1 = None
         self.p2 = None
         self.color_index = 0
         self.update()
 
-    def save(self, filename):
-        dictionary = {"points": [], "trees": []}
-
-        if len(self.current_tree) > 0 and self.current_tree not in [
-            t for t, c in self.trees
-        ]:
-            self.trees.append((self.current_tree, self.color_index))
-            self.current_tree = []
-
-        for p in self.points:
-            data = {}
-            p.serialize(data)
-            dictionary["points"].append(data)
-
-        for tree, color in self.trees:
-            dictionary["trees"].append([node.index for node in tree])
-        with open(filename, "w") as f:
-            yaml.dump(dictionary, f)
-
     def contextMenuEvent(self, ev: QtGui.QContextMenuEvent) -> None:
         for p in self.points:
             r = QRect(p.x() - 10, p.y() - 10, 20, 20)
             if r.contains(ev.pos().x(), ev.pos().y()):
-                qm = QMenu()
-                set_z, cont = qm.addAction("Set Z"), None
-                for tree, color in self.trees:
-                    if p == tree[-1]:
-                        cont = qm.addAction("Continue here")
+
+                selected_tree = None
+                for tree in self.trees:
+                    nodes, tunnel_config = tree.get("nodes"), tree.get("config")
+                    if p in nodes:
+                        selected_tree = tree
                         break
 
-                pos = self.mapToGlobal(ev.pos())
-                res = qm.exec(pos)
+                qm = QMenu()
+                set_z, cont = qm.addAction("Set Z"), None
+                change_config, cont = qm.addAction("Change Tunnel Config"), None
+                if p == selected_tree.get("nodes")[-1]:
+                    cont = qm.addAction("Continue here")
+
+                res = qm.exec(ev.globalPos())
 
                 if res == cont:
                     self.p1 = p
-                    self.current_tree = tree
-                    self.color_index = color
+                    self.current_tree_index = self.trees.index(selected_tree)
+                    self.color_index = selected_tree.get("color")
                     return
 
                 elif res == set_z:
@@ -212,6 +218,17 @@ class Sketch(QLabel):
                     if ok and text.replace(".", "").replace("-", "").isnumeric():
                         p.setZ(float(text))
                         self.update()
+                elif res == change_config:
+                    text, ok = QInputDialog.getText(
+                        self,
+                        "Set Roughness for Tunnel " + str(selected_tree.get("color")),
+                        "Value",
+                        text=str(p.z()),
+                    )
+                    if ok:
+                        selected_tree["config"]["roughness"] = float(text)
+                    else:
+                        print(selected_tree["config"])
 
     def mouseDoubleClickEvent(self, ev: QtGui.QMouseEvent) -> None:
         super().mouseDoubleClickEvent(ev)
@@ -231,12 +248,6 @@ class Sketch(QLabel):
 
     def getPoints(self, scale):
 
-        if len(self.current_tree) > 0 and self.current_tree not in [
-            t for t, c in self.trees
-        ]:
-            self.trees.append((self.current_tree, self.color_index))
-            self.current_tree = []
-
         self.p1 = None
         self.p2 = None
         self.update()
@@ -246,23 +257,21 @@ class Sketch(QLabel):
 
         nodes = []
         for p in self.points:
-            nodes.append(CCaveNode(p.nppose() * scale))
+            nodes.append(Node(p.nppose() * scale))
 
-        x, y, z = nodes[0].coords
+        x, y, z = nodes[0].x, nodes[0].y, nodes[0].z
         for n in nodes:
-            n.coords[0] = -x + n.coords[0]
-            n.coords[1] = y - n.coords[1]
-            n.coords[2] = -z + n.coords[2]
+            n.set_pose(-x + n.x, y - n.y, -z + n.z)
 
-        node_trees = list()
+        trees_list = list()
 
-        for tree, color in self.trees:
-            node_tree = list()
-            for p in tree:
-                node_tree.append(nodes[p.index])
-            node_trees.append(node_tree)
-
-        return nodes, node_trees
+        for tree in self.trees:
+            tree_nodes = list()
+            for p in tree.get("nodes"):
+                tree_nodes.append(nodes[p.index])
+            trees_list.append(tree_nodes)
+        return trees_list
+        # return nodes, node_trees
 
     def mousePressEvent(self, ev: QtGui.QMouseEvent) -> None:
         super().mousePressEvent(ev)
@@ -276,19 +285,17 @@ class Sketch(QLabel):
             for p in self.points:
                 r = QRect(p.x() - 10, p.y() - 10, 20, 20)
                 if r.contains(ev.pos().x(), ev.pos().y()):
-                    if len(self.current_tree) > 0 and self.current_tree not in [
-                        t for t, c in self.trees
-                    ]:
-                        self.trees.append((self.current_tree, self.color_index))
-                    self.current_tree = [p]
+                    self.color_index += 1
+                    self.trees.append({'nodes': [p], 'color': self.color_index, 'config': self.params})
+                    self.current_tree_index = len(self.trees) - 1
                     self.p1 = p
-                    self.color_index = self.color_index + 1
 
-        elif self.p1 is None and len(self.points) == 0:
+        elif self.p1 is None and len(self.trees) == 0:
             self.base = ev.pos()
             self.p1 = Point(ev.pos(), 0)
-            self.current_tree.append(self.p1)
+            self.trees.append({'nodes': [self.p1], 'color': self.color_index, 'config': self.params})
             self.points.append(self.p1)
+            self.current_tree_index = 0
 
     def mouseMoveEvent(self, ev: QtGui.QMouseEvent) -> None:
         super().mouseMoveEvent(ev)
@@ -314,11 +321,11 @@ class Sketch(QLabel):
                     found = p
                     break
             if found:
-                self.current_tree.append(found)
+                self.current_tree().append(found)
                 self.p1 = found
             else:
                 self.p1 = Point(self.p2, len(self.points))
-                self.current_tree.append(self.p1)
+                self.current_tree().get('nodes').append(self.p1)
                 self.points.append(self.p1)
             self.p2 = None
             self.update()
@@ -327,24 +334,9 @@ class Sketch(QLabel):
         super().paintEvent(a0)
         painter = QPainter(self)
 
-        for i in range(len(self.current_tree)):
-            p = self.current_tree[i]
-            painter.setPen(Qt.black)
-            if p.z() != 0:
-                painter.drawText(
-                    QPoint(p.x() + 10, p.y() + 10), str(p.index) + " z:" + str(p.z())
-                )
-            else:
-                painter.drawText(QPoint(p.x() + 10, p.y() + 10), str(p.index))
-            painter.setPen(self.colors[self.color_index])
-            painter.drawEllipse(p, 10, 10)
-            if i > 0:
-                painter.drawLine(p, self.current_tree[i - 1])
-
-        for tree, color in self.trees:
-
-            for i in range(len(tree)):
-                p = tree[i]
+        for tree in self.trees:
+            nodes, color = tree.get('nodes'), tree.get('color')
+            for i, p in enumerate(nodes):
                 painter.setPen(Qt.black)
                 if p.z() != 0:
                     painter.drawText(
@@ -357,7 +349,7 @@ class Sketch(QLabel):
                 painter.setPen(self.colors[color])
                 painter.drawEllipse(p, 10, 10)
                 if i > 0:
-                    painter.drawLine(p, tree[i - 1])
+                    painter.drawLine(p, nodes[i - 1])
 
         if self.p1 and self.p2:
             painter.setPen(QPen(self.colors[self.color_index]))
@@ -382,6 +374,9 @@ class Sketch(QLabel):
                 self.points[0].x(),
                 self.rect().height() + self.rect().y(),
             )
+
+    def get_trees(self):
+        return self.trees
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -424,44 +419,18 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.sc.figure.set_figwidth(self.geometry().width())
         # self.sc.figure.set_figheight(self.geometry().height())
 
+    def update_defaults(self):
+        self.sketch.update_defaults(radius=self.radius_slider.value(), roughness=self.slider.value(), floor=self.floor_slider.value())
+
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
-        self.config = EasyConfig()
-        random_gen = self.config.root().addSubSection("Random Generation")
 
-        dist = random_gen.addSubSection("Distance")
-        dist.addInt("min_dist", "Min", 1)
-        dist.addInt("max_dist", "Max", 10)
-
-        dist = random_gen.addSubSection("Starting direction")
-        dist.addInt("sd_x", "X", 1)
-        dist.addInt("sd_y", "Y", 0)
-        dist.addInt("sd_z", "Z", 0)
-
-        dist = random_gen.addSubSection("Horizontal")
-        dist.addInt("h_tend", "Tendency", 1)
-        dist.addInt("h_noise", "Noise", 0)
-
-        dist = random_gen.addSubSection("Vertical")
-        dist.addInt("v_tend", "Tendency", 0)
-        dist.addInt("v_noise", "Noise", 0)
-
-        dist = random_gen.addSubSection("Segment")
-        dist.addFloat("s_length", "Length", 10)
-        dist.addInt("s_noise", "Noise", 0)
-        dist.addFloat("scale", "Scale", 0.1)
-        dist.addFloat("roughness", "Roughness", 0.0001)
-        random_gen.addInt("np_noise", "Node Position Noise")
-
-        models = self.config.root().addSubSection("Models")
-        models.addFolderChoice("models_base_dir", "Base folder")
-
-        private = self.config.root().addSubSection("@Private")
-        private.addString("last")
-
-        self.config.load("gst.yaml")
-
+        self.pd = None
+        self.mesh_generator = None
+        self.config = {}
         menu = QMenuBar()
+        self.setMenuBar(menu)
+
         m1 = menu.addMenu("File")
         m1.addAction("Load", self.load_yaml)
         m1.addAction("New", self.new_yaml)
@@ -470,18 +439,13 @@ class MainWindow(QtWidgets.QMainWindow):
         m2 = menu.addMenu("Edit")
         m2.addAction("Config", self.edit)
 
-        self.setMenuBar(menu)
-        # Create the maptlotlib FigureCanvas object,
-        # which defines a single set of axes as self.axes.
         self.fig = Figure()  # figsize=[200,200]
         self.sc = FigureCanvasQTAgg(self.fig)
-        # sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
 
         self.lay = QSplitter()
         self.lay.setStretchFactor(0, 1)
         self.lay.setStretchFactor(1, 10)
-        # helper = QWidget()
-        # helper.setLayout(self.lay)
+
         self.sketch = Sketch()
 
         cb = QPushButton("Clear")
@@ -489,11 +453,6 @@ class MainWindow(QtWidgets.QMainWindow):
         pb = QPushButton("Graph")
         vb = QVBoxLayout()
         rend = QPushButton("Render")
-        rend.clicked.connect(self.rendera)
-        # vb.addWidget(self.config.get_widget())
-        # vb.addWidget(cb)
-        # vb.addWidget(pb)
-        # vb.addWidget(rend)
 
         self.frame = QFrame()
         self.frame2 = QFrame()
@@ -524,29 +483,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.slider.valueChanged.connect(self.slider_changed)
         self.radius_slider.valueChanged.connect(self.radius_slider_changed)
         self.floor_slider.valueChanged.connect(self.floor_slider_changed)
-
-        render_tb.addAction("Go", self.rendera).setIcon(
-            QIcon.fromTheme("media-playback-start")
-        )
-        render_tb.addSeparator()
-
-        self.slider_label = QLabel("0.001")
-        render_tb.addWidget(QLabel("Rougness: "))
-        render_tb.addWidget(self.slider_label)
-        render_tb.addWidget(self.slider)
-
-        render_tb.addSeparator()
-        self.radius_label = QLabel("4")
-        render_tb.addWidget(QLabel("Radius: "))
-        render_tb.addWidget(self.radius_label)
-        render_tb.addWidget(self.radius_slider)
-
-        render_tb.addSeparator()
-
-        render_tb.addWidget(QLabel("Floor: "))
-        self.floor_label = QLabel("1")
-        render_tb.addWidget(self.floor_label)
-        render_tb.addWidget(self.floor_slider)
 
         vlayout.addWidget(render_tb)
         vlayout.addWidget(self.plotter.interactor)
@@ -587,6 +523,14 @@ class MainWindow(QtWidgets.QMainWindow):
             QIcon.fromTheme("edit-undo")
         )
         tb.addSeparator()
+
+        render_tb = tb
+
+        render_tb.addAction("Go", self.create_mesh).setIcon(
+            QIcon.fromTheme("media-playback-start")
+        )
+        tb.addSeparator()
+
         label = QLabel("Scale: 1 ")
         label.setMinimumWidth(70)
         tb.addWidget(label)
@@ -601,37 +545,82 @@ class MainWindow(QtWidgets.QMainWindow):
                 "Ratio: {:.1f} ".format(self.scale_slider.value() / 10)
             )
         )
+
         tb.addWidget(self.scale_slider)
 
+        render_tb.addSeparator()
+
+        self.slider_label = QLabel("0.001")
+        render_tb.addWidget(QLabel("Rougness: "))
+        render_tb.addWidget(self.slider_label)
+        render_tb.addWidget(self.slider)
+
+        render_tb.addSeparator()
+        self.radius_label = QLabel("4")
+        render_tb.addWidget(QLabel("Radius: "))
+        render_tb.addWidget(self.radius_label)
+        render_tb.addWidget(self.radius_slider)
+
+        render_tb.addSeparator()
+
+        render_tb.addWidget(QLabel("Floor: "))
+        self.floor_label = QLabel("1")
+        render_tb.addWidget(self.floor_label)
+        render_tb.addWidget(self.floor_slider)
+
         self.tab.addTab(helper, "Sketch")
-        self.graph_tab = self.tab.addTab(self.sc, "Graph")
+        # self.graph_tab = self.tab.addTab(self.sc, "Graph")
 
-        self.tab.addTab(self.frame, "Render")
-        self.tab.setTabEnabled(2, False)
+        # self.tab.addTab(self.frame, "Render")
+        # self.tab.setTabEnabled(2, False)
+        helper2 = QWidget()
+        vbox2 = QVBoxLayout(helper2)
+        tb2 = QToolBar()
+        tb2.addAction("Save", self.save_mesh).setIcon(
+            QIcon.fromTheme("document-save")
+        )
+        vbox2.addWidget(tb2)
+        vbox2.addWidget(self.frame2)
 
-        self.tab.addTab(self.frame2, "Mesh")
+        self.tab.addTab(helper2, "Mesh")
         self.tab.setTabEnabled(3, False)
 
         self.frame = QFrame()
         self.lay.addWidget(self.tab)
 
-        pb.clicked.connect(self.doing)
+        pb.clicked.connect(self.create_mesh)
         self.setCentralWidget(self.tab)
-
-        if self.config.get("last"):
-            if self.sketch.load(self.config.get("last")):
-                self.setWindowTitle(self.config.get("last"))
+        self.update_defaults()
+        self.load_config()
+        last = self.config.get("last")
+        if last is not None and os.path.exists(last):
+            self.sketch.load(last)
+            self.setWindowTitle(last)
 
         self.show()
 
     def slider_changed(self):
         self.slider_label.setText(str(self.slider.value() / 1000) + " ")
+        self.update_defaults()
 
     def radius_slider_changed(self):
         self.radius_label.setText(str(self.radius_slider.value()) + " ")
+        self.update_defaults()
 
     def floor_slider_changed(self):
         self.floor_label.setText(str(self.floor_slider.value()) + " ")
+        self.update_defaults()
+
+    def load_config(self):
+        try:
+            with open("config.yaml", "r") as f:
+                self.config = yaml.full_load(f)
+        except:
+            pass
+
+    def save_config(self):
+        with open("config.yaml", "w") as f:
+            yaml.dump(self.config, f)
 
     def save_yaml(self):
         dest, _ = QFileDialog.getSaveFileName(
@@ -640,10 +629,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if dest and dest != "":
             if not dest.endswith(".ptg"):
                 dest = dest + ".ptg"
-            self.config.set("last", dest)
             self.setWindowTitle(self.config.get("last"))
             self.sketch.save(dest)
-            self.config.save("gst.yaml")
+            self.config["last"] = dest
+            self.save_config()
 
     def new_yaml(self):
         dest, _ = QFileDialog.getSaveFileName(
@@ -656,7 +645,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.config.set("last", dest)
             self.setWindowTitle(self.config.get("last"))
             self.sketch.save(dest)
-            self.config.save("gst.yaml")
 
     def load_yaml(self):
         file, _ = QFileDialog.getOpenFileName(
@@ -674,58 +662,90 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def current_tab_changed(self, num):
         if num == 0:
-            self.sketch.setScale(self.config.get("scale"))
+            pass  # self.sketch.setScale(self.config.get("scale"))
         if num == 1:
-            self.doing()
+            pass  # self.create_mesh()
         elif num == 2:
-            pass  # self.rendera()
+            pass
         elif num == 3:
-            mesh = pyvista.read(self.model_path + "mesh.obj")
-            mesh = mesh.clip("x", invert=False, origin=(2, 0, 0))
+            pass
 
-            self.plotter2.remove_all_lights()
-            pyvista.global_theme.color = "red"
-            self.plotter2.clear()
-            self.plotter2.enable_shadows()
-            self.plotter2.set_background(color="w")
-            self.plotter2.add_mesh(
-                mesh, show_edges=True
-            )  # ,     ambient=0.2,  diffuse=0.5,    specular=0.5,    specular_power=90,)
-            # self.plotter2.disable_anti_aliasing()
+    def show_mesh(self):
+        mesh = pyvista.read(self.model_path + "mesh.obj")
+        mesh = mesh.clip("x", invert=False, origin=(2, 0, 0))
 
-    def doing(self):
-        if not self.config.get("last"):
-            msgBox = QMessageBox()
-            msgBox.setText("Please save the graph first")
-            msgBox.exec()
-            self.tab.setCurrentIndex(0)
-            return
-
-        #        isExist = os.path.exists(models_base_dir)
-        # if not isExist:
-        self.model_name = os.path.basename(os.path.splitext(self.config.get("last"))[0])
-        self.model_path = (
-            self.config.get("models_base_dir") + os.sep + self.model_name + os.sep
+        self.plotter2.remove_all_lights()
+        pyvista.global_theme.color = "red"
+        self.plotter2.clear()
+        self.plotter2.enable_shadows()
+        self.plotter2.set_background(color="g")
+        self.plotter2.add_mesh(
+            mesh, show_edges=True
         )
-        os.makedirs(self.model_path, exist_ok=True)
 
-        self.fig.clear()
-        self.graph = self.maino(self.fig, self.config)
-        if self.graph:
-            self.fig.canvas.draw()
-            self.tab.setTabEnabled(2, True)
+    def do_create_mesh(self):
+        # mesh = mesh.clip("x", invert=False, origin=(2, 0, 0))
 
-    def rendera(self):
-
-        if not (self.config.get("models_base_dir")):
-            msgBox = QMessageBox()
-            msgBox.setText("Please set models base dir first")
-            self.tab.setCurrentIndex(0)
-            msgBox.exec()
+        trees = self.sketch.getPoints(1)
+        if trees is None:
+            self.pd.hide()
             return
 
-        self.plotter.clear()
-        window = self
+        self.plotter2.remove_all_lights()
+        pyvista.global_theme.color = "red"
+        self.plotter2.clear()
+        self.plotter2.enable_shadows()
+        self.plotter2.set_background(color="grey")
+
+        tunnel_network_params = TunnelNetworkParams.from_defaults()
+        tunnel_network_params.min_distance_between_intersections = 30
+        tunnel_network_params.collision_distance = 15
+        tunnel_network = TunnelNetwork(params=tunnel_network_params, initial_node=False)
+
+        for tree in trees:
+            tunnel = Tunnel()
+            for node in tree:
+                tunnel.append_node(node)
+            tunnel_network.add_tunnel(tunnel)
+
+        plot_graph(self.plotter2, tunnel_network)
+        plot_splines(self.plotter2, tunnel_network, color="r")
+        # plotter.show()
+        ####################################################################################################################################
+        # 	Pointcloud and mesh generation
+        ####################################################################################################################################
+        np.random.seed(0)
+        ptcl_gen_params = TunnelNetworkPtClGenParams.random()
+        mesh_gen_params = TunnelNetworkMeshGenParams.from_defaults()
+        mesh_gen_params.fta_distance = 1
+        self.mesh_generator = TunnelNetworkMeshGenerator(
+            tunnel_network,
+            ptcl_gen_params=ptcl_gen_params,
+            meshing_params=mesh_gen_params,
+        )
+        self.mesh_generator.compute_all()
+        plot_mesh(self.plotter2, self.mesh_generator)
+
+        self.tab.setTabEnabled(1, True)
+        self.tab.setCurrentIndex(1)
+        self.pd.hide()
+
+    def save_mesh(self):
+        if self.mesh_generator is None:
+            return
+
+        name, kind = QFileDialog.getSaveFileName(
+            self, "Save Mesh", "", "OBJ Files (*.obj)"
+        )
+        print(name, 4, kind)
+        if name is not None and name != "":
+            if not name.endswith(".obj"):
+                name = name + ".obj"
+            self.mesh_generator.save_mesh(name)
+
+    def create_mesh(self):
+
+        self.plotter2.clear()
 
         class Runn(QRunnable):
             def __init__(self, callback):
@@ -742,87 +762,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pd.setLabelText("Rendering")
         self.pd.setModal(True)
         self.pd.show()
-        if self.slider.value() == 1:
-            roughness = 0.000001
-        else:
-            roughness = self.slider.value() / 1000
 
-        def process():
-            meshing_params = {
-                "roughness": roughness,
-                "radius": self.radius_slider.value(),
-                "floor_to_axis_distance": self.floor_slider.value(),
-            }
-            proj_points, proj_normals = pc_from_graph(
-                self.plotter,
-                roughness,
-                self.graph,
-                window.model_path + "mesh.obj",
-                radius=self.radius_slider.value(),
-                meshing_params=meshing_params,
-            )
-            f = open(window.model_path + "model.config", "w")
-            f.write(window.model_config.replace("$name$", window.model_name))
-            f.close()
-            f = open(window.model_path + "model.sdf", "w")
-            f.write(window.model_sdf.replace("$name$", window.model_name))
-            f.close()
-            np.savetxt(window.model_path + "contour.csv", proj_points)
-            # self.helper.done.emit()
-            self.tab.setTabEnabled(3, True)
-            self.pd.hide()
-
-        run = Runn(process)
-        #        run.helper.done.connect(lambda: self.pd.hide())
+        run = Runn(self.do_create_mesh)
         QThreadPool.globalInstance().start(run)
 
-    def maino(self, canvas, c, poses=None):
-        for i in range(1):
-            # Generate the graph
-            graph = TunnelNetwork()
-            central_node = CaveNode()
-
-            tunnel_params = TunnelParams(
-                {
-                    "distance": np.random.uniform(c.get("min_dist"), c.get("max_dist")),
-                    "starting_direction": np.array(
-                        (c.get("sd_x"), c.get("sd_y"), c.get("sd_z"))
-                    ),
-                    "horizontal_tendency": np.deg2rad(c.get("h_tend")),
-                    "horizontal_noise": np.deg2rad(c.get("h_noise")),
-                    "vertical_tendency": np.deg2rad(c.get("v_tend")),
-                    "vertical_noise": np.deg2rad(c.get("v_noise")),
-                    "segment_length": c.get("s_length"),
-                    "segment_length_noise": c.get("s_noise"),
-                    "node_position_noise": c.get("np_noise"),
-                }
-            )
-
-            points, trees = self.sketch.getPoints(self.scale_slider.value() / 10 / 10)
-            for p in points:
-                graph.add_node(p)
-
-            gds = np.array([])
-            gps = np.empty([0, 3])
-            gvs = np.empty([0, 3])
-            for n, t in enumerate(trees):
-                tunnel1 = Tunnel(graph, params=tunnel_params)
-                tunnel1.set_nodes(t)
-
-                ds, ps, vs = tunnel1.spline.discretize(0.05)
-
-                gds = np.concatenate((gds, ds))
-                gps = np.concatenate((gps, ps))
-                gvs = np.concatenate((gvs, vs))
-
-            gds = np.reshape(gds, [-1, 1])
-            combined_spline_info = np.hstack([gds, gps, gvs])
-            np.savetxt(self.model_path + os.sep + "spline.csv", combined_spline_info)
-            debug_plot(graph, in_3d=True, canvas=canvas)
-            return graph
-
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
-        self.config.save("gst.yaml")
+        self.sketch.save("kakka2.yaml")
 
 
 if __name__ == "__main__":
