@@ -29,7 +29,7 @@ MODEL_SDF_TEXT = """<?xml version="1.0"?>
     <model name="tunnel_network">
         <static>true</static>
         <link name="link">
-            <pose>0 0 0 0 0 0</pose>
+            <pose>{}</pose>
             <collision name="collision">
                 <geometry>
                     <mesh>

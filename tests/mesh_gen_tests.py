@@ -15,14 +15,7 @@ from subt_proc_gen.tunnel import (
 )
 from subt_proc_gen.graph import Node
 from subt_proc_gen.geometry import Point3D, Vector3D, get_two_perpendicular_vectors
-from subt_proc_gen.display_functions import (
-    plot_tunnel_ptcls,
-    plot_graph,
-    plot_intersection_ptcls,
-    plot_splines,
-    plot_ptcl,
-    plot_mesh,
-)
+from subt_proc_gen.display_functions import *
 import numpy as np
 from multiprocessing import Pool
 from time import perf_counter_ns
@@ -30,6 +23,7 @@ from traceback import print_exc
 import pyvista as pv
 import logging as log
 import distinctipy
+import os
 
 log.basicConfig(level=log.DEBUG)
 
@@ -108,8 +102,9 @@ def test2():
     )
     mesh_generator.compute_all()
     mesh_generator.save_mesh("test_2.obj")
+    os.remove("test_2.obj")
     plotter = pv.Plotter()
-    plotter.add_mesh(pv.PolyData(mesh_generator.ptcl))
+    plotter.add_mesh(pv.PolyData(mesh_generator.ps))
     plotter.show()
 
 
@@ -132,6 +127,7 @@ def test3():
     )
     mesh_generator.compute_all()
     mesh_generator.save_mesh("mesh.obj")
+    os.remove("mesh.obj")
     print(len(mesh_generator.mesh.points))
 
 
@@ -170,11 +166,37 @@ def test4():
     plotter.add_mesh(mesh_generator.pyvista_mesh)
     plotter.show()
     mesh_generator.save_mesh("mesh.obj")
+    os.remove("mesh.obj")
+
+
+def test_5():
+    tunnel_network = TunnelNetwork(initial_node=False)
+    nodes = (
+        Node((-20, 0, 0)),
+        Node((0, 0, 0)),
+        Node((20, 0, 0)),
+        Node((20, 20, 0)),
+        Node((0, 20, 0)),
+        Node((0, 0, 0)),
+        Node((0, -20, 0)),
+    )
+    tunnel_network.add_tunnel(Tunnel(nodes))
+    mesh_generator = TunnelNetworkMeshGenerator(
+        tunnel_network,
+        TunnelNetworkPtClGenParams.from_defaults(),
+        TunnelNetworkMeshGenParams.from_defaults(),
+    )
+    mesh_generator.compute_all()
+    plotter = pv.Plotter()
+    plotter.add_mesh(mesh_generator.pyvista_mesh, style="wireframe")
+    plotter.add_mesh(pv.PolyData(mesh_generator.ps))
+    plot_tunnel_network_graph(plotter, tunnel_network)
+    plotter.show()
 
 
 def main():
-    tests = [test1, test2, test3]
-    tests = [test4]
+    tests = [test1, test2, test3, test4]
+    tests = [test_5]
     for test in tests:
         try:
             timeit(test)

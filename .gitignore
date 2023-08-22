@@ -3,11 +3,12 @@
 .vscode
 *.obj
 # Visualization files
-screenshots/**
-datafiles/**
+screenshots/
+datafiles/
+.catkin_tools/
 *.png
 *.npy
-devel/**
+devel/
 # Dummy testing files
 pruebas.py
 # Byte-compiled / optimized / DLL files

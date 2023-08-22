@@ -77,8 +77,8 @@ class TunnelNetworkMeshGenerator:
     def __init__(
         self,
         tunnel_network: TunnelNetwork,
-        ptcl_gen_params: TunnelNetworkPtClGenParams,
-        meshing_params: TunnelNetworkMeshGenParams,
+        ptcl_gen_params: TunnelNetworkPtClGenParams = TunnelNetworkPtClGenParams.from_defaults(),
+        meshing_params: TunnelNetworkMeshGenParams = TunnelNetworkMeshGenParams.from_defaults(),
     ):
         self._tunnel_network = tunnel_network
         self._ptcl_gen_params = ptcl_gen_params
@@ -297,14 +297,7 @@ class TunnelNetworkMeshGenerator:
 
     def _compute_tunnel_ptcls(self):
         for tunnel in self._tunnel_network.tunnels:
-            (
-                ptcl,
-                normals,
-                aps,
-                avs,
-                apss,
-                avss,
-            ) = ptcl_from_tunnel(
+            (ptcl, normals, aps, avs, apss, avss,) = ptcl_from_tunnel(
                 tunnel=tunnel,
                 perlin_mapper=self._perlin_generator_of_tunnel[tunnel],
                 dist_between_circles=self.params_of_tunnel(tunnel).dist_between_circles,
@@ -542,7 +535,7 @@ class TunnelNetworkMeshGenerator:
 
     def _compute_mesh(self):
         points = self.ps
-        normals = self.ns
+        normals = -self.ns
         if self._meshing_params.meshing_approach == MeshingApproaches.poisson:
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(points)
@@ -550,12 +543,7 @@ class TunnelNetworkMeshGenerator:
             o3d_mesh, _ = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
                 pcd, depth=self._meshing_params.poisson_depth
             )
-            log.info("Simplifying mesh")
-            simplified_mesh = o3d_mesh.simplify_vertex_clustering(
-                self._meshing_params.simplification_voxel_size
-            )
-            log.info(f"Simplified mesh has {len(simplified_mesh.vertices)} vertices")
-            self.mesh = simplified_mesh
+            self.mesh = o3d_mesh
         else:
             raise NotImplementedError(
                 f"The method {self._meshing_params.meshing_approach} is not implemented"
