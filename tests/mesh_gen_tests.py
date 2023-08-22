@@ -169,7 +169,7 @@ def test4():
     os.remove("mesh.obj")
 
 
-def test_5():
+def test5():
     tunnel_network = TunnelNetwork(initial_node=False)
     nodes = (
         Node((-20, 0, 0)),
@@ -195,8 +195,7 @@ def test_5():
 
 
 def main():
-    tests = [test1, test2, test3, test4]
-    tests = [test_5]
+    tests = [test1, test2, test3, test4, test5]
     for test in tests:
         try:
             timeit(test)

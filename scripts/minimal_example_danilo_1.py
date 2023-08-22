@@ -1,12 +1,13 @@
 # This script illustrates the most manual way of generating a tunnel network, meaning that the nodes are "hard-coded"
 import random
 import sys
+
 # sys.path.append("../src")
 import argparse
 import os
 import shutil
 import pyvista as pv
-from src.subt_proc_gen.tunnel import (
+from subt_proc_gen.tunnel import (
     Tunnel,
     TunnelNetwork,
     TunnelNetworkParams,
@@ -22,8 +23,16 @@ from subt_proc_gen.mesh_generation import (
     TunnelNetworkPtClGenParams,
     TunnelNetworkMeshGenParams,
     IntersectionPtClType,
+    TunnelPtClGenParams,
 )
-from subt_proc_gen.display_functions import plot_graph, plot_splines, plot_mesh
+from subt_proc_gen.display_functions import (
+    plot_graph,
+    plot_splines,
+    plot_mesh,
+    plot_intersection_ptcls,
+    plot_tunnel_ptcls,
+    plot_ptcl,
+)
 import numpy as np
 import distinctipy
 import logging as log
@@ -41,7 +50,6 @@ mesh_save_path = "mesh.obj"
 
 
 def main():
-    plotter = pv.Plotter()
     ####################################################################################################################################
     # 	Generation of the tunnel network
     ####################################################################################################################################
@@ -62,7 +70,7 @@ def main():
         Node((80, 0, 0)),
     ]
     tunnel_1 = Tunnel()
-    tunnel_1.append_node(Node(0,0,0))
+    tunnel_1.append_node(Node(0, 0, 0))
     tunnel_1.append_node(Node(20, 0, 0))
     tunnel_1.append_node(Node(40, 0, 10))
     tunnel_1.append_node(Node(80, 0, 0))
@@ -76,21 +84,27 @@ def main():
 
     # You can generate tunnels randomly, but this method is not recomended as it does not do any checks,
     # in the second script there is the recomended method
-    #example_tunnel = Tunnel.grown(
+    # example_tunnel = Tunnel.grown(
     #    nodes_of_tunnel_1[1], (0, -1, 0), GrownTunnelGenerationParams.random()
-    #)
+    # )
     # Then the tunnels are added to the network, and everyting is taken care of (intersections and other thingies)
     # DO NOT ADD NODES DIRECTLY TO THE TUNNEL NETWORK, ONLY ADD TUNNELS
     tunnel_network.add_tunnel(tunnel_1)
     tunnel_network.add_tunnel(tunnel_2)
+    # PLOT DE LAS SPLINE Y GRAFO
+    plotter = pv.Plotter()
     plot_graph(plotter, tunnel_network)
     plot_splines(plotter, tunnel_network, color="r")
-    #plotter.show()
+    plotter.show()
     ####################################################################################################################################
     # 	Pointcloud and mesh generation
     ####################################################################################################################################
     np.random.seed(0)
     ptcl_gen_params = TunnelNetworkPtClGenParams.random()
+    # To add specific ptcl generation parameters for a specific tunnel:
+    tunnel_1_ptcl_gen_params = TunnelPtClGenParams.from_defaults()
+    tunnel_1_ptcl_gen_params.radius = 7
+    ptcl_gen_params.pre_set_tunnel_params[tunnel_1] = tunnel_1_ptcl_gen_params
     mesh_gen_params = TunnelNetworkMeshGenParams.from_defaults()
     mesh_gen_params.fta_distance = FTA_DIST
     mesh_generator = TunnelNetworkMeshGenerator(
@@ -99,8 +113,16 @@ def main():
         meshing_params=mesh_gen_params,
     )
     mesh_generator.compute_all()
+    # PLOT DE LA POINTCLOUD
+    plotter = pv.Plotter()
+    plot_intersection_ptcls(plotter, mesh_generator, color="r")
+    plot_tunnel_ptcls(plotter, mesh_generator, color="b")
+    plotter.show()
+    # PLOT DE LA MESH
+    plotter = pv.Plotter()
     plot_mesh(plotter, mesh_generator)
     plotter.show()
+    # SACAR INFOR DE LAS SPLINES
     if "y" in input("Save mesh (y/n):\n\t").lower():
         mesh_generator.save_mesh(mesh_save_path)
 

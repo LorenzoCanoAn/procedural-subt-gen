@@ -186,7 +186,7 @@ def plot_tunnel_ptcls(
         actors.append(
             plot_ptcl(
                 plotter,
-                mesh_generator._ptcl_of_tunnels[tunnel],
+                mesh_generator.ps_of_tunnel(tunnel),
                 radius=size,
                 color=color,
             )
@@ -207,7 +207,7 @@ def plot_intersection_ptcls(
         actors.append(
             plot_ptcl(
                 plotter,
-                mesh_generator.ptcl_of_intersection(intersection),
+                mesh_generator.ps_of_intersection(intersection),
                 radius=size,
                 color=color,
             )
