@@ -16,9 +16,20 @@ class Node:
     def set_global_counter(cls, global_counter):
         cls._global_counter = global_counter
 
-    def __init__(self, coords):
+    def __init__(self, *argv):
         self._id = None
-        self._pose = Point3D(coords)
+        self._pose = None
+        self.set_pose(*argv)
+
+    def set_pose(self, *argv):
+        if len(argv) == 0:
+            pass
+        elif len(argv) == 1:
+            self._pose = Point3D(argv[0])
+        elif len(argv) == 3:
+            self._pose = Point3D((argv[0], argv[1], argv[2]))
+        else:
+            assert(0)
 
     def __str__(self):
         return str(self._id)

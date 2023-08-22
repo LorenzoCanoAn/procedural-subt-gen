@@ -1,9 +1,12 @@
 # This script illustrates the most manual way of generating a tunnel network, meaning that the nodes are "hard-coded"
+import random
+import sys
+# sys.path.append("../src")
 import argparse
 import os
 import shutil
 import pyvista as pv
-from subt_proc_gen.tunnel import (
+from src.subt_proc_gen.tunnel import (
     Tunnel,
     TunnelNetwork,
     TunnelNetworkParams,
@@ -12,6 +15,8 @@ from subt_proc_gen.tunnel import (
     ConnectorTunnelGenerationParams,
     GrownTunnelGenerationParams,
 )
+
+
 from subt_proc_gen.mesh_generation import (
     TunnelNetworkMeshGenerator,
     TunnelNetworkPtClGenParams,
@@ -48,31 +53,43 @@ def main():
     tunnel_network_params.min_distance_between_intersections = 30
     tunnel_network_params.collision_distance = 15
     # Create the tunnel network, by default, the class inits with a node already in the (0,0,0) position
-    tunnel_network = TunnelNetwork(params=tunnel_network_params)
+    tunnel_network = TunnelNetwork(params=tunnel_network_params, initial_node=False)
     # At its core, a Tunnel is just a collection of nodes, to create a tunnel manually from nodes:
     nodes_of_tunnel_1 = [
-        list(tunnel_network.nodes)[0],  # The first is the default at (0,0,0)
+        Node((0, 0, 0)),  # The first is the default at (0,0,0)
         Node((20, 0, 0)),  # Nodes are only initialized by their coordinates
         Node((40, 0, 10)),
         Node((80, 0, 0)),
     ]
-    nodes_of_tunnel_2 = [nodes_of_tunnel_1[2], Node((40, 50, 10)), Node((0, 60, 0))]
-    tunnel_1 = Tunnel(nodes_of_tunnel_1)  # Tunnels are just a list of nodes
-    tunnel_2 = Tunnel(nodes_of_tunnel_2)
+    tunnel_1 = Tunnel()
+    tunnel_1.append_node(Node(0,0,0))
+    tunnel_1.append_node(Node(20, 0, 0))
+    tunnel_1.append_node(Node(40, 0, 10))
+    tunnel_1.append_node(Node(80, 0, 0))
+
+    tunnel_2 = Tunnel()
+    tunnel_2.append_node(tunnel_1[2])
+    tunnel_2.append_node(Node((40, 50, -40)))
+    tunnel_2.append_node(Node((0, 60, -80)))
+
+    # Tunnels are just a list of nodes
+
     # You can generate tunnels randomly, but this method is not recomended as it does not do any checks,
     # in the second script there is the recomended method
-    example_tunnel = Tunnel.grown(
-        nodes_of_tunnel_1[1], (0, -1, 0), GrownTunnelGenerationParams.random()
-    )
+    #example_tunnel = Tunnel.grown(
+    #    nodes_of_tunnel_1[1], (0, -1, 0), GrownTunnelGenerationParams.random()
+    #)
     # Then the tunnels are added to the network, and everyting is taken care of (intersections and other thingies)
     # DO NOT ADD NODES DIRECTLY TO THE TUNNEL NETWORK, ONLY ADD TUNNELS
     tunnel_network.add_tunnel(tunnel_1)
     tunnel_network.add_tunnel(tunnel_2)
     plot_graph(plotter, tunnel_network)
     plot_splines(plotter, tunnel_network, color="r")
+    #plotter.show()
     ####################################################################################################################################
     # 	Pointcloud and mesh generation
     ####################################################################################################################################
+    np.random.seed(0)
     ptcl_gen_params = TunnelNetworkPtClGenParams.random()
     mesh_gen_params = TunnelNetworkMeshGenParams.from_defaults()
     mesh_gen_params.fta_distance = FTA_DIST

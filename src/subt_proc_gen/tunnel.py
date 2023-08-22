@@ -272,15 +272,20 @@ class Tunnel:
             tunnel_type=TunnelType.connector,
         )
 
-    def __init__(self, nodes: list[Node], tunnel_type=TunnelType.from_nodes):
-        if isinstance(nodes, list):
-            nodes = tuple(nodes)
-        assert len(nodes) > 1
+    def __init__(self, nodes=None, tunnel_type=TunnelType.from_nodes):
+        if nodes is None:
+            nodes = []
+
         for node in nodes:
             assert isinstance(node, Node)
+
         self._nodes = nodes
         self._tunnel_type = tunnel_type
         self._spline = None
+        self._hash = hash(frozenset(self._nodes))
+
+    def append_node(self, node: Node):
+        self._nodes.append(node)
         self._hash = hash(frozenset(self._nodes))
 
     def __contains__(self, node: Node):
