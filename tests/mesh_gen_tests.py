@@ -4,7 +4,7 @@ from subt_proc_gen.mesh_generation import (
     TunnelNetworkMeshGenParams,
 )
 from subt_proc_gen.perlin import (
-    CylindricalPerlinNoiseMapper,
+    CylindricalPerlinNoiseGenerator,
     CylindricalPerlinNoiseMapperParms,
 )
 from subt_proc_gen.tunnel import (
@@ -47,7 +47,7 @@ def generate_coords(scale):
     return coords
 
 
-def noise_with_pool(generator: CylindricalPerlinNoiseMapper, coords):
+def noise_with_pool(generator: CylindricalPerlinNoiseGenerator, coords):
     return generator(coords)
 
 
@@ -59,7 +59,7 @@ def fill_image_with_noise(image, noise, coords):
 
 def test1():
     scale = 100
-    generator = CylindricalPerlinNoiseMapper(
+    generator = CylindricalPerlinNoiseGenerator(
         scale, CylindricalPerlinNoiseMapperParms.from_defaults()
     )
     coords = generate_coords(scale=scale)

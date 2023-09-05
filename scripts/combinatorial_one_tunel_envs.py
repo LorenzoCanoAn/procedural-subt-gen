@@ -52,7 +52,7 @@ MODEL_SDF_TEXT = """<?xml version="1.0"?>
 def gen_axis_points_file(mesh_generator: TunnelNetworkMeshGenerator):
     axis_points = np.zeros((0, 3 + 3 + 1 + 1))
     for tunnel in mesh_generator._tunnel_network.tunnels:
-        radius = mesh_generator.params_of_tunnel(tunnel).radius
+        radius = mesh_generator.ptcl_params_of_tunnel(tunnel).radius
         aps = mesh_generator.aps_of_tunnels
         avs = mesh_generator.avs_of_tunnels
         assert len(aps) == len(avs) != 0
@@ -68,7 +68,7 @@ def gen_axis_points_file(mesh_generator: TunnelNetworkMeshGenerator):
         elif params.ptcl_type == IntersectionPtClType.no_cavity:
             radiuses = []
             for tunnel in mesh_generator._tunnel_network._tunnels_of_node[intersection]:
-                radiuses.append(mesh_generator.params_of_tunnel(tunnel).radius)
+                radiuses.append(mesh_generator.ptcl_params_of_tunnel(tunnel).radius)
             radius = max(radiuses)
         else:
             raise NotImplementedError()

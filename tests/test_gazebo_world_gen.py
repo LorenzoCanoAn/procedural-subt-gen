@@ -1,6 +1,6 @@
 from subt_proc_gen.tunnel import TunnelNetwork
 from subt_proc_gen.mesh_generation import TunnelNetworkMeshGenerator
-from subt_proc_gen.gazebo_world_gen import *
+from subt_proc_gen.gazebo_file_gen import *
 import logging
 import pyvista as pv
 import subt_proc_gen.display_functions as dp
@@ -16,7 +16,7 @@ def test1():
         tunnel_network.add_random_connector_tunnel()
     mesh_generator = TunnelNetworkMeshGenerator(tunnel_network)
     mesh_generator.compute_all()
-    mesh_to_gazebo_model(mesh_generator.mesh, "/home/lorenzo/model")
+    mesh_generator_to_gazebo_model(mesh_generator.mesh, "/home/lorenzo/model")
 
 
 def main():

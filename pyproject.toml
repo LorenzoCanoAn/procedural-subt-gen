@@ -29,4 +29,4 @@ version = "0.0.1"
 "Bug Tracker" = "https://github.com/LorenzoCanoAn/procedural-subt-gen/issues"
 "Homepage" = "https://github.com/LorenzoCanoAn/procedural-subt-gen"
 [tool.hatch.build.targets.wheel]
-packages = ["src/*"]
+packages = ["src/subt_proc_gen"]

@@ -17,11 +17,13 @@ from subt_proc_gen.tunnel import (
     GrownTunnelGenerationParams,
 )
 
+from subt_proc_gen.param_classes import (
+    TunnelNetworkPtClGenParams,
+    TunnelNetworkMeshGenParams,
+)
 
 from subt_proc_gen.mesh_generation import (
     TunnelNetworkMeshGenerator,
-    TunnelNetworkPtClGenParams,
-    TunnelNetworkMeshGenParams,
     IntersectionPtClType,
     TunnelPtClGenParams,
 )
@@ -117,9 +119,7 @@ def main():
     plotter = pv.Plotter()
     plot_intersection_ptcls(plotter, mesh_generator, color="r")
     plot_tunnel_ptcls(plotter, mesh_generator, color="b")
-    plotter.show()
     # PLOT DE LA MESH
-    plotter = pv.Plotter()
     plot_mesh(plotter, mesh_generator)
     plotter.show()
     # SACAR INFOR DE LAS SPLINES

@@ -8,7 +8,6 @@ class PerlinParams:
     _default_octaves = 3
     _default_persistence = 2
     _default_lacunarity = 2
-    _default_min_size = 100
 
     # Random params
     _random_res_range = [1, 5]
@@ -22,7 +21,6 @@ class PerlinParams:
         octaves: int = None,
         persitence: float = None,
         lacunarity: int = None,
-        min_size: int = None,
     ):
         self.res = res if not res is None else self._default_res
         self.octaves = octaves if not octaves is None else self._default_octaves
@@ -32,7 +30,6 @@ class PerlinParams:
         self.lacunarity = (
             lacunarity if not lacunarity is None else self._default_lacunarity
         )
-        self.min_size = min_size if not min_size is None else self._default_min_size
 
     @classmethod
     def random(cls):
@@ -46,8 +43,7 @@ class PerlinParams:
         lacunarity = np.random.randint(
             cls._random_lacunarity_range[0], cls._random_lacunarity_range[1]
         )
-        min_size = cls._default_min_size
-        return cls(res, octaves, persitence, lacunarity, min_size)
+        return cls(res, octaves, persitence, lacunarity)
 
     @classmethod
     def from_defaults(cls):
@@ -61,10 +57,10 @@ class TunnelPtClGenParams:
     _default_dist_between_circles = 0.5
     _default_n_points_per_circle = 30
     _default_radius = 5
-    _default_noise_multiplier = 0.45
+    _default_noise_multiplier = 0.2
     # Random params
     _random_radius_interval = (5, 6)
-    _random_noise_multiplier_interval = (0.4, 0.5)
+    _random_noise_multiplier_interval = (0.2, 0.3)
 
     def __init__(
         self,

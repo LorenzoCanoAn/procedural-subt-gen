@@ -577,7 +577,7 @@ class TunnelNetwork(Graph):
 
     def add_random_grown_tunnel(
         self,
-        params=None,
+        params: GrownTunnelGenerationParams = None,
         n_trials=10,
         collsion_distance=None,
         max_inclination=None,

@@ -96,5 +96,6 @@ ROCK = """
     <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Falling Rock 1</uri>
         <pose>{}</pose>
+        <static>true</static>
     </include>
 """

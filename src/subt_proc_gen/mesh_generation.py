@@ -11,16 +11,15 @@ from subt_proc_gen.geometry import (
     distance_matrix,
 )
 from subt_proc_gen.perlin import (
-    CylindricalPerlinNoiseMapper,
+    CylindricalPerlinNoiseGenerator,
     SphericalPerlinNoiseMapper,
 )
-from subt_proc_gen.mesh_generation_params import (
+from subt_proc_gen.param_classes import (
     TunnelNetworkPtClGenStrategies,
     TunnelPtClGenParams,
     IntersectionPtClType,
     IntersectionPtClGenParams,
     TunnelNetworkPtClGenParams,
-    MeshingApproaches,
     TunnelNetworkMeshGenParams,
 )
 from enum import Enum
@@ -237,7 +236,7 @@ class TunnelNetworkMeshGenerator:
     def params_of_intersection(self, intersection) -> IntersectionPtClGenParams:
         return self._params_of_intersections[intersection]
 
-    def params_of_tunnel(self, tunnel) -> TunnelPtClGenParams:
+    def ptcl_params_of_tunnel(self, tunnel) -> TunnelPtClGenParams:
         return self._params_of_tunnels[tunnel]
 
     def _set_params_of_each_tunnel_ptcl_gen(self, ptcl_gen_params=None):
@@ -245,22 +244,18 @@ class TunnelNetworkMeshGenerator:
             ptcl_gen_params = self._ptcl_gen_params
         if ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.default:
             for tunnel in self._tunnel_network.tunnels:
-                if tunnel in ptcl_gen_params.pre_set_tunnel_params:
-                    self._params_of_tunnels[
-                        tunnel
-                    ] = ptcl_gen_params.pre_set_tunnel_params[tunnel]
-                else:
-                    self._params_of_tunnels[
-                        tunnel
-                    ] = TunnelPtClGenParams.from_defaults()
+                self._params_of_tunnels[tunnel] = (
+                    ptcl_gen_params.pre_set_tunnel_params[tunnel]
+                    if tunnel in ptcl_gen_params.pre_set_tunnel_params
+                    else TunnelPtClGenParams.from_defaults()
+                )
         elif ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.random:
             for tunnel in self._tunnel_network.tunnels:
-                if tunnel in ptcl_gen_params.pre_set_tunnel_params:
-                    self._params_of_tunnels[
-                        tunnel
-                    ] = ptcl_gen_params.pre_set_tunnel_params[tunnel]
-                else:
-                    self._params_of_tunnels[tunnel] = TunnelPtClGenParams.random()
+                self._params_of_tunnels[tunnel] = (
+                    ptcl_gen_params.pre_set_tunnel_params[tunnel]
+                    if tunnel in ptcl_gen_params.pre_set_tunnel_params
+                    else TunnelPtClGenParams.random()
+                )
 
     def _set_params_of_each_intersection_ptcl_gen(
         self, ptcl_gen_params: TunnelNetworkPtClGenParams = None
@@ -290,23 +285,32 @@ class TunnelNetworkMeshGenerator:
 
     def _set_perlin_mappers_of_tunnels(self):
         for tunnel in self._tunnel_network.tunnels:
-            self._perlin_generator_of_tunnel[tunnel] = CylindricalPerlinNoiseMapper(
-                sampling_scale=tunnel.spline.metric_length,
-                params=self.params_of_tunnel(tunnel).perlin_params,
+            self._perlin_generator_of_tunnel[tunnel] = CylindricalPerlinNoiseGenerator(
+                length=tunnel.spline.metric_length,
+                radius=self.ptcl_params_of_tunnel(tunnel).radius,
+                perlin_params=self.ptcl_params_of_tunnel(tunnel).perlin_params,
             )
 
     def _compute_tunnel_ptcls(self):
         for tunnel in self._tunnel_network.tunnels:
-            (ptcl, normals, aps, avs, apss, avss,) = ptcl_from_tunnel(
+            (
+                ptcl,
+                normals,
+                aps,
+                avs,
+                apss,
+                avss,
+            ) = ptcl_from_tunnel(
                 tunnel=tunnel,
-                perlin_mapper=self._perlin_generator_of_tunnel[tunnel],
-                dist_between_circles=self.params_of_tunnel(tunnel).dist_between_circles,
-                n_points_per_circle=self.params_of_tunnel(tunnel).n_points_per_circle,
-                radius=self.params_of_tunnel(tunnel).radius,
-                noise_magnitude=self.params_of_tunnel(tunnel).noise_relative_magnitude,
-                perlin_weight_angle=self.params_of_tunnel(
+                perlin_generator=self._perlin_generator_of_tunnel[tunnel],
+                dist_between_circles=self.ptcl_params_of_tunnel(
                     tunnel
-                ).perlin_weight_by_angle,
+                ).dist_between_circles,
+                n_points_per_circle=self.ptcl_params_of_tunnel(
+                    tunnel
+                ).n_points_per_circle,
+                radius=self.ptcl_params_of_tunnel(tunnel).radius,
+                noise_magnitude=self.ptcl_params_of_tunnel(tunnel).noise_multiplier,
             )
             self._ptcl_of_tunnels[tunnel] = np.hstack((ptcl, normals, apss, avss))
             self._aps_avs_of_tunnels[tunnel] = np.hstack((aps, avs))
@@ -536,18 +540,13 @@ class TunnelNetworkMeshGenerator:
     def _compute_mesh(self):
         points = self.ps
         normals = -self.ns
-        if self._meshing_params.meshing_approach == MeshingApproaches.poisson:
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(points)
-            pcd.normals = o3d.utility.Vector3dVector(normals)
-            o3d_mesh, _ = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-                pcd, depth=self._meshing_params.poisson_depth
-            )
-            self.mesh = o3d_mesh
-        else:
-            raise NotImplementedError(
-                f"The method {self._meshing_params.meshing_approach} is not implemented"
-            )
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+        pcd.normals = o3d.utility.Vector3dVector(normals)
+        o3d_mesh, _ = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+            pcd, depth=self._meshing_params.poisson_depth
+        )
+        self.mesh = o3d_mesh
 
     def flip_mesh_normals(self):
         pv_mesh = self.pyvista_mesh
@@ -661,7 +660,7 @@ class TunnelNetworkMeshGenerator:
 
     def perlin_generator_of_tunnel(
         self, tunnel: Tunnel
-    ) -> CylindricalPerlinNoiseMapper:
+    ) -> CylindricalPerlinNoiseGenerator:
         return self._perlin_generator_of_tunnel[tunnel]
 
 
@@ -672,23 +671,19 @@ class TunnelNetworkMeshGenerator:
 
 def ptcl_from_tunnel(
     tunnel: Tunnel,
-    perlin_mapper,
+    perlin_generator: CylindricalPerlinNoiseGenerator,
     dist_between_circles,
     n_points_per_circle,
     radius,
     noise_magnitude,
-    perlin_weight_angle,
     d_min=None,
     d_max=None,
 ):
     ads, aps, avs = tunnel.spline.discretize(dist_between_circles, d_min, d_max)
     n_circles = aps.shape[0]
     angs = np.linspace(0, 2 * np.pi, n_points_per_circle)
-    pws = perlin_weight_from_angle(angs, perlin_weight_angle)
     angss = np.concatenate([angs for _ in range(n_circles)])
-    pwss = np.concatenate([pws for _ in range(n_circles)])
     angss = np.reshape(angss, [-1, 1])
-    pwss = np.reshape(pwss, [-1, 1])
     apss = np.concatenate(
         [np.full((n_points_per_circle, 3), aps[i, :]) for i in range(n_circles)],
         axis=0,
@@ -716,15 +711,10 @@ def ptcl_from_tunnel(
         [np.full((n_points_per_circle, 1), ads[i, :]) for i in range(n_circles)],
         axis=0,
     )
-    archdss = angss * radius
-    cylindrical_coords = np.concatenate([dss, archdss], axis=1)
-    noise_to_add = perlin_mapper(cylindrical_coords)
-    noise_to_add /= np.max(np.abs(noise_to_add))
-    points = (
-        apss
-        + normals * radius
-        + normals * radius * noise_magnitude * noise_to_add * pwss
-    )
+    cylindrical_coords = np.concatenate([dss, angss], axis=1)
+    noise_to_add = perlin_generator(cylindrical_coords)
+    noise_to_add = np.reshape(noise_to_add, [-1, 1])
+    points = apss + normals * radius * (1 + noise_magnitude * noise_to_add)
     return points, normals, aps, avs, apss, avss
 
 
@@ -739,9 +729,6 @@ def generate_noisy_sphere(
     n_points = int(math.ceil(points_per_sm * area_of_sphere))
     points_before_noise = get_uniform_points_in_sphere(n_points)
     noise_of_points = np.reshape(perlin_mapper(points_before_noise), (-1, 1))
-    noise_of_points /= np.max(np.abs(noise_of_points))
-    noise_of_points -= 1
-    noise_of_points /= 2
     points_with_noise = (
         points_before_noise + noise_multiplier * noise_of_points * points_before_noise
     )

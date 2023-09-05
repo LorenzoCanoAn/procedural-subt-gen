@@ -1,88 +1,94 @@
 import numpy as np
 from perlin_numpy import generate_fractal_noise_2d, generate_fractal_noise_3d
+from subt_proc_gen.param_classes import PerlinParams
 
 
 class CylindricalPerlinNoiseGenerator:
     def __init__(
-        self,
-        length: float,
-        radius: float,
-        res: int,
-        octaves: int = 3,
-        persistence: float = 2,
-        lacunarity: int = 2,
-        min_precision_size: int = 100,
+        self, length: float, radius: float, perlin_params: PerlinParams, min_size=100
     ):
-        self.lenght = length
+        # Copy arguments
+        self.length = length
         self.radius = radius
-        self.circumference = self.radius * 2 * np.pi
-        self.ratio_len_cirum = int(np.ceil(self.lenght / self.circumference))
-        self.res = (int(res * self.ratio_len_cirum), int(res))
-        self.octaves = int(octaves)
-        self.persistence = float(persistence)
-        self.lacunarity = int(lacunarity)
-        self.min_dimension = (self.lacunarity ** (self.octaves - 1)) * res
-        if self.min_dimension < min_precision_size:
-            self.min_dimension *= int(np.ceil(min_precision_size / self.min_dimension))
-        self.shape = np.array(
+        self.perlin_params = perlin_params
+        self.min_size = min_size
+        # Unpack perlin params
+        res = perlin_params.res
+        octaves = perlin_params.octaves
+        persistence = perlin_params.persistence
+        lacunarity = perlin_params.lacunarity
+        # Derived arguments
+        circumference = radius * 2 * np.pi
+        ratio_len_cirum = int(np.ceil(length / circumference))
+        min_dimension = (lacunarity ** (octaves - 1)) * res
+        if min_dimension < min_size:
+            min_dimension *= int(np.ceil(min_size / min_dimension))
+        shape = np.array(
             (
-                self.min_dimension * self.ratio_len_cirum,
-                self.min_dimension,
+                min_dimension * ratio_len_cirum,
+                min_dimension,
             ),
             dtype=int,
         )
-        self.image = generate_fractal_noise_2d(
-            shape=self.shape,
-            res=self.res,
-            octaves=self.octaves,
-            persistence=self.persistence,
-            lacunarity=self.lacunarity,
+        noise_image = generate_fractal_noise_2d(
+            shape=shape,
+            res=(
+                int(res * ratio_len_cirum),
+                int(res),
+            ),
+            octaves=octaves,
+            persistence=persistence,
+            lacunarity=lacunarity,
             tileable=(False, True),
         )
+        self.noise_image = (noise_image - 1) / 2
+        self.circumference = circumference
 
     def __call__(self, coords: np.ndarray):
         """Coords must be an array of size Nx2, the first column must be the position along the axis, and the second the angle around the cross section"""
-        l_coord = coords[:, 0] / self.lenght * self.shape[0]
-        a_coord = coords[:, 1] / (2 * np.pi) * self.shape[1]
-        scaled_coords = np.rint(np.vstack([l_coord, a_coord]).T).astype(int)
-        return self.image[scaled_coords]
+        shape = self.noise_image.shape
+        l_coord = np.floor(coords[:, 0] / self.circumference * shape[1]).astype(int)
+        a_coord = np.floor(coords[:, 1] / (2 * np.pi) * (shape[1] - 1)).astype(int)
+        noise = self.noise_image[l_coord, a_coord]
+        return noise
 
 
 class SphericalPerlinNoiseMapper:
     def __init__(
         self,
-        radius: float,
-        res: int,
-        octaves: int = 3,
-        persistence: float = 2,
-        lacunarity: int = 2,
-        min_precision_size: int = 100,
+        perlin_params: PerlinParams,
+        min_size: int = 50,
     ):
-        self.res = (int(res), int(res), int(res))
-        self.octaves = int(octaves)
-        self.persistence = float(persistence)
-        self.lacunarity = int(lacunarity)
-        self.min_dimension = (self.lacunarity ** (self.octaves - 1)) * res
-        if self.min_dimension < min_precision_size:
-            self.min_dimension *= int(np.ceil(min_precision_size / self.min_dimension))
-        self.shape = np.array(
-            (
-                self.min_dimension,
-                self.min_dimension,
-                self.min_dimension,
-            ),
+        # Copy arguments
+        self.perlin_params = perlin_params
+        # Extract perlin params
+        res = perlin_params.res
+        octaves = perlin_params.lacunarity
+        persistence = perlin_params.persistence
+        lacunarity = perlin_params.lacunarity
+        # Derived arguments
+        min_dimension = (lacunarity ** (octaves - 1)) * res
+        if min_dimension < min_size:
+            min_dimension *= int(np.ceil(min_size / min_dimension))
+        shape = np.array(
+            [min_dimension for _ in range(3)],
             dtype=int,
         )
-        self.image = generate_fractal_noise_3d(
-            shape=self.shape,
-            res=self.res,
-            octaves=self.octaves,
-            persistence=self.persistence,
-            lacunarity=self.lacunarity,
+        noise_cube = generate_fractal_noise_3d(
+            shape=shape,
+            res=[res for _ in range(3)],
+            octaves=octaves,
+            persistence=persistence,
+            lacunarity=lacunarity,
             tileable=(False, False, False),
         )
+        self.noise_cube = (noise_cube - 1) / 2
 
     def __call__(self, coords: np.ndarray):
         """Coords must be an array of size Nx3, each row representing an xyz coordinate. Each coordinate can go from -1 to +1"""
-        scaled_coords = np.rint((coords + 1) / 2 * self.min_dimension).astype(int)
-        return self.image[scaled_coords]
+        shape = self.noise_cube.shape
+        scaled_coords = np.floor((coords + 1) / 2 * (shape[0] - 1)).astype(int)
+        x = scaled_coords[:, 0]
+        y = scaled_coords[:, 1]
+        z = scaled_coords[:, 2]
+        return self.noise_cube[x, y, z]
