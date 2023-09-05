@@ -515,7 +515,7 @@ class TunnelNetworkMeshGenerator:
             cut_off_radius += increment
         return max(radius + increment, starting_radius)
 
-    def compute_all(self):
+    def compute_ptcl(self):
         log.info("Setting parameters of tunnels")
         self._set_params_of_each_tunnel_ptcl_gen()
         log.info("Setting perlin mappers for tunnels")
@@ -530,12 +530,21 @@ class TunnelNetworkMeshGenerator:
         self._separate_intersection_ptcl_from_tunnel_ptcls()
         log.info("Computing pointclouds of intersections")
         self._compute_all_intersections_ptcl()
+
+    def compute_mesh(self):
         log.info("Computing mesh")
         self._compute_mesh()
+
+    def compute_floors(self):
         log.info("Voxelizing ptcl")
         self._voxelize_ptcl()
         log.info("Flattening floors")
         self._flatten_floors()
+
+    def compute_all(self):
+        self.compute_ptcl()
+        self.compute_mesh()
+        self.compute_floors()
 
     def _compute_mesh(self):
         points = self.ps
