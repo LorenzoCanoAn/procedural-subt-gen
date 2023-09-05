@@ -114,7 +114,9 @@ def main():
         ptcl_gen_params=ptcl_gen_params,
         meshing_params=mesh_gen_params,
     )
-    mesh_generator.compute_all()
+    mesh_generator.compute_ptcl()
+    mesh_generator.compute_mesh()
+    mesh_generator.compute_floors()
     # PLOT DE LA POINTCLOUD
     plotter = pv.Plotter()
     plot_intersection_ptcls(plotter, mesh_generator, color="r")
