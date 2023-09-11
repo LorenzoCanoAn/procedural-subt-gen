@@ -1,0 +1,1 @@
+../../saudefense-qt/EasyConfig.py
