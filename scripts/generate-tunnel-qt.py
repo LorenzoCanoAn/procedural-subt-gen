@@ -5,8 +5,8 @@ import sys
 import matplotlib
 import pyvista
 
-from param_classes import TunnelPtClGenParams
-from scripts.EasyConfig import EasyConfig
+from subt_proc_gen.param_classes import TunnelPtClGenParams
+from EasyConfig import EasyConfig
 from subt_proc_gen.display_functions import plot_graph, plot_splines, plot_mesh, plot_tunnel_ptcls, \
     plot_intersection_ptcls
 from subt_proc_gen.mesh_generation import (
