@@ -151,11 +151,11 @@ def main():
                 "Folder already exists, if you want to overwrite it set the argument '-O' to 'true'"
             )
         else:
-            shutil.rmtree(base_folder)
-    os.mkdir(base_folder)
+            pass
+    os.makedirs(base_folder, exist_ok=True)
     for n in range(n_envs):
         base_env_folder = os.path.join(base_folder, f"env_{n+1:03d}")
-        os.mkdir(base_env_folder)
+        os.makedirs(base_env_folder, exist_ok=True)
         tunnel_network_params = TunnelNetworkParams.from_defaults()
         tunnel_network_params.min_distance_between_intersections = 30
         tunnel_network_params.collision_distance = 15

@@ -94,14 +94,9 @@ def main():
     tunnel_network.add_tunnel(tunnel_1)
     tunnel_network.add_tunnel(tunnel_2)
     # PLOT DE LAS SPLINE Y GRAFO
-    plotter = pv.Plotter()
-    plot_graph(plotter, tunnel_network)
-    plot_splines(plotter, tunnel_network, color="r")
-    plotter.show()
     ####################################################################################################################################
     # 	Pointcloud and mesh generation
     ####################################################################################################################################
-    np.random.seed(0)
     ptcl_gen_params = TunnelNetworkPtClGenParams.random()
     # To add specific ptcl generation parameters for a specific tunnel:
     tunnel_1_ptcl_gen_params = TunnelPtClGenParams.from_defaults()
@@ -119,6 +114,8 @@ def main():
     mesh_generator.compute_floors()
     # PLOT DE LA POINTCLOUD
     plotter = pv.Plotter()
+    plot_graph(plotter, tunnel_network)
+    plot_splines(plotter, tunnel_network, color="r")
     plot_intersection_ptcls(plotter, mesh_generator, color="r")
     plot_tunnel_ptcls(plotter, mesh_generator, color="b")
     # PLOT DE LA MESH

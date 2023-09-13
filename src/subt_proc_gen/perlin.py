@@ -41,6 +41,7 @@ class CylindricalPerlinNoiseGenerator:
             lacunarity=lacunarity,
             tileable=(False, True),
         )
+        noise_image /= np.max(np.abs(noise_image))
         self.noise_image = (noise_image - 1) / 2
         self.circumference = circumference
 
