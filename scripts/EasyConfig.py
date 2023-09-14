@@ -3,7 +3,7 @@ import sys
 from enum import Enum
 
 import yaml
-from PyQt5.QtCore import Qt, QRectF, QRect, QTimer, pyqtSignal, QLocale
+from PyQt5.QtCore import Qt, QRect, QTimer, pyqtSignal
 from PyQt5.QtGui import QIcon, QFont, QIntValidator, QDoubleValidator
 from PyQt5.QtWidgets import (
     QApplication,
@@ -26,7 +26,8 @@ from PyQt5.QtWidgets import (
     QAbstractItemView,
     QScrollArea,
     QHeaderView,
-    QTextEdit, QSlider,
+    QTextEdit,
+    QSlider,
 )
 
 
@@ -60,7 +61,7 @@ class EasyConfig:
                 super().__init__(None)
                 self.name = name
                 self.pretty = kwargs.get("pretty", name)
-                self.fmt = kwargs.get("fmt","{}")
+                self.fmt = kwargs.get("fmt", "{}")
                 self.layout = QHBoxLayout()
                 ql = QLabel(self.pretty)
                 ql.setMinimumWidth(100)
@@ -183,12 +184,12 @@ class EasyConfig:
                 self.lbl.setMinimumWidth(kwargs.get("label_width", 25))
                 self.ed = QSlider()
                 self.ed.setOrientation(Qt.Horizontal)
-                self.ed.setMinimum(kwargs.get('min', 0))
-                self.ed.setMaximum(kwargs.get('max', 100))
+                self.ed.setMinimum(kwargs.get("min", 0))
+                self.ed.setMaximum(kwargs.get("max", 100))
                 self.ed.valueChanged.connect(self.slider_moved)
-                self.denom = kwargs.get('den', 1)
+                self.denom = kwargs.get("den", 1)
                 self.ed.setContentsMargins(2, 2, 2, 2)
-                #self.layout.addWidget(self.ed)
+                # self.layout.addWidget(self.ed)
                 hbox.addWidget(self.lbl)
                 hbox.addWidget(self.ed)
                 self.layout.addLayout(hbox)
@@ -216,7 +217,7 @@ class EasyConfig:
 
             def set_value(self, value):
                 self.ed.setText(self.fmt.format(value))
-                #self.ed.setText(str(value))
+                # self.ed.setText(str(value))
 
             def get_value(self):
                 return self.ed.text()
@@ -303,15 +304,21 @@ class EasyConfig:
 
         class FolderChoice(File):
             def open_file(self):
-                file_name = QFileDialog.getExistingDirectory(self, "Select Directory", "")
+                file_name = QFileDialog.getExistingDirectory(
+                    self, "Select Directory", ""
+                )
                 if file_name != "":
                     self.ed.setText(file_name)
                     self.value_changed.emit()
 
         class SaveFile(File):
             def open_file(self):
-                file_name, _ = QFileDialog.getSaveFileName(self, "Open " + self.extension.upper() + " Document", "",
-                                                           self.extension.upper() + " Files (*." + self.extension + ")")
+                file_name, _ = QFileDialog.getSaveFileName(
+                    self,
+                    "Open " + self.extension.upper() + " Document",
+                    "",
+                    self.extension.upper() + " Files (*." + self.extension + ")",
+                )
                 if file_name != "":
                     self.ed.setText(file_name)
                     self.value_changed.emit()
@@ -412,9 +419,11 @@ class EasyConfig:
                 self.w.set_value(value)
 
         def add(self, key, kind=Kind.STR, **kwargs):
-            if '/' in key:
+            if "/" in key:
                 if key.startswith("/") and self.kind != self.Kind.ROOT:
-                    raise Exception("A key can begin with '/' only if adding from the root node")
+                    raise Exception(
+                        "A key can begin with '/' only if adding from the root node"
+                    )
 
                 key = key if not key.startswith("/") else key[1:]
                 fields = key.split("/")
@@ -588,7 +597,6 @@ class EasyConfig:
                     qtw = QTreeWidgetItem()
                     node.addChild(qtw)
                     if False:
-
                         label = QLabel(self.pretty)
                         label.setContentsMargins(2, 2, 2, 2)
                         list.setItemWidget(qtw, 0, label)
@@ -622,7 +630,6 @@ class EasyConfig:
         return dialog
 
     def edit(self):
-
         dialog = self.Dialog(self.root_node)
         if self.expanded:
             dialog.set_expanded(self.expanded)
@@ -643,9 +650,16 @@ class EasyConfig:
             if len(nodes) > 0:
                 return nodes[0].value if nodes[0].value is not None else default
             else:
-                raise Exception("Key {} not found{}".format(key, ". Can create only from "
-                                                                 "root node (add '/' at the "
-                                                                 "beginning of the key)" if create else ""))
+                raise Exception(
+                    "Key {} not found{}".format(
+                        key,
+                        ". Can create only from "
+                        "root node (add '/' at the "
+                        "beginning of the key)"
+                        if create
+                        else "",
+                    )
+                )
         else:
             path = key[1:].split("/")
             node = self.get_node(path)
@@ -673,9 +687,16 @@ class EasyConfig:
                 nodes[0].set_value(value)
                 return True
             else:
-                raise Exception("Key {} not found{}".format(key, ". Can create only from "
-                                                                 "root node (add '/' at the "
-                                                                 "beginning of the key)" if create else ""))
+                raise Exception(
+                    "Key {} not found{}".format(
+                        key,
+                        ". Can create only from "
+                        "root node (add '/' at the "
+                        "beginning of the key)"
+                        if create
+                        else "",
+                    )
+                )
         else:
             path = key[1:].split("/")
             node = self.get_node(path)
@@ -721,10 +742,10 @@ class EasyConfig:
     def get_nodes(self, key):
         def recu(node, found):
             if (
-                    node
-                    and key
-                    and node.kind != EasyConfig.Elem.Kind.SUBSECTION
-                    and (node.key.lower() == key.lower())
+                node
+                and key
+                and node.kind != EasyConfig.Elem.Kind.SUBSECTION
+                and (node.key.lower() == key.lower())
             ):  # or node.pretty.lower() == key.lower()):
                 found.append(node)
             for c in node.child:
@@ -759,9 +780,18 @@ class MainWindow(QPushButton):
         second_level.addCombobox("Combo", pretty="One combobox", items=["a", "b", "c"])
         second_level.addFile("load_file", pretty="One file", extension="jpg")
         second_level.addFileSave("save_file", pretty="Save file", extension="jpg")
-        first_level.addFolderChoice("chose_folder", pretty="Choose folder", extension="jpg")
+        first_level.addFolderChoice(
+            "chose_folder", pretty="Choose folder", extension="jpg"
+        )
         first_level.addCheckbox("checkbox", pretty="The checkbox")
-        first_level.addEditBox("editbox", pretty="The editbox", font="Helvetica", size=20, bold=True, italic=True)
+        first_level.addEditBox(
+            "editbox",
+            pretty="The editbox",
+            font="Helvetica",
+            size=20,
+            bold=True,
+            italic=True,
+        )
         first_level.addPassword("password", pretty="The password")
 
         self.c.root().addInt("danilo/tardioli")
