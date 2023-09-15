@@ -89,7 +89,7 @@ class Sketch(QLabel):
         pix = QPixmap(200, 200)
         pix.fill(Qt.white)
         self.color_index = 0
-        self.colors = [Qt.red, Qt.green, Qt.blue, Qt.darkYellow, Qt.darkMagenta]
+        self.colors = [Qt.red, Qt.green, Qt.blue, Qt.darkYellow, Qt.darkMagenta, Qt.black, Qt.yellow, Qt.gray, Qt.cyan]
         self.setPixmap(pix)
         self.setScaledContents(True)
         self.base = None
@@ -576,7 +576,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         tb = QToolBar()
         tb.addAction("Render", lambda: self.thread_run(self.do_render_mesh)).setIcon(
-            QIcon.fromTheme("document-open")
+            QIcon.fromTheme("media-playback-start")
         )
         tb.addAction("Save", self.save_mesh).setIcon(
             QIcon.fromTheme("document-save")

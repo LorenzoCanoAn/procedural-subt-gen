@@ -219,8 +219,9 @@ def plot_mesh(
     plotter,
     tunnel_network_mesh_generator: TunnelNetworkMeshGenerator,
     color=None,
+    style = None,
 ):
     if color is None:
         color = "w"
     mesh = tunnel_network_mesh_generator.pyvista_mesh
-    return plotter.add_mesh(mesh, color=color, style="wireframe")
+    return plotter.add_mesh(mesh, color=color, style=None, show_edges = True)
