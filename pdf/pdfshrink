@@ -1,0 +1,51 @@
+#!/bin/bash
+
+[ -f "$1" ] || { echo Missing filename; exit ; }
+
+if [ "$2" == "" ]; then
+    echo Enter downsampling resolution '(e.g. 72)':
+    read res
+else
+    res=$2
+fi
+
+# To remove type3 fonts there's no real solution on Linux. You can rasterize
+# all fonts with:
+# inkscape <file> -o <outfile> -T
+# Of course you can do this only for the offending figures preferably.
+# Note that inkscape will convert only one page in a pdf (1st one by default).
+
+# CompatibilityLevels
+# 1.3 some pages will be completely rasterized if images in them are
+# 1.4 is safe default
+# 1.5 and 1.7 achieve smaller file sizes
+
+gs	-q -dNOPAUSE -dBATCH -dSAFER \
+	-sDEVICE=pdfwrite \
+	-dCompatibilityLevel=1.7 \
+	-dPDFSETTINGS=/prepress \
+	-dEmbedAllFonts=true \
+	-dSubsetFonts=true \
+	-dColorImageDownsampleType=/Bicubic \
+	-dColorImageResolution=$res \
+	-dGrayImageDownsampleType=/Bicubic \
+	-dGrayImageResolution=$res \
+	-dMonoImageDownsampleType=/Bicubic \
+	-dMonoImageResolution=$res \
+	-sOutputFile="${1/.pdf/}-${res}.pdf" \
+	 "$1"
+
+# /screen selects low-resolution output similar to the Acrobat Distiller (up to
+# version X) "Screen Optimized" setting.
+
+# /ebook selects medium-resolution output similar to the Acrobat Distiller (up
+# to version X) "eBook" setting.
+
+# /printer selects output similar to the Acrobat Distiller "Print Optimized"
+# (up to version X) setting.
+
+# /prepress selects output similar to Acrobat Distiller "Prepress Optimized"
+# (up to version X) setting.
+
+# /default selects output intended to be useful across a wide variety of uses,
+# possibly at the expense of a larger output file.
