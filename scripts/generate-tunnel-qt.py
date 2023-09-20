@@ -5,6 +5,8 @@ import sys
 import matplotlib
 import pyvista
 
+sys.path.append("src")
+
 from subt_proc_gen.param_classes import TunnelPtClGenParams
 from EasyConfig import EasyConfig
 from subt_proc_gen.display_functions import (
@@ -97,7 +99,17 @@ class Sketch(QLabel):
         pix = QPixmap(200, 200)
         pix.fill(Qt.white)
         self.color_index = 0
-        self.colors = [Qt.red, Qt.green, Qt.blue, Qt.darkYellow, Qt.darkMagenta]
+        self.colors = [
+            Qt.red,
+            Qt.green,
+            Qt.blue,
+            Qt.darkYellow,
+            Qt.darkMagenta,
+            Qt.black,
+            Qt.yellow,
+            Qt.gray,
+            Qt.cyan,
+        ]
         self.setPixmap(pix)
         self.setScaledContents(True)
         self.base = None
@@ -620,6 +632,7 @@ class MainWindow(QtWidgets.QMainWindow):
         tb.addAction("Render", lambda: self.thread_run(self.do_render_mesh)).setIcon(
             QIcon.fromTheme("media-playback-start")
         )
+        tb.addAction("Save", self.save_mesh).setIcon(QIcon.fromTheme("document-save"))
         tb.addAction("Save", self.save_mesh).setIcon(QIcon.fromTheme("document-save"))
         vbox.addWidget(tb)
         vbox.addWidget(self.frame2)

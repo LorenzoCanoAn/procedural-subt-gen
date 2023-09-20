@@ -1,0 +1,47 @@
+#!/bin/bash
+# Dicotomic compression until size
+
+# Try adjusting density if the process always undershoots
+density=2400
+
+[ "$1" == "" ] && { echo Missing src; exit 1; }
+[ "$2" == "" ] && { echo Missing dst; exit 2; }
+[ "$3" == "" ] && { echo Missing size; exit 3; }
+
+src=$1
+dst=$2
+
+target=`numfmt --from=iec $3`
+
+up=$density
+dn=1
+cur=$((($up+$dn) / 2))
+
+tmp=`mktemp`
+
+while true; do
+
+    echo Setting quality to $dn:${cur}:$up...
+    pdfshrink $src $cur 
+    last="${src/.pdf/}-${cur}.pdf"
+    mv -f $last $tmp
+    size=`stat -c%s $tmp`
+    if [ $size -gt $target ]; then
+        echo -n ${IRed}Too big: 
+        up=$(($cur-1))
+    else
+        echo -n ${IGreen}Smaller:
+        dn=$((cur+1))
+        lastok=$cur
+        sizeok=$size
+        cp -f $tmp "$dst"
+    fi
+    echo $IWhite' '$cur : `numfmt --to=iec $size`
+    cur=$((($up + $dn) / 2))
+
+    [ $up -lt $dn ] && { 
+        echo Done with density $lastok and size $(numfmt --to=iec $sizeok).
+        exit 0; 
+    }
+
+done

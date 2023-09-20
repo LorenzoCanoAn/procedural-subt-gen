@@ -6,4 +6,8 @@ pyqt5
 pyvista
 pyvistaqt
 pyyaml
+<<<<<<< HEAD
 scipy
+=======
+scipy
+>>>>>>> 61fa46f172a5ef9288bb18294750e3cfe66ca77e

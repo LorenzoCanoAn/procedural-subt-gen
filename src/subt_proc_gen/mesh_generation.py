@@ -555,7 +555,7 @@ class TunnelNetworkMeshGenerator:
         o3d_mesh, _ = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
             pcd, depth=self._meshing_params.poisson_depth
         )
-        self.mesh = o3d_mesh
+        self.mesh = o3d_mesh.simplify_vertex_clustering(voxel_size=0.5)
 
     def flip_mesh_normals(self):
         pv_mesh = self.pyvista_mesh
