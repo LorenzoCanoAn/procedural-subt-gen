@@ -731,9 +731,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def do_render_mesh(self):
         self.mesh_generator.compute_mesh()
         self.mesh_generator.compute_floors()
-        print("hola")
         plot_mesh(self.plotter2, self.mesh_generator)
-        print("adios")
         self.pd.hide()
 
     def do_create_pctl(self):
