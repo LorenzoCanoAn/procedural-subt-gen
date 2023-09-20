@@ -633,7 +633,6 @@ class MainWindow(QtWidgets.QMainWindow):
             QIcon.fromTheme("media-playback-start")
         )
         tb.addAction("Save", self.save_mesh).setIcon(QIcon.fromTheme("document-save"))
-        tb.addAction("Save", self.save_mesh).setIcon(QIcon.fromTheme("document-save"))
         vbox.addWidget(tb)
         vbox.addWidget(self.frame2)
 

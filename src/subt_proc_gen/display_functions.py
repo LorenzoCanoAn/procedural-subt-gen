@@ -218,23 +218,8 @@ def plot_intersection_ptcls(
 def plot_mesh(
     plotter: pv.Plotter,
     tunnel_network_mesh_generator: TunnelNetworkMeshGenerator,
-<<<<<<< HEAD
-    color="gray",
-    style="wireframe",
-=======
     color=None,
-    style = None,
->>>>>>> 61fa46f172a5ef9288bb18294750e3cfe66ca77e
+    style=None,
 ):
     mesh = tunnel_network_mesh_generator.pyvista_mesh
-<<<<<<< HEAD
-    return plotter.add_mesh(
-        mesh,
-        color=color,
-        style=style,
-        edge_color=color,
-        show_edges=True,
-    )
-=======
-    return plotter.add_mesh(mesh, color=color, style=None, show_edges = True)
->>>>>>> 61fa46f172a5ef9288bb18294750e3cfe66ca77e
+    return plotter.add_mesh(mesh, color=color, style=None, show_edges=True)
