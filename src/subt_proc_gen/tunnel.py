@@ -13,7 +13,7 @@ import logging as log
 
 
 class ConnectorTunnelGenerationParams:
-    _default_segment_length = 20
+    _default_segment_length = 10
     _default_node_position_horizontal_noise = 7
     _default_node_position_vertical_noise = 5
 
@@ -224,9 +224,20 @@ class Tunnel:
 
     @classmethod
     def grown(
-        cls, i_node: Node, i_direction: Vector3D, params: GrownTunnelGenerationParams
+        cls,
+        i_node: Node,
+        i_direction: Vector3D = None,
+        params: GrownTunnelGenerationParams = None,
     ):
         nodes = [i_node]
+        if i_direction is None:
+            i_direction = Vector3D.from_inclination_yaw_length(
+                np.random.uniform(-np.deg2rad(10), np.deg2rad(10)),
+                np.pi / 2,
+                1,
+            )
+        if params is None:
+            params = GrownTunnelGenerationParams.random()
         prev_direction = Vector3D(i_direction)
         prev_direction.set_distance(params.get_segment_length())
         d = prev_direction.length
@@ -241,21 +252,21 @@ class Tunnel:
     @classmethod
     def connector(
         cls,
-        i_node: Node,
-        f_node: Node,
-        params: ConnectorTunnelGenerationParams,
+        inode: Node,
+        fnode: Node,
+        params: ConnectorTunnelGenerationParams = ConnectorTunnelGenerationParams.from_defaults(),
         i_vector: Vector3D = None,
         f_vector: Vector3D = None,
     ):
         if not i_vector is None:
-            nodes = [i_node, i_node + Vector3D(i_vector)]
+            nodes = [inode, inode + Vector3D(i_vector)]
         else:
-            nodes = [i_node]
+            nodes = [inode]
         start_node = nodes[-1]
         if not f_vector is None:
-            final_nodes = [f_node + Vector3D(f_vector), f_node]
+            final_nodes = [fnode + Vector3D(f_vector), fnode]
         else:
-            final_nodes = [f_node]
+            final_nodes = [fnode]
         finish_node = final_nodes[0]
         s_to_f_vector = finish_node - start_node
         n_segments = math.ceil(s_to_f_vector.length / params.segment_length)
@@ -653,7 +664,9 @@ class TunnelNetwork(Graph):
                 continue
             else:
                 successful = True
-        return successful
+        if not successful:
+            tunnel = None
+        return successful, tunnel
 
     def add_random_connector_tunnel(
         self,
@@ -735,7 +748,9 @@ class TunnelNetwork(Graph):
                 continue
             else:
                 successful = True
-        return successful
+        if not successful:
+            tunnel = None
+        return successful, tunnel
 
     @property
     def tunnels(self) -> set[Tunnel]:

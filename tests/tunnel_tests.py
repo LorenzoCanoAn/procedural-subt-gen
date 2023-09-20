@@ -87,8 +87,8 @@ def test3():
     )
     tunnel_network.add_tunnel(second_tunnel)
     third_tunnel = Tunnel.connector(
-        i_node=first_tunnel[-2],
-        f_node=second_tunnel[-2],
+        inode=first_tunnel[-2],
+        fnode=second_tunnel[-2],
         params=ConnectorTunnelGenerationParams.from_defaults(),
     )
     tunnel_network.remove_tunnel(first_tunnel)
@@ -117,8 +117,8 @@ def test4():
     )
     tunnel_network.add_tunnel(second_tunnel)
     third_tunnel = Tunnel.connector(
-        i_node=first_tunnel[-2],
-        f_node=second_tunnel[-2],
+        inode=first_tunnel[-2],
+        fnode=second_tunnel[-2],
         params=ConnectorTunnelGenerationParams.from_defaults(),
     )
     tunnel_network.add_tunnel(third_tunnel)
@@ -152,8 +152,8 @@ def test5():
     )
     tunnel_network.add_tunnel(second_tunnel)
     third_tunnel = Tunnel.connector(
-        i_node=first_tunnel[-2],
-        f_node=second_tunnel[-2],
+        inode=first_tunnel[-2],
+        fnode=second_tunnel[-2],
         params=ConnectorTunnelGenerationParams.from_defaults(),
     )
     tunnel_network.add_tunnel(third_tunnel)
@@ -182,8 +182,8 @@ def test6():
     )
     tunnel_network.add_tunnel(second_tunnel)
     third_tunnel = Tunnel.connector(
-        i_node=first_tunnel[-2],
-        f_node=second_tunnel[-2],
+        inode=first_tunnel[-2],
+        fnode=second_tunnel[-2],
         params=ConnectorTunnelGenerationParams.from_defaults(),
     )
     tunnel_network.add_tunnel(third_tunnel)

@@ -76,7 +76,7 @@ class TunnelNetworkMeshGenerator:
     def __init__(
         self,
         tunnel_network: TunnelNetwork,
-        ptcl_gen_params: TunnelNetworkPtClGenParams = TunnelNetworkPtClGenParams.from_defaults(),
+        ptcl_gen_params: TunnelNetworkPtClGenParams = TunnelNetworkPtClGenParams.random(),
         meshing_params: TunnelNetworkMeshGenParams = TunnelNetworkMeshGenParams.from_defaults(),
     ):
         self._tunnel_network = tunnel_network

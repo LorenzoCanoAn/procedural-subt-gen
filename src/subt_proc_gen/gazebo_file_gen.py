@@ -1,6 +1,6 @@
 # This file defines functions to create a gazebo world file from a set of meshes
 import subt_proc_gen.mesh_generation as mg
-import subt_proc_gen.mesh_generation_params as mgp
+import subt_proc_gen.param_classes as mgp
 import subt_proc_gen.tunnel as tn
 from subt_proc_gen.gazebo_base_sdf_text import *
 import open3d as o3d
