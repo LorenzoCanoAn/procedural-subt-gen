@@ -544,10 +544,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.radius_slider.setTickInterval(1)
 
         self.floor_slider = QSlider(Qt.Horizontal)
-        self.floor_slider.setValue(-1)
         self.floor_slider.setMinimum(-2)
         self.floor_slider.setMaximum(1)
         self.floor_slider.setTickInterval(1)
+        self.floor_slider.setValue(-1)
 
         # self.slider.setSingleStep(100)
         self.slider.valueChanged.connect(self.slider_changed)
