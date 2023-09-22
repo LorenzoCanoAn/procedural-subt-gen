@@ -588,6 +588,7 @@ class TunnelNetworkMeshGenerator:
                 vert_inside[2] = ap_of_vert[2] + fta_dist
                 vertices[i, :] = vert_inside
                 floor_vertices_idxs.add(i)
+        print()
         floor_vertices_idxs = tuple(floor_vertices_idxs)
         # Extra steps for diaphanous intersections
         log.info("Adding extra intersection floor points")
@@ -645,6 +646,7 @@ class TunnelNetworkMeshGenerator:
             for adj_idx in adjacency_list[floor_idx]:
                 if adj_idx in floor_vertices_idxs:
                     floor_adj_list[floor_idx].append(adj_idx)
+        print()
         log.info("Smoothing floors")
         for n_iter in range(self._meshing_params.floor_smoothing_iter):
             log.info(f"Iter {n_iter}")
@@ -655,6 +657,7 @@ class TunnelNetworkMeshGenerator:
                 neigh_verts = copied_verts[adj_verts_idxs, :]
                 avg_z = np.average(neigh_verts[:, 2])
                 vertices[vert_idx, 2] = avg_z
+        print()
         self.mesh.vertices = o3d.utility.Vector3dVector(vertices)
 
     def save_mesh(self, path):
@@ -723,6 +726,9 @@ def ptcl_from_tunnel(
     cylindrical_coords = np.concatenate([dss, angss], axis=1)
     noise_to_add = perlin_generator(cylindrical_coords)
     noise_to_add = np.reshape(noise_to_add, [-1, 1])
+    noise_to_add /= np.max(np.abs(noise_to_add))
+    noise_to_add -= 1
+    noise_to_add /= 2
     points = apss + normals * radius * (1 + noise_magnitude * noise_to_add)
     return points, normals, aps, avs, apss, avss
 
@@ -802,17 +808,3 @@ def ids_points_inside_ptcl_sphere(sphere_points, center_point, points):
     return np.where(
         dists_of_ps_to_center < dists_of_sph_pts_to_center[id_closest_sph_pt_to_pt]
     )
-
-
-def perlin_weight_from_angle(angles_rad, perlin_weight_angle_rad):
-    """Given an set of angles in radians, and a cuttoff angle, this function returns the weight
-    that the perlin noise should have in a given angle, so that there is no discontinuity in the resulting image
-    """
-    perlin_weights = np.zeros(angles_rad.shape)
-    for i, angle in enumerate(angles_rad):
-        warped_angle = warp_angle_pi(angle)
-        if abs(warped_angle) < perlin_weight_angle_rad:
-            perlin_weights[i] = (abs(warped_angle) / perlin_weight_angle_rad) ** 2
-        else:
-            perlin_weights[i] = 1
-    return perlin_weights

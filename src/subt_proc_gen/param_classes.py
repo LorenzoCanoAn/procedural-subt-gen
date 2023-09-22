@@ -60,7 +60,7 @@ class TunnelPtClGenParams:
     _default_noise_multiplier = 0.2
     # Random params
     _random_radius_interval = (5, 6)
-    _random_noise_multiplier_interval = (0.2, 0.5)
+    _random_noise_multiplier_interval = (0.1, 0.6)
 
     def __init__(
         self,
@@ -140,7 +140,7 @@ class IntersectionPtClGenParams:
         IntersectionPtClType.no_cavity,
         # IntersectionPtClType.spherical_cavity,
     )
-    _random_noise_multiplier_range = (0.5, 0.6)
+    _random_noise_multiplier_range = (0.2, 0.4)
 
     def __init__(
         self,

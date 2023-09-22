@@ -6,7 +6,6 @@ from subt_proc_gen.helper_functions import *
 from subt_proc_gen.tunnel import TunnelParams, Tunnel, TunnelNetwork
 from subt_proc_gen.graph import Node
 from subt_proc_gen.tunnel import *
-from subt_proc_gen.PARAMS import N_ANGLES_PER_CIRCLE
 from subt_proc_gen.mesh_generation import TunnelWithMesh, TunnelPtClGenParams
 import matplotlib
 import pickle
@@ -162,8 +161,7 @@ def main():
         plotter.camera.position = cpos1
         plotter.camera.focal_point = cfpt1
         plotter.camera.roll = cr1
-        plotter.show(screenshot=save_path_1,
-                     window_size=window_size, auto_close=False)
+        plotter.show(screenshot=save_path_1, window_size=window_size, auto_close=False)
         plotter.camera.position = cpos2
         plotter.camera.focal_point = cfpt2
         plotter.camera.roll = cr2

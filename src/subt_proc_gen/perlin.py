@@ -30,7 +30,7 @@ class CylindricalPerlinNoiseGenerator:
             ),
             dtype=int,
         )
-        noise_image = generate_fractal_noise_2d(
+        self.noise_image = generate_fractal_noise_2d(
             shape=shape,
             res=(
                 int(res * ratio_len_cirum),
@@ -41,12 +41,11 @@ class CylindricalPerlinNoiseGenerator:
             lacunarity=lacunarity,
             tileable=(False, True),
         )
-        noise_image /= np.max(np.abs(noise_image))
-        self.noise_image = (noise_image - 1) / 2
         self.circumference = circumference
 
     def __call__(self, coords: np.ndarray):
-        """Coords must be an array of size Nx2, the first column must be the position along the axis, and the second the angle around the cross section"""
+        """Coords must be an array of size Nx2, the first column must be the position along the axis,
+        and the second the angle around the cross section"""
         shape = self.noise_image.shape
         l_coord = np.floor(coords[:, 0] / self.circumference * shape[1]).astype(int)
         a_coord = np.floor(coords[:, 1] / (2 * np.pi) * (shape[1] - 1)).astype(int)
