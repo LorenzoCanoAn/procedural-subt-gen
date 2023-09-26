@@ -13,7 +13,19 @@ pip3 install -r requirements.txt
 pip3 install -e .
 ```
 
-## GUI+
+## GUI
+
+The GUI is implemented as a script that can be found in the folder ```scripts``` by the name of ```generate-tunnel-qt.py```.
+
+To create an underground environment with the gui, there are three main steps.
+
+1. Generate a sketch of the tunnel network.
+2. Generate the pointcloud over the sketch by pressing the 'play' button on the sketching tab.
+3. Once the pointcloud is satisfactory, generate the mesh by pressing the 'play' button on the visualization tab.
+
+![gui_1](README/gui_1.png)
+![gui_2](README/gui_2.png)
+![gui_3](README/gui_3.png)
 
 ## Examples
 
