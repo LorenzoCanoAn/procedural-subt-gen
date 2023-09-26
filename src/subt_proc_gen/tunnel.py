@@ -348,8 +348,8 @@ class NodeType(Enum):
 
 class TunnelNetworkParams:
     _default_collision_distance = 10
-    _default_min_intersection_angle = np.deg2rad(30)
-    _default_max_inclination = np.deg2rad(30)
+    _default_min_intersection_angle_rad = np.deg2rad(30)
+    _default_max_inclination_rad = np.deg2rad(30)
     _default_min_dist_between_nodes = 30
     _default_flat = False
 
@@ -377,8 +377,8 @@ class TunnelNetworkParams:
     def from_defaults(cls):
         return cls(
             collision_distance=cls._default_collision_distance,
-            max_inclination=cls._default_max_inclination,
-            min_intersection_angle=cls._default_min_intersection_angle,
+            max_inclination_rad=cls._default_max_inclination_rad,
+            min_intersection_angle_rad=cls._default_min_intersection_angle_rad,
             min_distance_between_intersections=cls._default_min_dist_between_nodes,
             flat=cls._default_flat,
         )

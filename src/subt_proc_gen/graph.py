@@ -29,7 +29,7 @@ class Node:
         elif len(argv) == 3:
             self._pose = Point3D((argv[0], argv[1], argv[2]))
         else:
-            assert(0)
+            assert 0
 
     def __str__(self):
         return str(self._id)
@@ -38,9 +38,7 @@ class Node:
         if isinstance(other, Vector3D):
             return Node(self._pose + other)
         else:
-            raise NotImplemented(
-                f"Adding a {type(other)} to a {type(self)} not implemented"
-            )
+            raise NotImplemented(f"Adding a {type(other)} to a {type(self)} not implemented")
 
     def __sub__(self, other):
         if isinstance(other, Vector3D):
@@ -50,9 +48,7 @@ class Node:
         elif isinstance(other, Node):
             return self._pose - other._pose
         else:
-            raise NotImplemented(
-                f"Adding a {type(other)} to a {type(self)} not implemented"
-            )
+            raise NotImplemented(f"Adding a {type(other)} to a {type(self)} not implemented")
 
     def __eq__(self, other):
         if isinstance(other, Node):
@@ -139,7 +135,7 @@ class Graph:
 
     def remove_node(self, node: Node):
         assert node in self._nodes
-        for cn in self._adj_list[node]:
+        for cn in self._adj_list[node].copy():
             self._adj_list[cn].remove(node)
         del self._adj_list[node]
         self._nodes.remove(node)

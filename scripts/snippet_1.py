@@ -95,6 +95,7 @@ Black lines: Edges""",
         font_size=10,
     )
     cpos, image = plotter.show(return_img=True, return_cpos=True, screenshot=True)
+    # cv2.imwrite("README/snipet1.png", image)
 
 
 if __name__ == "__main__":
