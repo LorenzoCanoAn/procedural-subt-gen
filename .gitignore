@@ -6,7 +6,6 @@
 screenshots/
 datafiles/
 .catkin_tools/
-*.png
 *.npy
 devel/
 # Dummy testing files
