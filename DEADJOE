@@ -33,3 +33,34 @@ Processing '/etc/joe/editorrc'...
 Processing '/etc/joe/ftyperc'...
 Finished processing /etc/joe/ftyperc
 Finished processing /etc/joe/editorrc
+
+*** These modified files were found in JOE when it aborted on Fri Sep 22 18:08:56 2023
+*** JOE was aborted by UNIX signal 1
+
+*** File '/home/lorenzo/git/procedural-subt-gen/.git/MERGE_MSG'
+ branch 'refactor' of github.com:LorenzoCanoAn/procedural-subt-gen into refactor
+Z# Please enter a commit message to explain why this merge is necessary,
+#Z especially if it merges an update upstream into a topic branch.
+#
+# Lines starting with '#' will be ignored, and an empty message aborts
+# the commit.
+
+*** File '(Unnamed)'
+save
+exit
+wq
+
+*** File '(Unnamed)'
+./devel/include/slibon/CnnResult.h
+./src/danilo/slibon/launch/slibon.launch
+/home/lorenzo/git/cave-datapaper-navigation/.git/MERGE_MSG
+/home/lorenzo/git/cave-datapaper-navigation/.git/MERGE_MSG
+/home/lorenzo/git/procedural-subt-gen/.git/MERGE_MSG
+/home/lorenzo/git/procedural-subt-gen/.git/MERGE_MSG
+/home/lorenzo/git/procedural-subt-gen/.git/MERGE_MSG
+
+*** File '* Startup Log *'
+Processing '/etc/joe/editorrc'...
+Processing '/etc/joe/ftyperc'...
+Finished processing /etc/joe/ftyperc
+Finished processing /etc/joe/editorrc
