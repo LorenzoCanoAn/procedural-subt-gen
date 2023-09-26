@@ -38,25 +38,17 @@ def plot_edge(plotter: pv.Plotter, edge: Edge, radius=None, color=None):
     if color is None:
         color = "b"
     ni, nj = edge.nodes
-    return plotter.add_mesh(
-        pv.Tube(pointa=ni.xyz, pointb=nj.xyz, radius=radius), color=color
-    )
+    return plotter.add_mesh(pv.Tube(pointa=ni.xyz, pointb=nj.xyz, radius=radius), color=color)
 
 
-def plot_xyz_axis(plotter: pv.Plotter):
-    pxa, pxb = (0, 0, 0), (50, 0, 0)
-    pya, pyb = (0, 0, 0), (0, 50, 0)
-    pza, pzb = (0, 0, 0), (0, 0, 50)
+def plot_xyz_axis(plotter: pv.Plotter, l=100):
+    pxa, pxb = (0, 0, 0), (l, 0, 0)
+    pya, pyb = (0, 0, 0), (0, l, 0)
+    pza, pzb = (0, 0, 0), (0, 0, l)
     actors = []
-    actors.append(
-        plotter.add_mesh(pv.Tube(pointa=pxa, pointb=pxb, radius=0.5), color="r")
-    )
-    actors.append(
-        plotter.add_mesh(pv.Tube(pointa=pya, pointb=pyb, radius=0.5), color="g")
-    )
-    actors.append(
-        plotter.add_mesh(pv.Tube(pointa=pza, pointb=pzb, radius=0.5), color="b")
-    )
+    actors.append(plotter.add_mesh(pv.Tube(pointa=pxa, pointb=pxb, radius=0.2), color="r"))
+    actors.append(plotter.add_mesh(pv.Tube(pointa=pya, pointb=pyb, radius=0.2), color="g"))
+    actors.append(plotter.add_mesh(pv.Tube(pointa=pza, pointb=pzb, radius=0.2), color="b"))
     return actors
 
 
@@ -147,10 +139,10 @@ def plot_ptcl(
 def plot_graph(
     plotter: pv.Plotter,
     graph: Graph,
-    node_rad=None,
-    edge_rad=None,
-    node_color=None,
-    edge_color=None,
+    node_rad=2,
+    edge_rad=0.5,
+    node_color="k",
+    edge_color="k",
 ):
     node_actors = plot_nodes(plotter, graph.nodes, radius=node_rad, color=node_color)
     edge_actors = plot_edges(plotter, graph.edges, radius=edge_rad, color=edge_color)
