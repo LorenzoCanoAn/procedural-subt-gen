@@ -8,9 +8,7 @@ from subt_proc_gen.tunnel import (
     GrownTunnelGenerationParams,
 )
 from subt_proc_gen.display_functions import plot_graph, plot_splines, plot_xyz_axis
-from subt_proc_gen.geometry import Vector3D
 import pyvista as pv
-import numpy as np
 import cv2
 
 
@@ -54,7 +52,7 @@ Black lines: Edges""",
         font_size=10,
     )
     cpos, image = plotter.show(return_img=True, return_cpos=True, screenshot=True)
-    cv2.imwrite("README/snipet2_1.png", image)
+    # cv2.imwrite("README/snippet2_1.png", image)
 
 
 if __name__ == "__main__":

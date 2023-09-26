@@ -13,6 +13,8 @@ pip3 install -r requirements.txt
 pip3 install -e .
 ```
 
+## GUI+
+
 ## Examples
 
 In the folder ```scripts``` there are some executable python files, each showcasing a part of the library.
@@ -25,7 +27,7 @@ This file showcases the different ways of creating ```Tunnel``` instances. There
 2. Connector tunnel: The user specifies an initial and final node and a tunnel is generated between them.
 3. Grown Tunnel: The user speciefies an initial node and direction, and a tunnel is generated from it.
 
-![Result of snippet_1.py](README/snipet1.png)
+![Result of snippet_1.py](README/snippet1.png)
 
 ### snippet_2.py
 
@@ -36,5 +38,14 @@ This file shows how to use the tunnel creation functionalities inside the Tunnel
 
 If you need to create complex and random environments, these functions are the easiest ones to use. The following images are some of the resulting tunnel networks generated with the script.
 
-![Result of snippet_2.py](README/snipet2_1.png)
-![Result of snippet_2.py](README/snipet2_2.png)
+![Result of snippet_2.py](README/snippet2_1.png)
+![Result of snippet_2.py](README/snippet2_2.png)
+
+### snippet_3.py
+
+This file shows the details of the assignment of parameters for the pointclud generation and mesh generation processes by:
+
+1. Setting parameters for each tunnel.
+2. Determining how parameters shoud be assigned for tunnels without pre-set parameters.
+
+![Result of snippet_2.py](README/snippet3_1.png)
