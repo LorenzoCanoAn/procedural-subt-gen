@@ -509,9 +509,10 @@ class TunnelNetwork(Graph):
 
     def remove_tunnel(self, tunnel: Tunnel):
         for node in tunnel:
-            self._tunnels_of_node[node].remove(tunnel)
-            if len(self._tunnels_of_node[node]) == 0:
-                self.remove_node(node)
+            if node in self._tunnels_of_node.keys(): # In three lines, this node is removed, but it could be in the tunnel, so check it first
+                self._tunnels_of_node[node].remove(tunnel)
+                if len(self._tunnels_of_node[node]) == 0:
+                    self.remove_node(node)
         self._tunnels.remove(tunnel)
 
     def to_yaml(self, file):
