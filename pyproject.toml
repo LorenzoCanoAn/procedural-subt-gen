@@ -2,9 +2,7 @@
 build-backend = "hatchling.build"
 requires = ["hatchling"]
 [project]
-authors = [
-  {name = "Lorenzo Cano", email = "lcano@unizar.es"},
-]
+authors = [{ name = "Lorenzo Cano", email = "lcano@unizar.es" }]
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: MIT License",
@@ -19,6 +17,9 @@ dependencies = [
   "pyvistaqt",
   "pyyaml",
   "scipy",
+  "distinctipy",
+  "git+https://github.com/pvigier/perlin-numpy",
+  "meshio"
 ]
 description = "Package to genearate meshes that look like underground environments"
 name = "SubterraneanProceduralGeneration"
