@@ -470,7 +470,7 @@ def check_spline_collision(
             ]
         for op, od in zip(omision_points, omision_distances):
             spd1 = np.delete(spd1, get_close_points_indices(op, spd1, od), axis=0)
-            spd2 = np.delete(spd2, get_close_points_indices(op, spd2, od), axis=0)
+            #spd2 = np.delete(spd2, get_close_points_indices(op, spd2, od), axis=0)
     return np.any(distance_matrix(spd1, spd2) < collision_distance)
 
 
