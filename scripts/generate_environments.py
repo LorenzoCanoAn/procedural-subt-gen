@@ -1,7 +1,7 @@
 import argparse
 import os
-import shutil
 import pyvista as pv
+from pyvista.plotting.plotter import Plotter
 from subt_proc_gen.tunnel import (
     TunnelNetwork,
     TunnelNetworkParams,
@@ -13,6 +13,7 @@ from subt_proc_gen.mesh_generation import (
     TunnelNetworkMeshGenParams,
     IntersectionPtClType,
 )
+from subt_proc_gen.display_functions import *
 import numpy as np
 import distinctipy
 import logging as log
@@ -111,18 +112,13 @@ def args():
         help="Number of tunnels that are generated from an initial node to a final node already present in the Tunnel Network",
     )
     parser.add_argument(
-        "-_FTA",
-        "--min_fta_distance",
-        default=-2,
-        required=False,
-        help="This parameter controls what is the minimum vertical distance from the axis of a tunnel to the floor of the tunnel. If this number is positive, the floor of the tunnel will allways be avobe the axis. This number has to be lower thant -FTA",
-    )
-    parser.add_argument(
         "-FTA",
-        "--max_fta_distance",
-        default=-0.5,
+        "--fta_range",
+        default=[-2.,-1.],
         required=False,
-        help="This parameter controls what is the maximum vertical distance from the axis of a tunnel to the floor of the tunnel. If this number is negative, the floor of the tunnel will allways be below the axis, This number has to be greater than -_FTA",
+        type=float,
+        nargs="*",
+        help="This parameter controls what is the minimum vertical distance from the axis of a tunnel to the floor of the tunnel. If this number is positive, the floor of the tunnel will allways be avobe the axis. This number has to be lower thant -FTA",
     )
     parser.add_argument(
         "-O",
@@ -130,6 +126,7 @@ def args():
         required=False,
         default=False,
         type=bool,
+        action="store_true"
         help="If this is set to True, the environmets previously on the folder will be overwriten",
     )
     return parser.parse_args()
@@ -158,13 +155,13 @@ def main():
         os.makedirs(base_env_folder, exist_ok=True)
         tunnel_network_params = TunnelNetworkParams.from_defaults()
         tunnel_network_params.min_distance_between_intersections = 30
-        tunnel_network_params.collision_distance = 15
+        tunnel_network_params.collision_distance = 10
         tunnel_network = TunnelNetwork(params=tunnel_network_params)
         for _ in range(n_grown):
             GrownTunnelGenerationParams._random_distance_range = (100, 300)
             GrownTunnelGenerationParams._random_horizontal_tendency_range_deg = (
-                -50,
-                50,
+                -40,
+                40,
             )
             GrownTunnelGenerationParams._random_horizontal_noise_range_deg = (-30, 30)
             GrownTunnelGenerationParams._random_min_segment_length_fraction_range = (
@@ -193,8 +190,13 @@ def main():
         )
         mesh_generator.compute_all()
         axis_points = gen_axis_points_file(mesh_generator)
+        plotter = Plotter()
+        plot_graph(plotter,tunnel_network)
         path_to_mesh = os.path.join(base_env_folder, "mesh.obj")
         mesh_generator.save_mesh(path_to_mesh)
+        mesh = pv.read(path_to_mesh)
+        plotter.add_mesh(mesh,style="wireframe")
+        plotter.show()
         np.savetxt(os.path.join(base_env_folder, "axis.txt"), axis_points)
         np.savetxt(os.path.join(base_env_folder, "fta_dist.txt"), np.array((fta_dist,)))
         sdf = MODEL_SDF_TEXT.format(path_to_mesh, path_to_mesh)
