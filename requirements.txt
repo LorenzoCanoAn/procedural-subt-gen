@@ -7,3 +7,4 @@ pyvista
 pyvistaqt
 pyyaml
 scipy
+distinctipy
