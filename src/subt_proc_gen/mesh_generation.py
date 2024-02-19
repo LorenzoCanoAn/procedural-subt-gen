@@ -588,7 +588,6 @@ class TunnelNetworkMeshGenerator:
                 vert_inside[2] = ap_of_vert[2] + fta_dist
                 vertices[i, :] = vert_inside
                 floor_vertices_idxs.add(i)
-        print()
         floor_vertices_idxs = tuple(floor_vertices_idxs)
         # Extra steps for diaphanous intersections
         log.info("Adding extra intersection floor points")
