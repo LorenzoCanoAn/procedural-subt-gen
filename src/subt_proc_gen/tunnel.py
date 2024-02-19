@@ -63,9 +63,15 @@ class ConnectorTunnelGenerationParams:
         self.node_position_vertical_noise = node_position_vertical_noise
 
     def gen_random_displacement(self) -> Vector3D:
-        x = np.random.uniform(-self.node_position_horizontal_noise, +self.node_position_horizontal_noise)
-        y = np.random.uniform(-self.node_position_horizontal_noise, +self.node_position_horizontal_noise)
-        z = np.random.uniform(-self.node_position_vertical_noise, +self.node_position_vertical_noise)
+        x = np.random.uniform(
+            -self.node_position_horizontal_noise, +self.node_position_horizontal_noise
+        )
+        y = np.random.uniform(
+            -self.node_position_horizontal_noise, +self.node_position_horizontal_noise
+        )
+        z = np.random.uniform(
+            -self.node_position_vertical_noise, +self.node_position_vertical_noise
+        )
         return Vector3D((x, y, z))
 
 
@@ -264,7 +270,9 @@ class Tunnel:
         n_segments = math.ceil(s_to_f_vector.length / params.segment_length)
         segment_length = s_to_f_vector.length / n_segments
         for n_segment in range(1, n_segments):
-            new_node = start_node + Vector3D(s_to_f_vector.cartesian_unitary * n_segment * segment_length)
+            new_node = start_node + Vector3D(
+                s_to_f_vector.cartesian_unitary * n_segment * segment_length
+            )
             if n_segments - 1 > n_segment > 1:
                 new_node = new_node + params.gen_random_displacement()
             nodes.append(new_node)
@@ -459,7 +467,10 @@ class TunnelNetwork(Graph):
                 next_node = node
                 new_intersection_reached = False
                 while not new_intersection_reached:
-                    if self._node_types[next_node] in NodeType.inter_types() or self._node_types[next_node] == NodeType.end_of_tunnel:
+                    if (
+                        self._node_types[next_node] in NodeType.inter_types()
+                        or self._node_types[next_node] == NodeType.end_of_tunnel
+                    ):
                         intersection_connectivity_graph.add_node(next_node)
                         intersection_connectivity_graph.connect(intersection, next_node)
                         new_intersection_reached = True
@@ -509,8 +520,12 @@ class TunnelNetwork(Graph):
 
     def remove_tunnel(self, tunnel: Tunnel):
         for node in tunnel:
-            if node in self._tunnels_of_node.keys(): # In three lines, this node is removed, but it could be in the tunnel, so check it first
-                self._tunnels_of_node[node].remove(tunnel)
+            if (
+                node in self._tunnels_of_node.keys()
+            ):  # In three lines, this node is removed, but it could be in the tunnel, so check it first
+                tunnels_of_node = self._tunnels_of_node[node]
+                if tunnel in tunnels_of_node:
+                    tunnels_of_node.remove(tunnel)
                 if len(self._tunnels_of_node[node]) == 0:
                     self.remove_node(node)
         self._tunnels.remove(tunnel)
@@ -561,7 +576,10 @@ class TunnelNetwork(Graph):
             for intersection in self.intersections:
                 if i_node is intersection:
                     continue
-                if np.linalg.norm(i_node.xyz - intersection.xyz) < self.params.min_distance_between_intersections:
+                if (
+                    np.linalg.norm(i_node.xyz - intersection.xyz)
+                    < self.params.min_distance_between_intersections
+                ):
                     break
             else:
                 there_is_a_close_node = False
@@ -620,7 +638,9 @@ class TunnelNetwork(Graph):
             too_small_angle = False
             for tunnel_j in self._tunnels_of_node[i_node]:
                 if not tunnel_j is tunnel:
-                    angle = min_angle_between_splines_at_point(tunnel.spline, tunnel_j.spline, i_node._pose.xyz)
+                    angle = min_angle_between_splines_at_point(
+                        tunnel.spline, tunnel_j.spline, i_node._pose.xyz
+                    )
                     too_small_angle = angle < min_intersection_angle
                     if too_small_angle:
                         break
@@ -677,7 +697,10 @@ class TunnelNetwork(Graph):
                 if i_node is None or f_node is None:
                     log.info("Failed for lack of suitable nodes")
                     return False
-                if np.linalg.norm(i_node.xyz - f_node.xyz) < self.params.min_distance_between_intersections:
+                if (
+                    np.linalg.norm(i_node.xyz - f_node.xyz)
+                    < self.params.min_distance_between_intersections
+                ):
                     continue
                 if not i_node is f_node:
                     f_node_in_i_tunnel = False
@@ -699,7 +722,9 @@ class TunnelNetwork(Graph):
             too_small_angle = False
             for tunnel_j in self._tunnels_of_node[i_node]:
                 if not tunnel_j is tunnel:
-                    angle = min_angle_between_splines_at_point(tunnel.spline, tunnel_j.spline, i_node._pose.xyz)
+                    angle = min_angle_between_splines_at_point(
+                        tunnel.spline, tunnel_j.spline, i_node._pose.xyz
+                    )
                     too_small_angle = angle < min_intersection_angle
                     if too_small_angle:
                         break
