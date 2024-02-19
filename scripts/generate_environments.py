@@ -1,7 +1,7 @@
 import argparse
 import os
 import pyvista as pv
-from pyvista.plotting.plotter import Plotter
+from pyvista.plotting.plotting import Plotter
 from subt_proc_gen.tunnel import (
     TunnelNetwork,
     TunnelNetworkParams,
@@ -48,7 +48,7 @@ MODEL_SDF_TEXT = """<?xml version="1.0"?>
 
 
 def gen_axis_points_file(mesh_generator: TunnelNetworkMeshGenerator):
-    axis_points = np.zeros((0, 3 + 3 + 1 + 1))
+    axis_points = np.zeros((0, 3 + 3 + 1 + 1 + 1))
     for tunnel in mesh_generator._tunnel_network.tunnels:
         radius = mesh_generator.ptcl_params_of_tunnel(tunnel).radius
         aps = mesh_generator.aps_of_tunnels
@@ -56,29 +56,28 @@ def gen_axis_points_file(mesh_generator: TunnelNetworkMeshGenerator):
         assert len(aps) == len(avs) != 0
         rds = np.ones((len(aps), 1)) * radius
         tunnel_flags = np.ones((len(aps), 1)) * 1
+        tunnel_id = np.ones((len(aps), 1)) * hash(tunnel)
         axis_points = np.concatenate(
-            (axis_points, np.concatenate((aps, avs, rds, tunnel_flags), axis=1)), axis=0
+            (axis_points, np.concatenate((aps, avs, rds, tunnel_flags, tunnel_id), axis=1)), axis=0
         )
     for intersection in mesh_generator._tunnel_network.intersections:
-        params = mesh_generator.params_of_intersection(intersection)
-        if params.ptcl_type == IntersectionPtClType.spherical_cavity:
-            radius = params.radius
-        elif params.ptcl_type == IntersectionPtClType.no_cavity:
-            radiuses = []
-            for tunnel in mesh_generator._tunnel_network._tunnels_of_node[intersection]:
-                radiuses.append(mesh_generator.ptcl_params_of_tunnel(tunnel).radius)
-            radius = max(radiuses)
-        else:
-            raise NotImplementedError()
-        aps = mesh_generator.aps_of_intersection(intersection)
-        avs = mesh_generator.avs_of_intersection(intersection)
-        assert len(aps) == len(avs) != 0
-        rds = np.ones((len(aps), 1)) * radius
-        intersection_flags = np.ones((len(aps), 1)) * 2
-        axis_points_of_inter = np.concatenate(
-            (aps, avs, rds, intersection_flags), axis=1
-        )
-        axis_points = np.concatenate((axis_points, axis_points_of_inter), axis=0)
+        for tunnel in mesh_generator._tunnel_network._tunnels_of_node[intersection]:
+            radius = mesh_generator.ptcl_params_of_tunnel(tunnel).radius
+            aps = mesh_generator._aps_avs_of_intersections[intersection][tunnel][:, 0:3]
+            avs = mesh_generator._aps_avs_of_intersections[intersection][tunnel][:, 3:6]
+            assert len(aps) == len(avs)
+            if len(aps) == 0:
+                continue
+            rds = np.ones((len(aps), 1)) * radius
+            intersection_flag = np.ones((len(aps), 1)) * 2
+            tunnel_id = np.ones((len(aps), 1)) * hash(tunnel)
+            axis_points = np.concatenate(
+                (
+                    axis_points,
+                    np.concatenate((aps, avs, rds, intersection_flag, tunnel_id), axis=1),
+                ),
+                axis=0,
+            )
     return axis_points
 
 
@@ -114,7 +113,7 @@ def args():
     parser.add_argument(
         "-FTA",
         "--fta_range",
-        default=[-2.,-1.],
+        default=[-2.0, -1.0],
         required=False,
         type=float,
         nargs="*",
@@ -123,10 +122,14 @@ def args():
     parser.add_argument(
         "-O",
         "--overwrite",
-        required=False,
         default=False,
-        type=bool,
-        action="store_true"
+        action="store_true",
+        help="If this is set to True, the environmets previously on the folder will be overwriten",
+    )
+    parser.add_argument(
+        "--plot",
+        default=False,
+        action="store_true",
         help="If this is set to True, the environmets previously on the folder will be overwriten",
     )
     return parser.parse_args()
@@ -139,9 +142,8 @@ def main():
     n_grown = arguments.number_of_grown_tunnels
     n_connector = arguments.number_of_connector_tunnels
     overwrite = arguments.overwrite
-    min_fta_distance = arguments.min_fta_distance
-    max_fta_distance = arguments.max_fta_distance
-    fta_dist = np.random.uniform(min_fta_distance, max_fta_distance)
+    min_fta_distance, max_fta_distance = arguments.fta_range
+    plot_after_generation = arguments.plot
     if os.path.isdir(base_folder):
         if not overwrite:
             raise Exception(
@@ -151,6 +153,7 @@ def main():
             pass
     os.makedirs(base_folder, exist_ok=True)
     for n in range(n_envs):
+        fta_dist = np.random.uniform(min_fta_distance, max_fta_distance)
         base_env_folder = os.path.join(base_folder, f"env_{n+1:03d}")
         os.makedirs(base_env_folder, exist_ok=True)
         tunnel_network_params = TunnelNetworkParams.from_defaults()
@@ -175,9 +178,7 @@ def main():
             result = False
             while not result:
                 params = GrownTunnelGenerationParams.random()
-                result = tunnel_network.add_random_grown_tunnel(
-                    params=params, n_trials=100
-                )
+                result = tunnel_network.add_random_grown_tunnel(params=params, n_trials=100)
         for _ in range(n_connector):
             tunnel_network.add_random_connector_tunnel(n_trials=100)
         ptcl_gen_params = TunnelNetworkPtClGenParams.random()
@@ -190,17 +191,19 @@ def main():
         )
         mesh_generator.compute_all()
         axis_points = gen_axis_points_file(mesh_generator)
-        plotter = Plotter()
-        plot_graph(plotter,tunnel_network)
         path_to_mesh = os.path.join(base_env_folder, "mesh.obj")
         mesh_generator.save_mesh(path_to_mesh)
-        mesh = pv.read(path_to_mesh)
-        plotter.add_mesh(mesh,style="wireframe")
-        plotter.show()
+        if plot_after_generation:
+            plotter = Plotter()
+            plot_graph(plotter, tunnel_network)
+            mesh = pv.read(path_to_mesh)
+            plotter.add_mesh(mesh, style="wireframe")
+            plotter.show()
         np.savetxt(os.path.join(base_env_folder, "axis.txt"), axis_points)
         np.savetxt(os.path.join(base_env_folder, "fta_dist.txt"), np.array((fta_dist,)))
         sdf = MODEL_SDF_TEXT.format(path_to_mesh, path_to_mesh)
         path_to_model_sdf = os.path.join(base_env_folder, "model.sdf")
+
         with open(path_to_model_sdf, "w") as f:
             f.write(sdf)
 
