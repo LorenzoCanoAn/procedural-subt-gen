@@ -10,6 +10,7 @@ import numpy as np
 import math
 import yaml
 import logging as log
+import random
 
 
 class ConnectorTunnelGenerationParams:
@@ -231,7 +232,7 @@ class Tunnel:
         if i_direction is None:
             i_direction = Vector3D.from_inclination_yaw_length(
                 np.random.uniform(-np.deg2rad(10), np.deg2rad(10)),
-                np.pi / 2,
+                np.random.rand() * 2 * np.pi,
                 1,
             )
         if params is None:
@@ -408,6 +409,10 @@ class TunnelNetwork(Graph):
 
     def add_node_at_origin(self):
         self.add_node(Node((0, 0, 0)))
+
+    def get_random_node(self):
+        nodes = list(self._nodes)
+        return random.choice(nodes)
 
     @property
     def params(self) -> TunnelNetworkParams:
