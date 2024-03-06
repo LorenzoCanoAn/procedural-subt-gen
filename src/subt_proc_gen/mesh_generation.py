@@ -22,6 +22,7 @@ from subt_proc_gen.param_classes import (
     TunnelNetworkPtClGenParams,
     TunnelNetworkMeshGenParams,
 )
+from tqdm import tqdm
 from enum import Enum
 import logging as log
 import pyvista as pv
@@ -35,7 +36,6 @@ import trace
 
 class PtclVoxelizator:
     def __init__(self, ptcl: np.ndarray, voxel_size=5, coords_range=[0, 3]):
-        log.info(f"Voxelizing ptcl with {len(ptcl)} elements")
         self.ptcl = ptcl
         self.voxel_size = voxel_size
         self.grid = dict()
@@ -46,7 +46,7 @@ class PtclVoxelizator:
             i, j, k = ijk
             unique_ijks.add((i, j, k))
         self.unique_ijks = unique_ijks
-        for ijk in unique_ijks:
+        for ijk in tqdm(unique_ijks, total=len(unique_ijks), desc="Voxelizing floors"):
             ijk = np.array((ijk,))
             idxs = np.where(np.prod(ijks == ijk, axis=1))
             i, j, k = ijk[0]
@@ -170,10 +170,7 @@ class TunnelNetworkMeshGenerator:
     def combined_intersection_ptcls(self):
         return (
             np.vstack(
-                [
-                    self.ptcl_of_intersection(intersection)
-                    for intersection in self.intersections
-                ]
+                [self.ptcl_of_intersection(intersection) for intersection in self.intersections]
             )
             if len(self.intersections) > 0
             else np.zeros((0, 12))
@@ -210,19 +207,13 @@ class TunnelNetworkMeshGenerator:
     @property
     def aps_of_intersections(self):
         return np.vstack(
-            [
-                self.aps_of_intersction(intersection)
-                for intersection in self.intersections
-            ]
+            [self.aps_of_intersction(intersection) for intersection in self.intersections]
         )
 
     @property
     def avs_of_intersections(self):
         return np.vstack(
-            [
-                self.avs_of_intersction(intersection)
-                for intersection in self.intersections
-            ]
+            [self.avs_of_intersction(intersection) for intersection in self.intersections]
         )
 
     @property
@@ -265,23 +256,21 @@ class TunnelNetworkMeshGenerator:
         if ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.default:
             for intersection in self._tunnel_network.intersections:
                 if intersection in ptcl_gen_params.pre_set_intersection_params:
-                    self._params_of_intersections[
-                        intersection
-                    ] = ptcl_gen_params.pre_set_intersection_params[intersection]
+                    self._params_of_intersections[intersection] = (
+                        ptcl_gen_params.pre_set_intersection_params[intersection]
+                    )
                 else:
-                    self._params_of_intersections[
-                        intersection
-                    ] = IntersectionPtClGenParams.from_defaults()
+                    self._params_of_intersections[intersection] = (
+                        IntersectionPtClGenParams.from_defaults()
+                    )
         elif ptcl_gen_params.strategy == TunnelNetworkPtClGenStrategies.random:
             for intersection in self._tunnel_network.intersections:
                 if intersection in ptcl_gen_params.pre_set_intersection_params:
-                    self._params_of_intersections[
-                        intersection
-                    ] = ptcl_gen_params.pre_set_intersection_params[intersection]
+                    self._params_of_intersections[intersection] = (
+                        ptcl_gen_params.pre_set_intersection_params[intersection]
+                    )
                 else:
-                    self._params_of_intersections[
-                        intersection
-                    ] = IntersectionPtClGenParams.random()
+                    self._params_of_intersections[intersection] = IntersectionPtClGenParams.random()
 
     def _set_perlin_mappers_of_tunnels(self):
         for tunnel in self._tunnel_network.tunnels:
@@ -303,12 +292,8 @@ class TunnelNetworkMeshGenerator:
             ) = ptcl_from_tunnel(
                 tunnel=tunnel,
                 perlin_generator=self._perlin_generator_of_tunnel[tunnel],
-                dist_between_circles=self.ptcl_params_of_tunnel(
-                    tunnel
-                ).dist_between_circles,
-                n_points_per_circle=self.ptcl_params_of_tunnel(
-                    tunnel
-                ).n_points_per_circle,
+                dist_between_circles=self.ptcl_params_of_tunnel(tunnel).dist_between_circles,
+                n_points_per_circle=self.ptcl_params_of_tunnel(tunnel).n_points_per_circle,
                 radius=self.ptcl_params_of_tunnel(tunnel).radius,
                 noise_magnitude=self.ptcl_params_of_tunnel(tunnel).noise_multiplier,
             )
@@ -330,9 +315,7 @@ class TunnelNetworkMeshGenerator:
                             tunnel_i,
                             tunnel_j,
                             intersection,
-                            starting_radius=self.params_of_intersection(
-                                intersection
-                            ).radius,
+                            starting_radius=self.params_of_intersection(intersection).radius,
                         ),
                     )
                 self._radius_of_intersections_for_tunnels[intersection][
@@ -341,9 +324,7 @@ class TunnelNetworkMeshGenerator:
 
     def _separate_intersection_ptcl_from_tunnel_ptcls(self):
         for intersection in self._tunnel_network.intersections:
-            tunnels_of_intersection = self._tunnel_network._tunnels_of_node[
-                intersection
-            ]
+            tunnels_of_intersection = self._tunnel_network._tunnels_of_node[intersection]
             ptcl_of_intersection = dict()
             aps_avs_of_intersection = dict()
             for tunnel in tunnels_of_intersection:
@@ -379,9 +360,9 @@ class TunnelNetworkMeshGenerator:
             self._original_aps_avs_of_intersections[intersection] = dict()
             self._original_ptcl_of_intersections[intersection] = dict()
             for element in self._aps_avs_of_intersections[intersection]:
-                self._original_aps_avs_of_intersections[intersection][
-                    element
-                ] = np.copy(self._aps_avs_of_intersections[intersection][element])
+                self._original_aps_avs_of_intersections[intersection][element] = np.copy(
+                    self._aps_avs_of_intersections[intersection][element]
+                )
             for element in self._ptcl_of_intersections[intersection]:
                 self._original_ptcl_of_intersections[intersection][element] = np.copy(
                     self._ptcl_of_intersections[intersection][element]
@@ -406,9 +387,7 @@ class TunnelNetworkMeshGenerator:
                 )
                 for idx in ids_of_i_in_j:
                     ids_to_delete_from_i.add(idx)
-            idxs_of_tunnel_pts_to_delete[tunnel_i] = np.array(
-                list(ids_to_delete_from_i)
-            )
+            idxs_of_tunnel_pts_to_delete[tunnel_i] = np.array(list(ids_to_delete_from_i))
         for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
             if len(idxs_of_tunnel_pts_to_delete[tunnel]) == 0:
                 continue
@@ -438,12 +417,8 @@ class TunnelNetworkMeshGenerator:
                 )
                 ids_to_delete_in_cavity = set()
                 for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
-                    axis_of_tunnel = self._aps_avs_of_intersections[intersection][
-                        tunnel
-                    ][:, 0:3]
-                    points_of_tunnel = self._ptcl_of_intersections[intersection][
-                        tunnel
-                    ][:, 0:3]
+                    axis_of_tunnel = self._aps_avs_of_intersections[intersection][tunnel][:, 0:3]
+                    points_of_tunnel = self._ptcl_of_intersections[intersection][tunnel][:, 0:3]
                     ids_to_delete_in_tunnel = ids_points_inside_ptcl_sphere(
                         sphere_ps, center_point, points_of_tunnel
                     )
@@ -458,12 +433,8 @@ class TunnelNetworkMeshGenerator:
                     for idx in np.reshape(idxs_to_delete_in_cavity_, -1):
                         ids_to_delete_in_cavity.add(idx)
                 assert len(sphere_ps) == len(sphere_ns)
-                sphere_ps = np.delete(
-                    sphere_ps, np.array(list(ids_to_delete_in_cavity)), axis=0
-                )
-                sphere_ns = np.delete(
-                    sphere_ns, np.array(list(ids_to_delete_in_cavity)), axis=0
-                )
+                sphere_ps = np.delete(sphere_ps, np.array(list(ids_to_delete_in_cavity)), axis=0)
+                sphere_ns = np.delete(sphere_ns, np.array(list(ids_to_delete_in_cavity)), axis=0)
                 assert len(sphere_ps) == len(sphere_ns)
                 sphere_apss = np.ones(sphere_ps.shape) * center_point
                 sphere_avss = np.zeros(sphere_ps.shape)
@@ -493,12 +464,8 @@ class TunnelNetworkMeshGenerator:
         while True:
             aidx = get_close_points_indices(intersection.xyz, apj, cut_off_radius)
             apj_to_use = np.reshape(apj[aidx, :], (-1, 3))
-            tpj_to_use = get_close_points_to_point(
-                intersection.xyz, tpj, cut_off_radius
-            )
-            tpi_to_use = get_close_points_to_point(
-                intersection.xyz, tpi, cut_off_radius
-            )
+            tpj_to_use = get_close_points_to_point(intersection.xyz, tpj, cut_off_radius)
+            tpi_to_use = get_close_points_to_point(intersection.xyz, tpi, cut_off_radius)
             id_of_p_of_i_inside_j = points_inside_of_tunnel_section(
                 apj_to_use, tpj_to_use, tpi_to_use
             )
@@ -575,9 +542,9 @@ class TunnelNetworkMeshGenerator:
         n_points = len(vertices)
         fta_dist = self._meshing_params.fta_distance
         floor_vertices_idxs = set()
+        pb = tqdm(total=len(vertices), desc="Checking wich vertices are floors")
         for i in range(len(vertices)):
             vert_inside = vertices[i, :]
-            print(f"{i:6d} out of {n_points:6d}", end="\r", flush=True)
             local_ptcl = self._voxelized_ptcl.get_relevant_points(vert_inside)
             if local_ptcl is None:
                 continue
@@ -588,18 +555,21 @@ class TunnelNetworkMeshGenerator:
                 vert_inside[2] = ap_of_vert[2] + fta_dist
                 vertices[i, :] = vert_inside
                 floor_vertices_idxs.add(i)
+            pb.update(1)
         floor_vertices_idxs = tuple(floor_vertices_idxs)
         # Extra steps for diaphanous intersections
-        log.info("Adding extra intersection floor points")
         floor_vertices = vertices[floor_vertices_idxs, :]
         floor_vertices = np.reshape(floor_vertices, (-1, 3))
+        pb = tqdm(
+            total=len(self.intersections), desc="Checking wich intersection vertices are floors"
+        )
         for n_intersection, intersection in enumerate(self.intersections):
+            pb.update(1)
             if not (
                 self.params_of_intersection(intersection).ptcl_type
                 == IntersectionPtClType.spherical_cavity
             ):
                 continue
-            log.info(f"intersection: {n_intersection}")
             intersection_floor_vertices_idxs = np.where(
                 np.linalg.norm(floor_vertices - intersection.xyz, axis=1)
                 < self.params_of_intersection(intersection).radius
@@ -608,9 +578,7 @@ class TunnelNetworkMeshGenerator:
                 floor_vertices[intersection_floor_vertices_idxs, :], (-1, 3)
             )
             for tunnel in self._tunnel_network._tunnels_of_node[intersection]:
-                aps = self._original_aps_avs_of_intersections[intersection][tunnel][
-                    :, :3
-                ]
+                aps = self._original_aps_avs_of_intersections[intersection][tunnel][:, :3]
                 tps = self._original_ptcl_of_intersections[intersection][tunnel][:, :3]
                 aps = np.reshape(aps, (-1, 3))
                 tps = np.reshape(tps, (-1, 3))
@@ -621,17 +589,14 @@ class TunnelNetworkMeshGenerator:
                     np.array(int_floor_verts_in_tunnel_idxs), -1
                 )
                 for int_floor_vert_in_tunnel_idx in int_floor_verts_in_tunnel_idxs:
-                    int_floor_vert_in_tunnel = int_floor_verts[
-                        int_floor_vert_in_tunnel_idx, :
-                    ]
+                    int_floor_vert_in_tunnel = int_floor_verts[int_floor_vert_in_tunnel_idx, :]
                     closest_ap_idx = np.argmin(
                         np.linalg.norm(int_floor_vert_in_tunnel - aps, axis=1)
                     )
                     closest_ap_z = aps[closest_ap_idx, 2]
                     int_floor_vert_in_tunnel[2] = closest_ap_z + fta_dist
-                    int_floor_verts[
-                        int_floor_vert_in_tunnel_idx, :
-                    ] = int_floor_vert_in_tunnel
+                    int_floor_verts[int_floor_vert_in_tunnel_idx, :] = int_floor_vert_in_tunnel
+                    pb.update(1)
             floor_vertices[intersection_floor_vertices_idxs, :] = int_floor_verts
         vertices[floor_vertices_idxs, :] = floor_vertices
         log.info("Computing adjancency list")
@@ -639,24 +604,25 @@ class TunnelNetworkMeshGenerator:
         adjacency_list = self.mesh.adjacency_list
         log.info("Computing floor adj list")
         floor_adj_list = dict()
+        pb = tqdm(total=len(floor_vertices_idxs), desc="Floor adj list")
         for vert_n, floor_idx in enumerate(floor_vertices_idxs):
-            print(f"{vert_n:05d}", end="\r", flush=True)
+            pb.update(1)
             floor_adj_list[floor_idx] = list()
             for adj_idx in adjacency_list[floor_idx]:
                 if adj_idx in floor_vertices_idxs:
                     floor_adj_list[floor_idx].append(adj_idx)
-        print()
-        log.info("Smoothing floors")
+        pb = tqdm(
+            total=self._meshing_params.floor_smoothing_iter * len(floor_vertices_idxs),
+            desc="Floor smoothing",
+        )
         for n_iter in range(self._meshing_params.floor_smoothing_iter):
-            log.info(f"Iter {n_iter}")
             copied_verts = np.copy(vertices)
             for vert_n, vert_idx in enumerate(floor_vertices_idxs):
-                print(f"{vert_n:05d}", end="\r", flush=True)
                 adj_verts_idxs = floor_adj_list[vert_idx]
                 neigh_verts = copied_verts[adj_verts_idxs, :]
                 avg_z = np.average(neigh_verts[:, 2])
                 vertices[vert_idx, 2] = avg_z
-        print()
+                pb.update(1)
         self.mesh.vertices = o3d.utility.Vector3dVector(vertices)
 
     def save_mesh(self, path):
@@ -669,9 +635,7 @@ class TunnelNetworkMeshGenerator:
         os.remove("temp.obj")
         return pv_mesh
 
-    def perlin_generator_of_tunnel(
-        self, tunnel: Tunnel
-    ) -> CylindricalPerlinNoiseGenerator:
+    def perlin_generator_of_tunnel(self, tunnel: Tunnel) -> CylindricalPerlinNoiseGenerator:
         return self._perlin_generator_of_tunnel[tunnel]
 
 
@@ -788,9 +752,7 @@ def points_inside_of_tunnel_section(
     dist_of_tps_to_aps = distance_matrix(tunnel_points, axis_points)
     dist_to_ap_of_p = np.min(dist_of_ps_to_aps, axis=1)
     closest_tp_to_p = np.argmin(dist_of_ps_to_tps, axis=1)
-    inside_for_radius = (
-        dist_to_ap_of_p < dist_of_tps_to_aps[closest_tp_to_p, closest_ap_to_p_idx]
-    )
+    inside_for_radius = dist_to_ap_of_p < dist_of_tps_to_aps[closest_tp_to_p, closest_ap_to_p_idx]
     inside = np.logical_and(inside_for_radius, np.logical_not(outside_because_of_angle))
     return np.where(inside)
 
@@ -800,10 +762,6 @@ def ids_points_inside_ptcl_sphere(sphere_points, center_point, points):
     dists_of_sph_pts_to_center = np.reshape(
         np.linalg.norm(sphere_points - center_point, axis=1), (-1, 1)
     )
-    dists_of_ps_to_center = np.reshape(
-        np.linalg.norm(points - center_point, axis=1), (-1, 1)
-    )
+    dists_of_ps_to_center = np.reshape(np.linalg.norm(points - center_point, axis=1), (-1, 1))
     id_closest_sph_pt_to_pt = np.argmin(dists_of_ps_to_sph_pts, axis=1)
-    return np.where(
-        dists_of_ps_to_center < dists_of_sph_pts_to_center[id_closest_sph_pt_to_pt]
-    )
+    return np.where(dists_of_ps_to_center < dists_of_sph_pts_to_center[id_closest_sph_pt_to_pt])

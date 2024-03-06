@@ -1,4 +1,5 @@
 """Functions to display and debug the graph generation process"""
+
 import numpy as np
 import pyvista as pv
 from subt_proc_gen.tunnel import Tunnel, Graph, TunnelNetwork, TunnelType
@@ -214,4 +215,4 @@ def plot_mesh(
     style=None,
 ):
     mesh = tunnel_network_mesh_generator.pyvista_mesh
-    return plotter.add_mesh(mesh, color=color, style=None, show_edges=True)
+    return plotter.add_mesh(mesh, color=color, style=style, show_edges=True)

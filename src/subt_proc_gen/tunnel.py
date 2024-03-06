@@ -181,7 +181,6 @@ class GrownTunnelGenerationParams:
 
     def __str__(self):
         return f"""distance: {self.distance}
-starting_direction: {self.starting_direction}
 horizontal_tendency: {self.horizontal_tendency}
 vertical_tendency: {self.vertical_tendency}
 horizontal_noise: {self.horizontal_noise}
@@ -243,6 +242,7 @@ class Tunnel:
         nodes.append(nodes[-1] + prev_direction)
         while d < params.distance:
             new_dir = params.get_new_direction(prev_direction)
+            print(new_dir)
             nodes.append(nodes[-1] + new_dir)
             d += new_dir.length
             prev_direction = new_dir
@@ -355,6 +355,11 @@ class NodeType(Enum):
         ]
 
 
+def din(val, default):
+    """Default if None"""
+    return default if val is None else val
+
+
 class TunnelNetworkParams:
     _default_collision_distance = 10
     _default_min_intersection_angle_rad = np.deg2rad(30)
@@ -370,17 +375,15 @@ class TunnelNetworkParams:
         min_distance_between_intersections=None,
         flat=None,
     ):
-        assert not collision_distance is None
-        assert not max_inclination_rad is None
-        assert not min_intersection_angle_rad is None
-        assert not min_distance_between_intersections is None
-        if flat is None:
-            flat = self._default_flat
-        self.collision_distance = collision_distance
-        self.min_intersection_angle = min_intersection_angle_rad
-        self.max_inclination = max_inclination_rad
-        self.min_distance_between_intersections = min_distance_between_intersections
-        self.flat = flat
+        self.collision_distance = din(collision_distance, self._default_collision_distance)
+        self.min_intersection_angle = din(
+            min_intersection_angle_rad, self._default_min_intersection_angle_rad
+        )
+        self.max_inclination = din(max_inclination_rad, self._default_max_inclination_rad)
+        self.min_distance_between_intersections = din(
+            min_distance_between_intersections, self._default_min_dist_between_nodes
+        )
+        self.flat = din(flat, self._default_flat)
 
     @classmethod
     def from_defaults(cls):
@@ -409,6 +412,14 @@ class TunnelNetwork(Graph):
 
     def add_node_at_origin(self):
         self.add_node(Node((0, 0, 0)))
+
+    def get_n_random_nodes(self, n):
+        nodes = list(self._nodes)
+        nodes_ = set()
+        while True:
+            nodes_.add(random.choice(nodes))
+            if len(nodes_) == n:
+                return list(nodes_)
 
     def get_random_node(self):
         nodes = list(self._nodes)
@@ -499,6 +510,13 @@ class TunnelNetwork(Graph):
             self.connect(ni, nj)
         return tunnel
 
+    def add_tunnel_if_no_collision(self, tunnel: Tunnel, distance=None):
+        if self.check_collisions(tunnel, collision_distance=distance):
+            return False
+        else:
+            self.add_tunnel(tunnel)
+            return True
+
     def check_collisions(
         self,
         tunnel: Tunnel,
@@ -534,6 +552,7 @@ class TunnelNetwork(Graph):
                 if len(self._tunnels_of_node[node]) == 0:
                     self.remove_node(node)
         self._tunnels.remove(tunnel)
+        return tunnel
 
     def to_yaml(self, file):
         nodes_dict = {}
@@ -602,9 +621,6 @@ class TunnelNetwork(Graph):
     ):
         if params is None:
             params = GrownTunnelGenerationParams.random()
-        if self.params.flat:
-            params.vertical_noise = 0
-            params.vertical_tendency = 0
         n = 0
         successful = False
         if collsion_distance is None:

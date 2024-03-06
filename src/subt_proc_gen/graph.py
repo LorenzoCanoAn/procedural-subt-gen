@@ -1,4 +1,5 @@
 """This file contains the graph structure onto which evertything else is built upon"""
+
 import numpy as np
 from subt_proc_gen.geometry import Point3D, Vector3D
 
@@ -159,7 +160,7 @@ class Graph:
         return self._nodes
 
     @property
-    def edges(self):
+    def edges(self) -> set[Edge]:
         if self.recalculate_edges:
             self._edges = set()
             for ni in self._adj_list:
