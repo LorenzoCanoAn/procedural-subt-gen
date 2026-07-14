@@ -14,7 +14,7 @@ from subt_proc_gen.mesh_generation import (
     IntersectionPtClType,
     TunnelPtClGenParams,
 )
-from subt_proc_gen.perlin import CylindricalPerlinNoiseMapperParms
+from subt_proc_gen.param_classes import CylindricalPerlinNoiseMapperParms
 import numpy as np
 import distinctipy
 import logging as log
@@ -57,9 +57,7 @@ def gen_axis_points_file(mesh_generator: TunnelNetworkMeshGenerator):
         assert len(aps) == len(avs) != 0
         rds = np.ones((len(aps), 1)) * radius
         tunnel_flags = np.ones((len(aps), 1)) * 1
-        axis_points = np.concatenate(
-            (axis_points, np.concatenate((aps, avs, rds, tunnel_flags), axis=1)), axis=0
-        )
+        axis_points = np.concatenate((axis_points, np.concatenate((aps, avs, rds, tunnel_flags), axis=1)), axis=0)
     for intersection in mesh_generator._tunnel_network.intersections:
         params = mesh_generator.params_of_intersection(intersection)
         if params.ptcl_type == IntersectionPtClType.spherical_cavity:
@@ -76,9 +74,7 @@ def gen_axis_points_file(mesh_generator: TunnelNetworkMeshGenerator):
         assert len(aps) == len(avs) != 0
         rds = np.ones((len(aps), 1)) * radius
         intersection_flags = np.ones((len(aps), 1)) * 2
-        axis_points_of_inter = np.concatenate(
-            (aps, avs, rds, intersection_flags), axis=1
-        )
+        axis_points_of_inter = np.concatenate((aps, avs, rds, intersection_flags), axis=1)
         axis_points = np.concatenate((axis_points, axis_points_of_inter), axis=0)
     return axis_points
 
@@ -90,13 +86,9 @@ def get_args():
     parser.add_argument("--tunnel_lengths", type=float, required=True, nargs="*")
     parser.add_argument("--min_segment_lengths", type=float, required=True, nargs="*")
     parser.add_argument("--max_segment_lengths", type=float, required=True, nargs="*")
-    parser.add_argument(
-        "--horizontal_tendencies_deg", type=float, required=True, nargs="*"
-    )
+    parser.add_argument("--horizontal_tendencies_deg", type=float, required=True, nargs="*")
     parser.add_argument("--horizontal_noises_deg", type=float, required=True, nargs="*")
-    parser.add_argument(
-        "--vertical_tendencies_deg", type=float, required=True, nargs="*"
-    )
+    parser.add_argument("--vertical_tendencies_deg", type=float, required=True, nargs="*")
     parser.add_argument("--vertical_noises_deg", type=float, required=True, nargs="*")
     parser.add_argument("--radiuses", type=float, required=True, nargs="*")
     parser.add_argument("--roughnesses", type=float, required=True, nargs="*")
@@ -118,9 +110,7 @@ def main():
             if non_1_length is None:
                 non_1_length = arg_length
             elif non_1_length != arg_length:
-                raise Exception(
-                    f"The number of arguments must be either 1 or all the same. Bad argument {arg_name}"
-                )
+                raise Exception(f"The number of arguments must be either 1 or all the same. Bad argument {arg_name}")
     if non_1_length is None:
         non_1_length = 1
     arg_iterator = [{} for _ in range(non_1_length)]
@@ -160,9 +150,7 @@ def main():
             min_segment_length,
             max_segment_length,
         )
-        result = tunnel_network.add_random_grown_tunnel(
-            params=grown_tunnel_params, n_trials=100, yaw_range=(0, 0)
-        )
+        result = tunnel_network.add_random_grown_tunnel(params=grown_tunnel_params, n_trials=100, yaw_range=(0, 0))
         # Set the parameters for the ptcl generation
         tunnel = list(tunnel_network.tunnels)[-1]
         ptcl_gen_params = TunnelNetworkPtClGenParams.from_defaults()

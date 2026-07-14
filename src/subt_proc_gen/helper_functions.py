@@ -11,7 +11,7 @@ def angles_to_vector(angles):
     return np.array((x, y, z))
 
 
-def vector_to_angles(vector):
+def vxyz_to_thphi(vector):
     x, y, z = vector.flatten()
     th = math.atan2(y, x)
     ph = math.atan2(z, (x**2 + y**2) ** 0.5)
@@ -53,14 +53,10 @@ def what_points_are_close(points1, points2, min_dist):
     difference_matrix *= np.expand_dims(points1, 1)
     difference_matrix -= np.expand_dims(points2, 0)
     distances = np.linalg.norm(difference_matrix, axis=2)
-    return np.where(np.any(distances < min_dist, axis=1)), np.where(
-        np.any(distances < min_dist, axis=0)
-    )
+    return np.where(np.any(distances < min_dist, axis=1)), np.where(np.any(distances < min_dist, axis=0))
 
 
-def gen_cylinder_around_point(
-    center_coordinates: np.ndarray, height, radius, n_points=1000
-):
+def gen_cylinder_around_point(center_coordinates: np.ndarray, height, radius, n_points=1000):
     center_coordinates = np.reshape(center_coordinates.flatten(), [1, -1])
     angle = np.random.uniform(0, 2 * np.pi, n_points)
     x = np.cos(angle) * radius
@@ -83,9 +79,7 @@ def angle_between_angles(a1, a2):
     return abs(warp_angle_pi(a2 - a1))
 
 
-def get_indices_close_to_point(
-    points: np.ndarray, point: np.ndarray, threshold_distance, horizontal_distance=True
-):
+def get_indices_close_to_point(points: np.ndarray, point: np.ndarray, threshold_distance, horizontal_distance=True):
     """points should have a 3x1 dimmension.
     - points: Nx3 array
     - point: 1x3 array
@@ -101,7 +95,7 @@ def get_indices_close_to_point(
 
 
 def get_two_perpendicular_vectors_to_vector(i_vect):
-    th, ph = vector_to_angles(i_vect)
+    th, ph = vxyz_to_thphi(i_vect)
     ph += np.deg2rad(10)
     non_paralel_to_av = angles_to_vector((th, ph))
     u1 = np.cross(i_vect, non_paralel_to_av)

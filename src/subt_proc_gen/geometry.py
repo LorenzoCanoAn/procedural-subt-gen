@@ -288,7 +288,7 @@ class Spline3D:
         v /= np.linalg.norm(v)
         return p, v
 
-    def discretize(self, precision, d_min=None, d_max=None):
+    def discretize(self, precision):
         if precision in self._discretized_cache:
             return self._discretized_cache[precision]
         # number of sampling points
@@ -385,7 +385,7 @@ def format_coords(coords):
         return np.reshape(np.array(coords, dtype=np.double), (1, 3))
 
 
-def get_two_perpendicular_vectors(i_vector) -> tuple[Vector3D, Vector3D]:
+def get_two_perpendicular_vectors(i_vector) :
     vector = Vector3D(i_vector)
     pho, theta, phi = np.reshape(vector.ptp, -1)
     derived_vector = Vector3D((pho, theta, phi - np.deg2rad(0.01)), spherical_coords=True)

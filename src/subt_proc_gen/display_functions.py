@@ -160,10 +160,16 @@ def plot_tunnel_network_graph(plotter: pv.Plotter, tnn: TunnelNetwork):
             inter_nodes.append(node)
         else:
             not_inter_nodes.append(node)
-    not_inter_actors = plot_nodes(plotter, not_inter_nodes, color="b")
-    inter_actors = plot_nodes(plotter, inter_nodes, color="r")
-    edge_actors = plot_edges(plotter, tnn.edges)
+    not_inter_actors = plot_nodes(plotter, not_inter_nodes, color="b", radius=2)
+    inter_actors = plot_nodes(plotter, inter_nodes, color="r", radius=2)
+    edge_actors = plot_edges(plotter, tnn.edges, radius=0.5)
     return (not_inter_actors, inter_actors, edge_actors)
+
+
+def plot_intersection_nodes(plotter: pv.Plotter, tnn: TunnelNetwork, color="r"):
+    inter_nodes = tnn.intersections
+    inter_actors = plot_nodes(plotter, inter_nodes, color=color, radius=2)
+    return inter_actors
 
 
 def plot_tunnel_ptcls(
@@ -176,14 +182,15 @@ def plot_tunnel_ptcls(
         color = "m"
     actors = []
     for tunnel in mesh_generator._tunnel_network.tunnels:
-        actors.append(
-            plot_ptcl(
-                plotter,
-                mesh_generator.ps_of_tunnel(tunnel),
-                radius=size,
-                color=color,
+        if len(mesh_generator.ps_of_tunnel(tunnel)) > 0:
+            actors.append(
+                plot_ptcl(
+                    plotter,
+                    mesh_generator.ps_of_tunnel(tunnel),
+                    radius=size,
+                    color=color,
+                )
             )
-        )
     return actors
 
 

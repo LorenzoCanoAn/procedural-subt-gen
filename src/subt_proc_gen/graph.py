@@ -22,6 +22,9 @@ class Node:
         self._pose = None
         self.set_pose(*argv)
 
+    def modify_pose(self, vector: Vector3D):
+        self._pose = self._pose + vector
+
     def set_pose(self, *argv):
         if len(argv) == 0:
             pass
@@ -152,15 +155,15 @@ class Graph:
     def are_connected(self, node1: Node, node2: Node):
         return node2 in self._adj_list[node1]
 
-    def connected_nodes(self, node: Node) -> set[Node]:
+    def connected_nodes(self, node: Node):
         return self._adj_list[node]
 
     @property
-    def nodes(self) -> set[Node]:
+    def nodes(self):
         return self._nodes
 
     @property
-    def edges(self) -> set[Edge]:
+    def edges(self):
         if self.recalculate_edges:
             self._edges = set()
             for ni in self._adj_list:

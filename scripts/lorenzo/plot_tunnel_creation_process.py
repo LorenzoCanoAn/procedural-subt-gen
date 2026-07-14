@@ -9,7 +9,7 @@ from subt_proc_gen.mesh_generation import (
     TunnelPtClGenParams,
     TunnelWithMesh,
 )
-from subt_proc_gen.spline import Spline3D
+from subt_proc_gen.geometry import Spline3D
 import imageio
 import pygifsicle
 import cv2
@@ -29,9 +29,7 @@ colors = [
     "#800080",
 ]
 logging.basicConfig(level=logging.DEBUG)
-base_video_folder = os.path.join(
-    pathlib.Path.home(), "Documents/my_papers/IROS2023/video/tunnel_creation_process"
-)
+base_video_folder = os.path.join(pathlib.Path.home(), "Documents/my_papers/IROS2023/video/tunnel_creation_process")
 folder_g = "/home/lorenzo/git/procedural-subt-gen/datafiles"
 pth_g = os.path.join(folder_g, "graph_for_plotting.pkl")
 pth_gnn = os.path.join(folder_g, "graph_for_plotting_no_noise.pkl")
@@ -68,8 +66,7 @@ class MyPlotter:
         self.plotter.set_background(color="white")
         self.n_image = 0
         self.n_trial = len(os.listdir(base_video_folder))
-        self.images_folder = os.path.join(
-            base_video_folder, f"trial_n_{self.n_trial}")
+        self.images_folder = os.path.join(base_video_folder, f"trial_n_{self.n_trial}")
         print(self.images_folder)
         os.mkdir(self.images_folder)
         self.set_camera_params()
@@ -92,9 +89,7 @@ class MyPlotter:
         return actor
 
     def plot_spline(self, spline: Spline3D, color, capture_at_end=True):
-        msh_of_spl = polyline_from_points(spline.discretize(0.5)[1]).tube(
-            radius=P.radius_of_splines
-        )
+        msh_of_spl = polyline_from_points(spline.discretize(0.5)[1]).tube(radius=P.radius_of_splines)
         actor = self.plotter.add_mesh(msh_of_spl, color=color)
         if capture_at_end:
             for _ in range(self.n_captures_per_change):
@@ -116,10 +111,7 @@ class MyPlotter:
         n_nodes = len(tunnel.nodes)
         node_actors = []
         for n_node, node in enumerate(tunnel.nodes):
-            node_actors.append(
-                self.plot_node(node, color=color,
-                               capture_at_end=capture_at_end)
-            )
+            node_actors.append(self.plot_node(node, color=color, capture_at_end=capture_at_end))
         return node_actors
 
     def plot_tunnel_nodes_and_edges(self, tunnel: Tunnel, capture_at_end=True):
@@ -128,10 +120,7 @@ class MyPlotter:
         node_actors = []
         edge_actors = []
         for n_node, node in enumerate(tunnel.nodes):
-            node_actors.append(
-                self.plot_node(node, color=color,
-                               capture_at_end=capture_at_end)
-            )
+            node_actors.append(self.plot_node(node, color=color, capture_at_end=capture_at_end))
             if n_node < n_nodes - 1:
                 edge_actors.append(
                     self.plot_edge(
@@ -150,9 +139,7 @@ class MyPlotter:
         points = tunnel.all_selected_points
         point_actors = []
         mesh = pv.PolyData(points)
-        glyph_points = mesh.glyph(
-            orient=False, scale=False, geom=pv.Sphere(radius=P.radius_of_points)
-        )
+        glyph_points = mesh.glyph(orient=False, scale=False, geom=pv.Sphere(radius=P.radius_of_points))
         point_actors.append(self.plotter.add_mesh(glyph_points, color=color))
         if capture_at_end:
             for _ in range(self.n_captures_per_change):
@@ -177,8 +164,7 @@ class MyPlotter:
 
     def print_camera_params(self):
         print(f"self.plotter.camera.position = {self.plotter.camera.position}")
-        print(
-            f"self.plotter.camera.focal_point= {self.plotter.camera.focal_point}")
+        print(f"self.plotter.camera.focal_point= {self.plotter.camera.focal_point}")
         print(f"self.plotter.camera.roll = {self.plotter.camera.roll}")
 
     def set_camera_params(self):
@@ -209,8 +195,7 @@ class MyPlotter:
         logging.info("Creating Video")
         path_to_video_file = os.path.join(self.images_folder, "video.avi")
         height, width, layers = self.images[0].shape
-        self.video_writer = cv2.VideoWriter(
-            path_to_video_file, 0, 24, (width, height))
+        self.video_writer = cv2.VideoWriter(path_to_video_file, 0, 24, (width, height))
         for frame in self.images:
             self.video_writer.write(frame)
         cv2.destroyAllWindows()
@@ -239,9 +224,7 @@ def main():
     for n_tunnel, tunnel in enumerate(tnn.tunnels):
         print(f"{n_tunnel+1:04d}", end="\r", flush=True)
         assert isinstance(tunnel, Tunnel)
-        iter_node_actors, iter_edge_actors = my_plotter.plot_tunnel_nodes_and_edges(
-            tunnel
-        )
+        iter_node_actors, iter_edge_actors = my_plotter.plot_tunnel_nodes_and_edges(tunnel)
         node_actors.append(iter_node_actors)
         edge_actors.append(iter_edge_actors)
     print("")
@@ -259,17 +242,14 @@ def main():
         my_plotter.plot_tunnel_nodes(tunnel, color, capture_at_end=False)
         my_plotter.plot_tunnel_spline(tunnel, color)
     print("")
-    _ = [my_plotter.save_capture()
-         for _ in range(my_plotter.n_captures_per_change)]
+    _ = [my_plotter.save_capture() for _ in range(my_plotter.n_captures_per_change)]
     my_plotter.elevation_increment = 0
     print("Tunnels with no noise")
     points_with_no_noise_actors = []
     for n_tunnel, tunnel_with_mesh in enumerate(tnn_nn._tunnels_with_mesh):
         print(f"{n_tunnel+1:04d}", end="\r", flush=True)
         color = colors[n_tunnel]
-        points_with_no_noise_actors.append(
-            my_plotter.plot_points_of_tunnel(tunnel_with_mesh, color=color)
-        )
+        points_with_no_noise_actors.append(my_plotter.plot_points_of_tunnel(tunnel_with_mesh, color=color))
     print("")
     # Plot all the the the points in the different tunnels
     print("Tunnels with noise")
@@ -278,9 +258,7 @@ def main():
         print(f"{n_tunnel+1:04d}", end="\r", flush=True)
         color = colors[n_tunnel]
         my_plotter.remove_actors(points_with_no_noise_actors[n_tunnel])
-        points_with_noise_actors.append(
-            my_plotter.plot_points_of_tunnel(tunnel_with_mesh, color=color)
-        )
+        points_with_noise_actors.append(my_plotter.plot_points_of_tunnel(tunnel_with_mesh, color=color))
     print("")
     print("Plotting the intersection cleaning")
     for n_intersection, intersection in enumerate(tnn_n._tunnel_network.intersections):
@@ -291,8 +269,7 @@ def main():
             idx = tnn_n._tunnels_with_mesh.index(twm)
             color = colors[idx]
             my_plotter.remove_actors(points_with_noise_actors[idx])
-            points_with_noise_actors[idx] = my_plotter.plot_points_of_tunnel(
-                twm, color)
+            points_with_noise_actors[idx] = my_plotter.plot_points_of_tunnel(twm, color)
     my_plotter.elevation_increment = -1
     for _ in range(40):
         my_plotter.save_capture()
